@@ -929,6 +929,9 @@ class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
     water_wet_cling: bpy.props.FloatProperty(name="Wet Cling",
         description="Extra grip of soaked fabric on the body it touches (added to contact friction at full saturation). Only real contact sticks; cotton and jersey ~0.5-1, technical polyester ~0-0.1",
         default=0.3, min=0., soft_max=2., max=10., update=_on_shared_water_update)
+    water_wet_damping: bpy.props.FloatProperty(name="Wet Damping",
+        description="Extra deformation damping of soaked fabric (added to Shape Damping at full saturation). Calms the springy rebound after fabric leaves the water; 0 disables",
+        default=0.1, min=0., soft_max=0.5, max=5., update=_on_shared_water_update)
     water_flow_domain: bpy.props.PointerProperty(name="FLIP Domain", type=bpy.types.Object, update=_on_shared_water_update)
     water_flow_influence: bpy.props.FloatProperty(name="Influence", default=1., min=0., max=1., update=_on_settings_update)
     water_flow_coupling_strength: bpy.props.FloatProperty(name="Coupling Strength", description="Native GAIA 0.26 relaxation rate in 1/s; does not scale the fluid velocity", default=1., min=0., max=1000., update=_on_shared_water_update)

@@ -85,7 +85,7 @@
      const unsigned *hydro_table,const float *hydro_data,float *hydro_telemetry,
 +    float hydro_time, float hydro_gx, float hydro_gy, float hydro_gz,
 +    float hydro_buoyancy, float hydro_absorb, float hydro_tau_wet, float hydro_tau_dry,
-+    float *hydro_wet_state, float *hydro_wet_vertex,
++    float *hydro_wet_state, float *hydro_wet_vertex, float hydro_wet_damping,
      compute::atomic_float_t *force,
      const unsigned *index,
      const unsigned *offset,
@@ -100,13 +100,32 @@
          return;
      }
      if (hydro_only != 0u) {
-@@ -492,6 +540,9 @@
+@@ -471,9 +519,17 @@
+         return;
+     }
+     const FaceParam param = face_param[prop.param_index];
++    // WET FABRIC DAMPS: water held in the fibres adds internal (deformation)
++    // damping in proportion to how soaked the face's vertices are.
++    float deform_damping = param.deform_damping;
++    if (hydro_wet_damping > 0.0f) {
++        const float wetness = (hydro_wet_vertex[face_vertex[0]] + hydro_wet_vertex[face_vertex[1]] +
++                               hydro_wet_vertex[face_vertex[2]]) / 3.0f;
++        deform_damping += hydro_wet_damping * fmath::min(fmath::max(wetness, 0.0f), 1.0f);
++    }
+     face_elastic_embed(x0, x1, x2, current0, current1, current2, face_vertex,
+                        inverse_rest, static_cast<unsigned>(param.model),
+-                       param.mu, param.lambda, prop.mass, param.deform_damping,
++                       param.mu, param.lambda, prop.mass, deform_damping,
+                        param.pressure, dt, eigenanalysis_eps, force, index,
+                        offset, value, row_count, diag, element);
+ }
+@@ -492,6 +548,9 @@
      float hydro_wet, float hydro_ux, float hydro_uy, float hydro_uz,
      const unsigned *hydro_words,const float *hydro_floats,
      const unsigned *hydro_table,const float *hydro_data,float *hydro_telemetry,
 +    float hydro_time, float hydro_gx, float hydro_gy, float hydro_gz,
 +    float hydro_buoyancy, float hydro_absorb, float hydro_tau_wet, float hydro_tau_dry,
-+    float *hydro_wet_state, float *hydro_wet_vertex,
++    float *hydro_wet_state, float *hydro_wet_vertex, float hydro_wet_damping,
      compute::atomic_float_t *force,
      const unsigned *index,
      const unsigned *offset,
@@ -206,7 +225,7 @@
  #[serde(deny_unknown_fields)]
  pub struct HydroTest {
      pub density_kg_m3: f32,
-@@ -781,6 +781,23 @@
+@@ -781,6 +781,26 @@
      pub velocity_m_s: [f32;3],
      #[serde(default)]
      pub volume_mode: u32,
@@ -227,26 +246,30 @@
 +    /// Contact friction added against colliders at full saturation.
 +    #[serde(default)]
 +    pub wet_cling: f32,
++    /// Deformation damping (s) added at full saturation.
++    #[serde(default)]
++    pub wet_damping: f32,
  }
  
  pub unsafe fn hydrodynamic_test<D: Device>(device: &mut D, data: &DataSet,
-@@ -788,7 +805,11 @@
+@@ -788,7 +808,11 @@
      let Some(path) = std::env::var_os("PPF_EXPERIMENTAL_HYDRO_TEST_JSON") else { return Ok(()); };
      let text = std::fs::read_to_string(&path).map_err(|e| Fatal::invariant(format!("hydrodynamic test config: {e}")))?;
      let h: HydroTest = serde_json::from_str(&text).map_err(|e| Fatal::invariant(format!("hydrodynamic test config: {e}")))?;
 -    let values=[h.density_kg_m3,h.normal_coefficient,h.tangential_coefficient,h.wet_area_fraction];
 +    let values=[h.density_kg_m3,h.normal_coefficient,h.tangential_coefficient,h.wet_area_fraction,
-+        h.buoyancy_ratio,h.absorption,h.wet_time_s,h.dry_time_s,h.wet_cling];
++        h.buoyancy_ratio,h.absorption,h.wet_time_s,h.dry_time_s,h.wet_cling,h.wet_damping];
 +    if h.gravity_m_s2.iter().any(|v| !v.is_finite()) {
 +        return Err(Fatal::invariant("invalid hydrodynamic gravity"));
 +    }
      if values.iter().any(|v| !v.is_finite() || *v<0.0) || h.wet_area_fraction>1.0 || h.velocity_m_s.iter().any(|v| !v.is_finite()) || !(dt>0.0 && dt.is_finite()) {
          return Err(Fatal::invariant("invalid SI hydrodynamic test inputs"));
      }
-@@ -801,12 +822,17 @@
+@@ -801,12 +825,18 @@
      }
      state.hydro_last_time=time;
      state.hydro_last_dt=dt;
++    state.hydro_wet_damping=h.wet_damping;
 +    let wet_vertex=state.hydro_wet_vertex.handle();
 +    if let Some(contact)=state.contact.as_mut() {
 +        contact.wet_vertex=(h.wet_cling>0.0).then_some(wet_vertex);
@@ -263,7 +286,7 @@
      let faces = state.sizes.shell_faces;
      if faces == 0 {
          return Ok(());
-@@ -973,6 +999,16 @@
+@@ -973,6 +1003,18 @@
          hydro_ux: hydro.map_or(0.0, |h| h.velocity_m_s[0]),
          hydro_uy: hydro.map_or(0.0, |h| h.velocity_m_s[1]),
          hydro_uz: hydro.map_or(0.0, |h| h.velocity_m_s[2]),
@@ -277,10 +300,12 @@
 +        hydro_tau_dry: hydro.map_or(0.0, |h| h.dry_time_s),
 +        hydro_wet_state: state.hydro_wet_state.handle(),
 +        hydro_wet_vertex: state.hydro_wet_vertex.handle(),
++        // Applied by the ELASTIC pass too, from the last hydrodynamic setup.
++        hydro_wet_damping: state.hydro_wet_damping,
          force: state.force.handle(),
          index: matrix.index,
          offset: matrix.offset,
-@@ -2991,6 +3027,9 @@
+@@ -2991,6 +3033,9 @@
              self.assemble_faces_hydro(dt,gathered,None)
          }
          fn assemble_faces_hydro(&mut self, dt:f32,gathered:usize,hydro:Option<HydroTest>) -> FatalResult<Assembled> {
@@ -290,7 +315,7 @@
              let Membrane { scene, state, device } = self;
              clear_force(device, state);
              // `positions` IS the start-of-step pose, so it tracks the scene at
-@@ -3024,7 +3063,7 @@
+@@ -3024,7 +3069,7 @@
                      .seed(device, pose)
                      .expect("the fixture seeds the iterate");
                  let mut fixed = FixedCsr::adopt_from_dataset(device, state.fixed_pattern_refs(), &scene.data, Default::default())?;
@@ -299,7 +324,7 @@
                  // THE MATRIX IS DEVICE-RESIDENT, so the dense reference below reads
                  // the mirror and the mirror is stale the moment the assembly
                  // dispatch names the buffer. The download costs a copy and buys
-@@ -3557,7 +3596,7 @@
+@@ -3557,7 +3602,7 @@
      /// pressure term alone, with nothing to subtract.
      fn water(speed:f32, wet:f32) -> HydroTest {
          HydroTest { density_kg_m3:1000.0,normal_coefficient:1.0,
@@ -308,7 +333,7 @@
      }
  
      #[test]
-@@ -3599,6 +3638,46 @@
+@@ -3599,6 +3644,46 @@
          }
      }
  
@@ -355,7 +380,7 @@
      /// Explicit device readback: the host fixture alone cannot validate CUDA.
      #[cfg(abi_backend_linked)]
      #[test]
-@@ -3633,7 +3712,7 @@
+@@ -3633,7 +3718,7 @@
              state.positions.seed(&mut device,pose).unwrap();
              state.eval_x.seed(&mut device,pose).unwrap();
              let mut fixed=FixedCsr::adopt_from_dataset(&mut device,state.fixed_pattern_refs(),&patch.scene.data,Default::default()).unwrap();
@@ -364,7 +389,7 @@
              fixed.download(&mut device).unwrap();
              state.force.download(&mut device).unwrap();
              for (actual,expected) in state.force.host().iter().zip(&reference.force) {
-@@ -3666,7 +3745,7 @@
+@@ -3666,7 +3751,7 @@
          let dt=0.0005f32;let mut start=pose;
          for (i,v) in [-0.0025f32,0.0005,0.0003].iter().enumerate() { start[3*i]-=v*dt; }
          let h=HydroTest {density_kg_m3:1000.0,normal_coefficient:1.0,tangential_coefficient:0.0,
@@ -373,7 +398,7 @@
          fn evaluate<D:ppf_cts_compute::Device>(device:&mut D,scene:&TestScene,pose:&[f32],start:&[f32],h:HydroTest,dt:f32)->(Vec<f32>,Vec<f32>) {
              let mut state=SolverState::default();
              unsafe { state.allocate(device,&scene.data) }.unwrap();
-@@ -3675,7 +3754,7 @@
+@@ -3675,7 +3760,7 @@
              crate::driver::state::reseed_pattern(device,&mut state,&scene.data);
              state.positions.seed(device,start).unwrap();state.eval_x.seed(device,pose).unwrap();
              let mut fixed=unsafe { FixedCsr::adopt_from_dataset(device,state.fixed_pattern_refs(),&scene.data,Default::default()) }.unwrap();
@@ -384,7 +409,7 @@
          }
 --- a/crates/ppf-cts-solver/src/driver/state.rs
 +++ b/crates/ppf-cts-solver/src/driver/state.rs
-@@ -737,6 +737,11 @@
+@@ -737,6 +737,13 @@
      pub field: super::force_field::ForceField,
      pub hydro_field: super::force_field::ForceField,
      pub hydro_telemetry: ReadbackBuffer<f32>,
@@ -393,10 +418,12 @@
 +    pub hydro_wet_state: ReadbackBuffer<f32>,
 +    /// Normalized wetness per vertex (0 dry .. 1 saturated) for wet cling.
 +    pub hydro_wet_vertex: ReadbackBuffer<f32>,
++    /// Deformation damping added at full saturation (s); 0 until set.
++    pub hydro_wet_damping: f32,
      pub hydro_last_time: f32,
      pub hydro_last_dt: f32,
      /// The Newton right-hand side, `3 * vertices` floats.
-@@ -2577,6 +2582,10 @@
+@@ -2577,6 +2584,10 @@
          self.field.allocate(device, vertices)?;
          self.hydro_field.allocate(device, vertices)?;
          self.hydro_telemetry.size(device, 16*self.sizes.shell_faces, AllocLabel("hydro.telemetry"))?;
@@ -480,7 +507,7 @@
      ("utility/hinge_damping", "HingeDampingArgs.beta"),
 --- a/crates/ppf-cts-solver/src/main.rs
 +++ b/crates/ppf-cts-solver/src/main.rs
-@@ -89,8 +89,9 @@
+@@ -89,8 +89,10 @@
  fn probe() -> i32 {
      println!("backend: {}", env!("PPF_BACKEND"));
      println!("hydrodynamic-test: uniform-sheet-si-v1");
@@ -488,6 +515,7 @@
 +    println!("hydrodynamic-fluid-transport: experimental-velocity-sdf-bricks-v1");
      println!("hydrodynamic-sdf-bounds: fail-closed-v1");
 +    println!("hydrodynamic-wet-fabric: buoyancy-absorption-v1");
++    println!("hydrodynamic-wet-damping: deformation-v1");
      #[cfg(abi_backend_linked)]
      {
          println!("linked: {}", ppf_cts_compute::abi::linked_backend_name());

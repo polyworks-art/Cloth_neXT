@@ -470,7 +470,7 @@ def pressure_model(targets):
                 wet_area_fraction=1.,velocity_m_s=[0.,0.,0.],volume_mode=1)
 
 
-WET_FABRIC_KEYS=('water_wet_fabric','water_fiber_density','water_absorption','water_wet_time','water_dry_time','water_wet_cling')
+WET_FABRIC_KEYS=('water_wet_fabric','water_fiber_density','water_absorption','water_wet_time','water_dry_time','water_wet_cling','water_wet_damping')
 
 
 def wet_fabric_model(targets, gravity_blender):
@@ -478,15 +478,19 @@ def wet_fabric_model(targets, gravity_blender):
     values={tuple(round(float(getattr(o.cloth_next,k,0.)),6) for k in WET_FABRIC_KEYS) for o in targets}
     if len(values)!=1:
         raise ValueError('Wet Fabric settings must be the same on all pressure cloth')
-    enabled,fiber,absorption,wet_time,dry_time,cling=next(iter(values))
+    enabled,fiber,absorption,wet_time,dry_time,cling,damping=next(iter(values))
     if not enabled:
         return {}
-    if not np.isfinite([fiber,absorption,wet_time,dry_time,cling]).all() or fiber<=0 or min(absorption,wet_time,dry_time,cling)<0:
+    if not np.isfinite([fiber,absorption,wet_time,dry_time,cling,damping]).all() or fiber<=0 or min(absorption,wet_time,dry_time,cling,damping)<0:
         raise ValueError('Invalid Wet Fabric settings')
     from ..ppf.coordinates import blender_vector_to_ppf
     gravity=[float(v) for v in blender_vector_to_ppf(gravity_blender)]
-    return dict(gravity_m_s2=gravity,buoyancy_ratio=1000./fiber,absorption=absorption,
-                wet_time_s=wet_time,dry_time_s=dry_time,wet_cling=cling)
+    model=dict(gravity_m_s2=gravity,buoyancy_ratio=1000./fiber,absorption=absorption,
+               wet_time_s=wet_time,dry_time_s=dry_time,wet_cling=cling)
+    # Older wet-fabric workers refuse unknown fields; only send damping when used.
+    if damping>0:
+        model['wet_damping']=damping
+    return model
 
 
 def _scene_gravity(context):
@@ -505,6 +509,10 @@ def apply_hydrodynamic_stream_payload(context,payload,resolved,first,last,target
         from ..ppf.hydrodynamic_capability import wet_fabric_capability
         if not wet_fabric_capability(resolved.executable_path):
             raise ValueError('Wet Fabric needs a GAIA build with wet-fabric support; update GAIA or disable Wet Fabric')
+        if any(getattr(o.cloth_next,'water_wet_damping',0.)>0 for o in targets):
+            from ..ppf.hydrodynamic_capability import wet_damping_capability
+            if not wet_damping_capability(resolved.executable_path):
+                raise ValueError('Wet Damping needs a newer GAIA build; update GAIA or set Wet Damping to 0')
     if resolved.ownership is not ConnectionOwnership.OWNED_PROCESS:
         raise ValueError('Hydrodynamic Pressure requires an owned isolated solver')
     if not all(getattr(obj.cloth_next,'water_hydrodynamic_pressure',False) for obj in targets):
@@ -895,6 +903,7 @@ class CLOTHNEXT_PT_water_flow(bpy.types.Panel):
                     wet.prop(s, 'water_wet_time')
                     wet.prop(s, 'water_dry_time')
                     wet.prop(s, 'water_wet_cling')
+                    wet.prop(s, 'water_wet_damping')
             else:
                 response.prop(s, 'water_flow_coupling_strength', text='Coupling Strength (1/s)')
                 response.prop(s, 'water_flow_native_flow', text='Velocity Damping')

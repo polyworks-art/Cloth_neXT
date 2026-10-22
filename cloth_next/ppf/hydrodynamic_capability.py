@@ -120,23 +120,33 @@ def require_hydrodynamic_capability(executable=None):
 
 
 WET_FABRIC_PROBE = 'hydrodynamic-wet-fabric: buoyancy-absorption-v1'
+WET_DAMPING_PROBE = 'hydrodynamic-wet-damping: deformation-v1'
 
 
 @lru_cache(maxsize=8)
-def _wet_fabric_probe(worker, backend, size, mtime):
+def _worker_probe_lines(worker, backend, size, mtime):
     environment = os.environ.copy()
     environment['PATH'] = str(Path(backend).parent) + os.pathsep + environment.get('PATH', '')
     result = subprocess.run([worker, '--probe'], capture_output=True, text=True, env=environment,
                             timeout=20, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
-    return result.returncode == 0 and WET_FABRIC_PROBE in result.stdout.splitlines()
+    return frozenset(result.stdout.splitlines()) if result.returncode == 0 else frozenset()
 
 
-def wet_fabric_capability(executable=None) -> bool:
-    """Whether the verified pressure worker also integrates wet fabric."""
+def _worker_advertises(line, executable=None) -> bool:
     try:
         config = experimental_configuration(executable)
         worker = Path(config['worker']).resolve(strict=True)
         stat = worker.stat()
-        return _wet_fabric_probe(str(worker), str(config['backend']), stat.st_size, stat.st_mtime_ns)
+        return line in _worker_probe_lines(str(worker), str(config['backend']), stat.st_size, stat.st_mtime_ns)
     except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError):
         return False
+
+
+def wet_fabric_capability(executable=None) -> bool:
+    """Whether the verified pressure worker also integrates wet fabric."""
+    return _worker_advertises(WET_FABRIC_PROBE, executable)
+
+
+def wet_damping_capability(executable=None) -> bool:
+    """Whether the verified pressure worker damps deformation by wetness."""
+    return _worker_advertises(WET_DAMPING_PROBE, executable)
