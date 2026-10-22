@@ -808,6 +808,7 @@ class CLOTHNEXT_MT_water_source_provider(bpy.types.Menu):
 class CLOTHNEXT_OT_prepare_water_flow(bpy.types.Operator):
     bl_idname = 'cloth_next.prepare_water_flow'
     bl_label = 'Prepare .gaia Water Field'
+    bl_description = 'Convert the baked FLIP fluid into the .gaia cache the Bake reads. Then start the Bake in the Cloth panel'
     _job_id = ''
     @classmethod
     def poll(cls, context):
@@ -839,6 +840,29 @@ class CLOTHNEXT_OT_prepare_water_flow(bpy.types.Operator):
         water_preparation.cancel(self._job_id)
 
 
+def _native_registry():
+    from . import preferences
+    registry, _ = preferences._read_registry()
+    return registry, bool(registry.selected and registry.selected.protocol_version == '0.26')
+
+
+class _WaterFlowSubpanel:
+    bl_space_type = 'PROPERTIES'
+    bl_region_type = 'WINDOW'
+    bl_context = 'physics'
+    bl_parent_id = 'CLOTHNEXT_PT_water_flow'
+    @classmethod
+    def poll(cls, context):
+        return CLOTHNEXT_PT_water_flow.poll(context)
+    def _body(self, context):
+        from ..bake.controller import shared_controller
+        s, layout = context.object.cloth_next, self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+        layout.enabled = s.water_flow_enabled and not shared_controller.snapshot().active
+        return s, layout
+
+
 class CLOTHNEXT_PT_water_flow(bpy.types.Panel):
     bl_label = 'GAIA Water Flow'
     bl_idname = 'CLOTHNEXT_PT_water_flow'
@@ -847,92 +871,106 @@ class CLOTHNEXT_PT_water_flow(bpy.types.Panel):
     bl_context = 'physics'
     bl_options = {'DEFAULT_CLOSED'}
     def draw_header(self, context):
+        from ..bake.controller import shared_controller
         from . import icon_registry
-        self.layout.label(text='', **icon_registry.icon_kwargs('gaia_water', 'PHYSICS'))
+        row = self.layout.row(align=True)
+        row.enabled = not shared_controller.snapshot().active
+        row.prop(context.object.cloth_next, 'water_flow_enabled', text='')
+        row.label(text='', **icon_registry.icon_kwargs('gaia_water', 'PHYSICS'))
     @classmethod
     def poll(cls, context):
         obj = context.object
         return obj and hasattr(obj, 'cloth_next') and obj.cloth_next.enabled and obj.cloth_next.role == 'CLOTH'
     def draw(self, context):
         from ..bake.controller import shared_controller
-        from . import icon_registry
         s, layout = context.object.cloth_next, self.layout
         layout.use_property_split = True
         layout.use_property_decorate = False
-        layout.enabled = not shared_controller.snapshot().active
-        layout.prop(s, 'water_flow_enabled', text='Water Flow (Scene)')
-        body = layout.column(align=True)
-        body.enabled = s.water_flow_enabled
-        from . import preferences
-        registry, _ = preferences._read_registry()
-        native = bool(registry.selected and registry.selected.protocol_version == '0.26')
-        body.label(text='Native Flow · GAIA 0.26 (Experimental)' if native else 'Water Flow · GAIA',
-                   **icon_registry.icon_kwargs('gaia_water', 'PHYSICS'))
-        body.label(text='Shared by all Cloth objects in this scene.', icon='LINKED')
-        source = body.box().column(align=True)
-        source.label(text='Fluid Source', icon='MOD_FLUIDSIM')
-        source.label(text='Provider')
-        source.menu('CLOTHNEXT_MT_water_source_provider',text='FLIP Fluids')
+        layout.enabled = s.water_flow_enabled and not shared_controller.snapshot().active
+        _registry, native = _native_registry()
+        source = layout.column(align=True)
+        provider = source.split(factor=0.4, align=True)
+        name = provider.row()
+        name.alignment = 'RIGHT'
+        name.label(text='Provider')
+        provider.menu('CLOTHNEXT_MT_water_source_provider', text='FLIP Fluids')
         source.prop(s, 'water_flow_domain')
-        source.operator('cloth_next.enable_flip_velocity_export',
-                        text='Enable Velocity Export', icon='CHECKMARK')
-        source.label(text='Bake FLIP with particle velocities enabled.')
-        body.separator()
-        response = body.box().column(align=True)
-        response.label(text='Cloth Response', icon='MOD_CLOTH')
-        if native:
-            from ..ppf.hydrodynamic_capability import hydrodynamic_capability
-            hydro = hydrodynamic_capability(registry.selected.executable if registry.selected else None)
-            hydro_row = response.row()
-            hydro_row.enabled = hydro.available or bool(s.water_hydrodynamic_pressure)
-            hydro_row.prop(s,'water_hydrodynamic_pressure')
-            if not hydro.available:
-                response.label(text='Requires a GAIA CUDA solver with native pressure transport.', icon='INFO')
-        influence_row=response.row()
-        influence_row.enabled=not getattr(s,'water_hydrodynamic_pressure',False)
-        influence_row.prop(s, 'water_flow_influence', text='Influence (This Object)')
-        if native:
-            if getattr(s,'water_hydrodynamic_pressure',False):
-                response.prop(s, 'water_pressure_strength')
-                response.prop(s, 'water_pressure_tangential')
-                response.prop(s, 'water_wet_fabric')
-                if getattr(s,'water_wet_fabric',False):
-                    wet=response.column(align=True)
-                    wet.prop(s, 'water_fiber_density')
-                    wet.prop(s, 'water_absorption')
-                    wet.prop(s, 'water_wet_time')
-                    wet.prop(s, 'water_dry_time')
-                    wet.prop(s, 'water_wet_cling')
-                    wet.prop(s, 'water_wet_damping')
-            else:
-                response.prop(s, 'water_flow_coupling_strength', text='Coupling Strength (1/s)')
-                response.prop(s, 'water_flow_native_flow', text='Velocity Damping')
-            response.label(text='One-way coupling: fluid moves cloth.')
-            if abs(s.water_flow_velocity_scale-1.)>1e-7:
-                response.prop(s, 'water_flow_velocity_scale', text='Velocity Scale (This Object)')
-                response.label(text='Set Velocity Scale to 1 for Native Flow.', icon='ERROR')
-        else:
-            response.prop(s, 'water_flow_velocity_scale', text='Velocity Scale (This Object)')
-        body.separator()
-        cache = body.box().column(align=True)
-        cache.label(text='Fluid Cache', icon='FILE_CACHE')
-        cache.prop(s, 'water_flow_resolution')
+        source.operator('cloth_next.enable_flip_velocity_export', text='Enable Velocity Export')
+        layout.separator()
+        response = layout.column(align=True)
+        if not native:
+            response.prop(s, 'water_flow_velocity_scale', text='Velocity Scale')
+            return
+        if not s.water_hydrodynamic_pressure:
+            response.prop(s, 'water_flow_influence', text='Influence')
+            response.prop(s, 'water_flow_coupling_strength', text='Coupling Strength')
+            response.prop(s, 'water_flow_native_flow', text='Velocity Damping')
+        if abs(s.water_flow_velocity_scale - 1.) > 1e-7:
+            response.prop(s, 'water_flow_velocity_scale', text='Velocity Scale')
+            response.label(text='Set Velocity Scale to 1 for Native Flow.', icon='ERROR')
+
+
+class CLOTHNEXT_PT_water_pressure(_WaterFlowSubpanel, bpy.types.Panel):
+    bl_label = 'Hydrodynamic Pressure'
+    bl_idname = 'CLOTHNEXT_PT_water_pressure'
+    @classmethod
+    def poll(cls, context):
+        return super().poll(context) and _native_registry()[1]
+    def draw_header(self, context):
+        from ..ppf.hydrodynamic_capability import hydrodynamic_capability
+        s = context.object.cloth_next
+        registry, _native = _native_registry()
+        hydro = hydrodynamic_capability(registry.selected.executable if registry.selected else None)
+        row = self.layout.row()
+        row.enabled = s.water_flow_enabled and (hydro.available or bool(s.water_hydrodynamic_pressure))
+        row.prop(s, 'water_hydrodynamic_pressure', text='')
+    def draw(self, context):
+        s, layout = self._body(context)
+        layout.active = bool(s.water_hydrodynamic_pressure)
+        layout.prop(s, 'water_pressure_strength', text='Strength')
+        layout.prop(s, 'water_pressure_tangential')
+
+
+class CLOTHNEXT_PT_wet_fabric(_WaterFlowSubpanel, bpy.types.Panel):
+    bl_label = 'Wet Fabric'
+    bl_idname = 'CLOTHNEXT_PT_wet_fabric'
+    bl_parent_id = 'CLOTHNEXT_PT_water_pressure'
+    bl_options = {'DEFAULT_CLOSED'}
+    @classmethod
+    def poll(cls, context):
+        return CLOTHNEXT_PT_water_pressure.poll(context)
+    def draw_header(self, context):
+        s = context.object.cloth_next
+        row = self.layout.row()
+        row.enabled = s.water_flow_enabled and bool(s.water_hydrodynamic_pressure)
+        row.prop(s, 'water_wet_fabric', text='')
+    def draw(self, context):
+        s, layout = self._body(context)
+        layout.active = bool(s.water_hydrodynamic_pressure and s.water_wet_fabric)
+        column = layout.column(align=True)
+        column.prop(s, 'water_fiber_density')
+        column.prop(s, 'water_absorption', text='Absorption')
+        column = layout.column(align=True)
+        column.prop(s, 'water_wet_time')
+        column.prop(s, 'water_dry_time')
+        column = layout.column(align=True)
+        column.prop(s, 'water_wet_cling')
+        column.prop(s, 'water_wet_damping')
+
+
+class CLOTHNEXT_PT_water_cache(_WaterFlowSubpanel, bpy.types.Panel):
+    bl_label = 'Fluid Cache'
+    bl_idname = 'CLOTHNEXT_PT_water_cache'
+    def draw(self, context):
+        s, layout = self._body(context)
+        layout.prop(s, 'water_flow_resolution')
         if s.water_flow_resolution == 'CUSTOM':
-            cache.prop(s, 'water_flow_custom_resolution')
-        cache.label(text='Coupling grid adapts to memory and sequence size.')
-        cache.label(text='FLIP bake resolution and all particles are retained.')
-        info=prepared_grid_info(s)
-        if info and info.get('dimensions'):
-            cache.label(text='Prepared grid: '+' x '.join(map(str,info['dimensions'])))
-            if info.get('budget_adjusted'):
-                cache.label(text=f"Requested {info['requested_resolution']}; effective {info['effective_resolution']}.",icon='INFO')
-        cache.prop(s, 'water_flow_container', text='.gaia File')
-        if not s.water_flow_container:
-            cache.label(text='Saved in the Cloth cache folder.')
-        cache.separator()
-        cache.operator('cloth_next.prepare_water_flow', text='Prepare Fluid Cache',
-                      **icon_registry.icon_kwargs('gaia_water', 'PHYSICS'))
-        body.label(text='Ready? Start Bake in the Cloth panel.', icon='INFO')
+            layout.prop(s, 'water_flow_custom_resolution')
+        info = prepared_grid_info(s)
+        if info and info.get('budget_adjusted'):
+            layout.label(text=f"Grid reduced to {info['effective_resolution']} to fit memory.", icon='INFO')
+        layout.prop(s, 'water_flow_container', text='.gaia File')
+        layout.operator('cloth_next.prepare_water_flow', text='Prepare Fluid Cache')
 
 
 class CLOTHNEXT_PT_water_flow_display(bpy.types.Panel):
@@ -960,7 +998,8 @@ class CLOTHNEXT_PT_water_flow_display(bpy.types.Panel):
             body.prop(s, 'water_flow_show_bounds')
             body.prop(s, 'water_flow_vector_stride')
             body.prop(s, 'water_flow_vector_scale')
-            info = _diagnostics.get(context.object.name)
+            from .physics_ui import _developer_tools_enabled
+            info = _diagnostics.get(context.object.name) if _developer_tools_enabled(context) else None
             if info:
                 body.separator()
                 body.label(text=f"Frame: {info['frame']}")
@@ -1075,4 +1114,5 @@ def unregister():
 
 CLASSES = (CLOTHNEXT_OT_select_water_source, CLOTHNEXT_MT_water_source_provider,
            CLOTHNEXT_OT_enable_flip_velocity_export, CLOTHNEXT_OT_prepare_water_flow,
-           CLOTHNEXT_PT_water_flow, CLOTHNEXT_PT_water_flow_display)
+           CLOTHNEXT_PT_water_flow, CLOTHNEXT_PT_water_pressure, CLOTHNEXT_PT_wet_fabric,
+           CLOTHNEXT_PT_water_cache, CLOTHNEXT_PT_water_flow_display)

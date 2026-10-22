@@ -285,7 +285,7 @@ def _started(operator, ok: bool, text: str):
 
 
 class CLOTHNEXT_OT_polyworks_connect(bpy.types.Operator):
-    """Connect a PolyWorks account in your browser (needed only for GAIA and online services)"""
+    """Connect a PolyWorks account in your browser. GAIA needs an account with GAIA access; Classic simulation does not"""
     bl_idname = "clothnext.polyworks_connect"
     bl_label = "Connect PolyWorks Account"
     bl_options = {"INTERNAL"}
@@ -308,7 +308,7 @@ class CLOTHNEXT_OT_polyworks_disconnect(bpy.types.Operator):
 
 
 class CLOTHNEXT_OT_gaia_refresh(bpy.types.Operator):
-    """Check GAIA access and the available GAIA build"""
+    """Check GAIA access and the available GAIA build. GAIA needs a PolyWorks account with GAIA access"""
     bl_idname = "clothnext.gaia_refresh"
     bl_label = "Check GAIA Access"
     bl_options = {"INTERNAL"}
@@ -422,11 +422,11 @@ def draw_gaia_rows(layout) -> None:
             column.label(text=f"Browser code: {state.user_code}", icon="URL")
     elif state.signed_in is None:
         row = column.row()
-        row.label(text="GAIA needs a PolyWorks account with GAIA access.", icon="INFO")
-        row.operator("clothnext.gaia_refresh", text="Check")
+        row.label(text="Access not checked")
+        row.operator("clothnext.gaia_refresh", text="Check Access")
     elif not state.signed_in:
         row = column.row()
-        row.label(text="GAIA needs a PolyWorks account with GAIA access.", icon="INFO")
+        row.label(text="Not signed in")
         row.operator("clothnext.polyworks_connect", text="Connect Account")
     elif state.access != "granted":
         text = {"pending": "GAIA access requested · waiting for PolyWorks",

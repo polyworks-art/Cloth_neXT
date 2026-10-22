@@ -901,9 +901,11 @@ class CLOTHNEXT_PG_solver_backend_settings(bpy.types.PropertyGroup):
 class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
     """Phase 3B object-level Cloth NeXt settings."""
 
-    water_flow_enabled: bpy.props.BoolProperty(name="Water Flow", default=False, update=_on_shared_water_update)
+    water_flow_enabled: bpy.props.BoolProperty(name="Water Flow", default=False,
+        description="Let a baked FLIP fluid move the cloth (one-way: the water is not affected). Shared by all Cloth objects in this scene",
+        update=_on_shared_water_update)
     water_hydrodynamic_pressure: bpy.props.BoolProperty(name="Hydrodynamic Pressure", default=False,
-        description="Experimental native sheet pressure with surface SDF wetting; isolated verified solver required",
+        description="Water pushes and drags the fabric through its surface, including inside folds. Needs a GAIA CUDA build with pressure support",
         update=_on_shared_water_update)
     water_pressure_strength: bpy.props.FloatProperty(name="Pressure Strength",
         description="Scales the hydrodynamic sheet drag (water density 1000 kg/m³ times this value). 1 is physical; raise it for a stronger, art-directed push",
@@ -932,12 +934,15 @@ class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
     water_wet_damping: bpy.props.FloatProperty(name="Wet Damping",
         description="Extra deformation damping of soaked fabric (added to Shape Damping at full saturation). Calms the springy rebound after fabric leaves the water; 0 disables",
         default=0.1, min=0., soft_max=0.5, max=5., update=_on_shared_water_update)
-    water_flow_domain: bpy.props.PointerProperty(name="FLIP Domain", type=bpy.types.Object, update=_on_shared_water_update)
-    water_flow_influence: bpy.props.FloatProperty(name="Influence", default=1., min=0., max=1., update=_on_settings_update)
-    water_flow_coupling_strength: bpy.props.FloatProperty(name="Coupling Strength", description="Native GAIA 0.26 relaxation rate in 1/s; does not scale the fluid velocity", default=1., min=0., max=1000., update=_on_shared_water_update)
-    water_flow_native_flow: bpy.props.FloatProperty(name="Flow", description="Fraction of current solver vertex velocity subtracted by native Fluid Flow", default=1., min=0., max=1., update=_on_shared_water_update)
-    water_flow_velocity_scale: bpy.props.FloatProperty(name="Velocity Scale", default=1., min=0., max=10., update=_on_settings_update)
+    water_flow_domain: bpy.props.PointerProperty(name="FLIP Domain", type=bpy.types.Object,
+        description="Baked FLIP Fluids domain. Bake it with particle velocities enabled (Enable Velocity Export)",
+        update=_on_shared_water_update)
+    water_flow_influence: bpy.props.FloatProperty(name="Influence", description="How strongly the water drives this object; 0 ignores the water", default=1., min=0., max=1., update=_on_settings_update)
+    water_flow_coupling_strength: bpy.props.FloatProperty(name="Coupling Strength", description="How quickly the cloth takes on the water velocity, in 1/s; does not scale the fluid velocity", default=1., min=0., max=1000., update=_on_shared_water_update)
+    water_flow_native_flow: bpy.props.FloatProperty(name="Flow", description="How much of the cloth's own velocity the water removes (0-1)", default=1., min=0., max=1., update=_on_shared_water_update)
+    water_flow_velocity_scale: bpy.props.FloatProperty(name="Velocity Scale", description="Multiplier for the water velocity on this object; keep 1 for Native Flow", default=1., min=0., max=10., update=_on_settings_update)
     water_flow_resolution: bpy.props.EnumProperty(name="Field Resolution", default="AUTO", update=_on_shared_water_update,
+        description="Detail of the coupling grid. It adapts to memory and sequence length; the FLIP bake and its particles are kept as they are",
         items=(("AUTO", "Auto", "Request FLIP source detail; adapt coupling grid to available budgets", 0),
                ("100", "Medium", "Request 100 samples; adapt to memory and sequence budgets", 2),
                ("150", "High", "Request 150 samples; adapt to memory and sequence budgets", 3),
@@ -946,7 +951,7 @@ class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
     water_flow_custom_resolution: bpy.props.IntProperty(name="Longest Axis", default=100,
         min=100, max=4096, update=_on_shared_water_update)
     water_flow_container: bpy.props.StringProperty(name="GAIA Path", subtype='FILE_PATH', default='',
-        description="Where should the File be placed?", update=_on_shared_water_update)
+        description="Prepared .gaia fluid cache. Leave empty to save it in the Cloth cache folder", update=_on_shared_water_update)
     water_flow_show_vectors: bpy.props.BoolProperty(name="Show Water Flow", default=False, update=_on_shared_water_update)
     water_flow_debug_mode: bpy.props.EnumProperty(name="Vector Display",
         items=(('MAGNITUDE', 'Magnitude', 'Bounded physical velocity display'),
