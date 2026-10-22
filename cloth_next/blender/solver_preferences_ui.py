@@ -204,13 +204,15 @@ def _draw_active(self, box, active, engine, busy, session_active) -> None:
 def _draw_engines(box, registry, supported, active, busy) -> None:
     """One row per engine with what is installed and its install/update action."""
     from . import gaia_account
+    from ..updater import engines
     box.separator()
     column = box.column()
     _draw_aether_row(_engine_row(column, "AETHER"), registry, supported, active, busy)
     column.separator()
     gaia = _engine_row(column, "GAIA")
     _draw_installed_gaia(gaia, registry, gaia_account.snapshot())
-    gaia_account.draw_gaia_rows(gaia)
+    installed = engines.best_installation(registry, engines.GAIA) is not None
+    gaia_account.draw_gaia_rows(gaia, installed=installed)
 
 
 def _draw_installed_gaia(column, registry, state) -> None:

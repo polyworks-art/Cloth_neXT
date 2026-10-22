@@ -903,8 +903,11 @@ class CLOTHNEXT_PT_water_flow(bpy.types.Panel):
             return
         if not s.water_hydrodynamic_pressure:
             response.prop(s, 'water_flow_influence', text='Influence')
-            response.prop(s, 'water_flow_coupling_strength', text='Coupling Strength')
-            response.prop(s, 'water_flow_native_flow', text='Velocity Damping')
+            from .physics_ui import _developer_tools_enabled
+            if _developer_tools_enabled(context):
+                # Velocity-relaxation coupling predates Hydrodynamic Pressure.
+                response.prop(s, 'water_flow_coupling_strength', text='Coupling Strength')
+                response.prop(s, 'water_flow_native_flow', text='Velocity Damping')
         if abs(s.water_flow_velocity_scale - 1.) > 1e-7:
             response.prop(s, 'water_flow_velocity_scale', text='Velocity Scale')
             response.label(text='Set Velocity Scale to 1 for Native Flow.', icon='ERROR')

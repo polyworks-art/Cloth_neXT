@@ -408,7 +408,7 @@ def unregister() -> None:
     _state.update(worker=None, cancel=None, browser=None)
 
 
-def draw_gaia_rows(layout) -> None:
+def draw_gaia_rows(layout, installed: bool = False) -> None:
     """GAIA lines for the solver area; no I/O."""
     state = snapshot()
     column = layout.column(align=True)
@@ -421,9 +421,13 @@ def draw_gaia_rows(layout) -> None:
         if state.user_code:
             column.label(text=f"Browser code: {state.user_code}", icon="URL")
     elif state.signed_in is None:
-        row = column.row()
-        row.label(text="Access not checked")
-        row.operator("clothnext.gaia_refresh", text="Check Access")
+        if installed:
+            # The installed build is already named above; only offer the check.
+            column.operator("clothnext.gaia_refresh", text="Check for Updates", icon="FILE_REFRESH")
+        else:
+            row = column.row()
+            row.label(text="Access not checked")
+            row.operator("clothnext.gaia_refresh", text="Check Access")
     elif not state.signed_in:
         row = column.row()
         row.label(text="Not signed in")
