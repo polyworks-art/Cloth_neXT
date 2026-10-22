@@ -166,6 +166,26 @@ def _on_shared_water_update(self, context) -> None:
     water_settings.share_from(self, context)
 
 
+def _on_water_flow_enabled_update(self, context) -> None:
+    """Turning Water Flow on starts with Hydrodynamic Pressure where GAIA supports it."""
+    from . import water_settings
+    if (self.water_flow_enabled and not self.water_hydrodynamic_pressure
+            and not water_settings._sharing and _hydrodynamic_pressure_available()):
+        self.water_hydrodynamic_pressure = True
+    _on_shared_water_update(self, context)
+
+
+def _hydrodynamic_pressure_available() -> bool:
+    try:
+        from . import preferences
+        from ..ppf.hydrodynamic_capability import hydrodynamic_capability
+        selected = preferences._read_registry()[0].selected
+        return bool(selected and selected.protocol_version == '0.26'
+                    and hydrodynamic_capability(selected.executable).available)
+    except Exception:  # noqa: BLE001 - an unreadable registry keeps the old default
+        return False
+
+
 def _on_cloth_membership_update(self, context) -> None:
     _on_settings_update(self, context)
     from . import water_settings
@@ -903,7 +923,7 @@ class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
 
     water_flow_enabled: bpy.props.BoolProperty(name="Water Flow", default=False,
         description="Let a baked FLIP fluid move the cloth (one-way: the water is not affected). Shared by all Cloth objects in this scene",
-        update=_on_shared_water_update)
+        update=_on_water_flow_enabled_update)
     water_hydrodynamic_pressure: bpy.props.BoolProperty(name="Hydrodynamic Pressure", default=False,
         description="Water pushes and drags the fabric through its surface, including inside folds. Needs a GAIA CUDA build with pressure support",
         update=_on_shared_water_update)
