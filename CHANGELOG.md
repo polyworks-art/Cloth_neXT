@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.9.39 - 2026-10-22
+
+- Hydrodynamic Pressure: new Pressure Strength and Tangential Drag settings. Tangential Drag lets the flow pull fitted garments along instead of only pushing against the surface.
+- Wet Fabric (needs GAIA 0.26.0-dev.20261022 or newer): submerged fabric floats by the water its fibres displace, soaks up water over time (Soak Time), carries that water as extra weight once it leaves the water and loses it again (Dry Time). Wet Cling adds grip only where soaked fabric touches the body. Wet Damping calms the springy rebound of soaked fabric after it leaves the water (dunk test: 9.3 mm to 0.5 mm high-frequency motion).
+- Preparing a water container directly from FLIP particle files no longer fails with UnboundLocalError.
+- Sewing: only Cloth NeXt objects hide seam edges from the picker; hair and props in front no longer block whole views.
+
 ## 2.9.38 - 2026-10-20
 
 - Keep Blender responsive during Bakes in scenes with FLIP Fluids: the live preview advances frames without FLIP reloading its display meshes (about 2 s per frame, even when hidden), so the Bake window shows contacts, Newton steps and linear iterations again instead of staying at "Reading simulated vertices". The viewport does not update the water live during a Bake.

@@ -1,0 +1,35 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.39",
+  "title": "What's New in Cloth NeXt 2.9.39",
+  "subtitle": "Wet Fabric for Hydrodynamic Pressure.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/refresh.png",
+      "title": "Wet Fabric",
+      "description": "Fabric floats under water, soaks up water over time and hangs heavier once it leaves the water."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Wet Cling and Damping",
+      "description": "Soaked fabric grips the body only where it touches it and stops springing back after leaving the water."
+    },
+    {
+      "icon": "icons/sliders.png",
+      "title": "Stronger water",
+      "description": "Pressure Strength and Tangential Drag let the flow push harder and pull garments along."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}

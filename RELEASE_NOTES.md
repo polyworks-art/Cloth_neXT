@@ -1,4 +1,8 @@
-# Cloth NeXt 2.9.38
+# Cloth NeXt 2.9.39
+
+Wet Fabric for Hydrodynamic Pressure (needs GAIA 0.26.0-dev.20261022 or newer): fabric floats under water, soaks up water over time, hangs heavier once it leaves the water and dries again. Wet Cling makes soaked fabric grip the body only where it touches it, and Wet Damping stops soaked fabric from springing back and forth after it leaves the water. Pressure Strength and Tangential Drag let the flow push harder and pull fitted garments along.
+
+Preparing a water container directly from FLIP particle files works again. Sewing picks seams through hair and props that are not Cloth NeXt objects.
 
 Bakes in scenes with FLIP Fluids keep Blender responsive and show solver contacts, Newton steps and linear iterations again. The live preview no longer makes FLIP reload its display meshes for every streamed frame; the water is not updated live in the viewport during a Bake.
 

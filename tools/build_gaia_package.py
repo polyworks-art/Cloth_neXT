@@ -98,7 +98,8 @@ source-changes/, Cloth NeXt revision {revision}):
 
 Changes: deterministic reproducibility research paths (PPF_REPRO_* switches,
 opt-in, off unless Cloth NeXt's "Reproducible Bake" is enabled) and the
-hydrodynamic force field. Without PPF_REPRO_* switches the solver follows the
+hydrodynamic force field with wet fabric (buoyancy, soaking, wet cling and
+wet damping; active only when Cloth NeXt enables Wet Fabric). Without PPF_REPRO_* switches the solver follows the
 upstream unordered execution.
 
 Third-party runtime components are redistributed unchanged under their own
