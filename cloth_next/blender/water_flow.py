@@ -530,15 +530,15 @@ def apply_hydrodynamic_stream_payload(context,payload,resolved,first,last,target
     for obj in targets:
         s=obj.cloth_next
         if abs(s.water_flow_influence-1.)>1e-7 or abs(s.water_flow_velocity_scale-1.)>1e-7:
-            raise ValueError('Experimental pressure requires Influence and Velocity Scale 1 on all cloth')
+            raise ValueError('Hydrodynamic Pressure requires Influence and Velocity Scale 1 on all cloth')
         path=prepare_container(context,obj,first,source_end)
         with GaiaContainer(path) as container:digest=container.manifest['water']['fingerprint']
         with WaterStreamReader(path,first=int(first),last=source_end,fps=fps,expected_fingerprint=digest):pass
         paths.add(str(Path(path).resolve()));fingerprints.add(digest)
     if len(paths)!=1 or len(fingerprints)!=1:
-        raise ValueError('Experimental pressure requires one shared FLIP cache for all cloth')
+        raise ValueError('Hydrodynamic Pressure requires one shared FLIP cache for all cloth')
     if tree.get('force_field',{}).get('fields'):
-        raise ValueError('Experimental pressure refuses simultaneous force fields')
+        raise ValueError('Hydrodynamic Pressure cannot run together with force fields')
     def report(current,total):
         from ..bake.controller import shared_controller
         from ..bake.status import BakeActivity
@@ -908,6 +908,10 @@ class CLOTHNEXT_PT_water_flow(bpy.types.Panel):
                 # Velocity-relaxation coupling predates Hydrodynamic Pressure.
                 response.prop(s, 'water_flow_coupling_strength', text='Coupling Strength')
                 response.prop(s, 'water_flow_native_flow', text='Velocity Damping')
+        if s.water_hydrodynamic_pressure and abs(s.water_flow_influence - 1.) > 1e-7:
+            # Hidden under pressure, but a leftover value would block the Bake.
+            response.prop(s, 'water_flow_influence', text='Influence')
+            response.label(text='Set Influence to 1 for Hydrodynamic Pressure.', icon='ERROR')
         if abs(s.water_flow_velocity_scale - 1.) > 1e-7:
             response.prop(s, 'water_flow_velocity_scale', text='Velocity Scale')
             response.label(text='Set Velocity Scale to 1 for Native Flow.', icon='ERROR')
