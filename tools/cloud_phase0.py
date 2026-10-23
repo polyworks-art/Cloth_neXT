@@ -49,6 +49,7 @@ def parse():
                         help="GAIA fast deterministic path (no static colliders)")
     parser.add_argument("--blend", type=Path)
     parser.add_argument("--flip-cache", type=Path)
+    parser.add_argument("--character-dna", action="store_true")
     parser.add_argument("--first", type=int, default=130)
     parser.add_argument("--last", type=int, default=140)
     return parser.parse_args(sys.argv[sys.argv.index("--") + 1:])
@@ -205,24 +206,37 @@ def scene_sewing():
 
 
 def scene_water():
-    for module in ("bl_ext.superhivemarket_com.flip_fluids_addon",
-                   "bl_ext.api_portal_polyhammer_com.character_dna",
-                   "bl_ext.api_portal_polyhammer_com.character_assembly"):
-        addon_utils.enable(module, default_set=True)
+    addon_utils.enable("bl_ext.superhivemarket_com.flip_fluids_addon", default_set=True)
+    if ARGS.character_dna:  # the NEON scene rigs its character with Character DNA
+        for module in ("bl_ext.api_portal_polyhammer_com.character_dna",
+                       "bl_ext.api_portal_polyhammer_com.character_assembly"):
+            addon_utils.enable(module, default_set=True)
     bpy.ops.wm.open_mainfile(filepath=str(ARGS.blend.resolve()))
-    from bl_ext.api_portal_polyhammer_com.character_dna.runtime import controller, engine
-    controller.register()
-    controller.after_load()
-    for obj in bpy.context.scene.objects:
-        if obj.animation_data:
-            for curve in obj.animation_data.drivers:
-                if engine.NAMESPACE in curve.driver.expression:
-                    curve.driver.expression = curve.driver.expression
-        obj.update_tag()
+    if ARGS.character_dna:
+        from bl_ext.api_portal_polyhammer_com.character_dna.runtime import controller, engine
+        controller.register()
+        controller.after_load()
+        for obj in bpy.context.scene.objects:
+            if obj.animation_data:
+                for curve in obj.animation_data.drivers:
+                    if engine.NAMESPACE in curve.driver.expression:
+                        curve.driver.expression = curve.driver.expression
+            obj.update_tag()
     prefs = bpy.context.preferences.addons["cloth_next"].preferences
     prefs.auto_launch_bake_window = False
     objects = [o for o in bpy.context.scene.objects
                if o.cloth_next.enabled and o.cloth_next.role == "CLOTH"]
+    if not objects and "Sleeve" in bpy.data.objects:
+        # Light dunk-test scene: a sleeve on an animated arm in a small pool.
+        for name, role in (("Sleeve", "CLOTH"), ("Arm", "COLLIDER")):
+            obj = bpy.data.objects[name]
+            bpy.ops.object.select_all(action="DESELECT")
+            obj.select_set(True)
+            bpy.context.view_layer.objects.active = obj
+            bpy.ops.clothnext.add_physics()
+            if role != "CLOTH":
+                bpy.ops.clothnext.set_object_type(role=role)
+        objects = [bpy.data.objects["Sleeve"]]
     domains = [o for o in bpy.context.scene.objects
                if getattr(getattr(o, "flip_fluid", None), "object_type", "") == "TYPE_DOMAIN"]
     domains[0].flip_fluid.domain.cache.cache_directory = str(ARGS.flip_cache)

@@ -416,7 +416,9 @@ def _draw():
         _centered_label(blf, (quality.label if quality else "Custom") + " ▾",
                         x+126*s, y+23*s, quality_width*s, round(13*s), _TEXT)
         _centered_label(
-            blf, "BAKE" if not snapshot.active else "CANCEL",
+            blf, ("CANCEL" if snapshot.active else
+                  "CLOUD" if physics_ui.bake_location(context) == "CLOUD"
+                  else "BAKE"),
             x+bake_x*s, y+23*s-1.5*(s/_LAYOUT_SCALE),
             82*s, round(14*s),
             _TEXT if (snapshot.active and snapshot.can_cancel) or
