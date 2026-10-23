@@ -9138,6 +9138,8 @@ def _pump_once() -> float | None:
             from . import cloud_runtime
             try:
                 record = cloud_runtime.submit(message[1])
+                from . import cloud_ui
+                cloud_ui.remember_job(bpy.context.scene, record.client_job_id)
                 shared_controller.transition(
                     BakeState.FINISHED,
                     status_message=("Package ready · uploading to Cloud – "

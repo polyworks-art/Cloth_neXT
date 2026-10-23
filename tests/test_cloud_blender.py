@@ -180,3 +180,25 @@ def test_jobs_list_draws_from_snapshot_only(blender_env, monkeypatch):
     assert "Upload paused – not sent" in labels
     assert [entry[1] for entry in log if entry[0] == "operator"][1:] == [
         "Resume Upload", "Cancel"]
+
+
+def test_file_jobs_found_by_stored_id_or_object_uuid(blender_env):
+    import importlib
+    from cloth_next import export_identity
+    from cloth_next.cloud.registry import new_record
+    ui = importlib.import_module("cloth_next.blender.cloud_ui")
+
+    def record(job, uuids=()):
+        return new_record(client_job_id=job * 16, display_name=job, solver=GAIA,
+                          manifest_sha256="0" * 64, snapshot_digest="1" * 64,
+                          package_hashes=(), upload_bytes_total=1, object_uuids=uuids)
+    obj = SimpleNamespace(cloth_next=SimpleNamespace(
+        enabled=True, persistent_export_id="pid", role="CLOTH"))
+    uuid = export_identity.export_uuid(obj)
+    scene = SimpleNamespace(objects=[obj], cloth_next_cloud_job_ids="")
+    stored, matched, other = record("aa"), record("bb", (uuid,)), record("cc", ("x",))
+    ui.remember_job(scene, stored.client_job_id)
+    ui.remember_job(scene, stored.client_job_id)
+    assert scene.cloth_next_cloud_job_ids == stored.client_job_id
+    found = ui.file_jobs(scene, (stored, matched, other))
+    assert [job.display_name for job in found] == ["aa", "bb"]

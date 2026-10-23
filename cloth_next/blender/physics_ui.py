@@ -1354,6 +1354,29 @@ class CLOTHNEXT_PT_simulation(_ClothNextSubpanel, bpy.types.Panel):
         _draw_scene_statistics(layout, context)
 
 
+class CLOTHNEXT_PT_cloud_jobs(_ClothNextSubpanel, bpy.types.Panel):
+    """Cloud jobs sent from this .blend (status, download, activation)."""
+
+    bl_label = "Cloud Jobs"
+    bl_idname = "CLOTHNEXT_PT_cloud_jobs"
+    roles = {"CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY", "COLLIDER", "FORCE"}
+    header_icon = "cloud"
+
+    @classmethod
+    def poll(cls, context):
+        if not super().poll(context):
+            return False
+        if bake_location(context) == "CLOUD":
+            return True
+        from . import cloud_runtime, cloud_ui
+        jobs = cloud_runtime.view().jobs
+        return bool(jobs) and bool(cloud_ui.file_jobs(context.scene, jobs))
+
+    def draw(self, context):
+        from . import cloud_ui
+        cloud_ui.draw_jobs(self.layout, scene=context.scene)
+
+
 class CLOTHNEXT_PT_shape(_ClothNextSubpanel, bpy.types.Panel):
     bl_label = "Shape"
     bl_idname = "CLOTHNEXT_PT_shape"
@@ -2746,7 +2769,7 @@ CLASSES = (CLOTHNEXT_OT_unavailable_object_type, CLOTHNEXT_MT_object_type,
            CLOTHNEXT_OT_remove_motion_override,
            *MATERIAL_PRESET_CATEGORY_MENUS, CLOTHNEXT_MT_material_presets,
            CLOTHNEXT_PT_physics, CLOTHNEXT_PT_empty_force,
-           CLOTHNEXT_PT_setup, CLOTHNEXT_PT_simulation,
+           CLOTHNEXT_PT_setup, CLOTHNEXT_PT_simulation, CLOTHNEXT_PT_cloud_jobs,
            CLOTHNEXT_PT_solver,
            CLOTHNEXT_PT_force, CLOTHNEXT_PT_material,
            CLOTHNEXT_PT_shape, CLOTHNEXT_PT_pinning,

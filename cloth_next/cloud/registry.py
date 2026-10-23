@@ -89,6 +89,7 @@ class JobRecord:
     error_code: str = ""
     result_folder: str = ""                 # folder name below the results root
     blend_identity: str = ""                # opaque per-.blend key (T10)
+    object_uuids: tuple[str, ...] = ()      # export UUIDs: finds the job's .blend objects
     submitted_confirmed: bool = False
 
     def to_json(self) -> dict:
@@ -96,6 +97,7 @@ class JobRecord:
         value["state"] = self.state.value
         value["package_hashes"] = list(self.package_hashes)
         value["uploaded"] = list(self.uploaded)
+        value["object_uuids"] = list(self.object_uuids)
         return value
 
     @classmethod
@@ -104,6 +106,7 @@ class JobRecord:
         data["state"] = LocalState(data["state"])
         data["package_hashes"] = tuple(data.get("package_hashes", ()))
         data["uploaded"] = tuple(data.get("uploaded", ()))
+        data["object_uuids"] = tuple(data.get("object_uuids", ()))
         known = set(cls.__dataclass_fields__)
         return cls(**{key: item for key, item in data.items() if key in known})
 
@@ -207,7 +210,7 @@ class JobRegistry:
 def new_record(*, client_job_id: str, display_name: str, solver: dict,
                manifest_sha256: str, snapshot_digest: str,
                package_hashes, upload_bytes_total: int,
-               blend_identity: str = "") -> JobRecord:
+               blend_identity: str = "", object_uuids=()) -> JobRecord:
     now = time.time()
     return JobRecord(
         client_job_id=client_job_id, state=LocalState.PACKAGED,
@@ -219,4 +222,5 @@ def new_record(*, client_job_id: str, display_name: str, solver: dict,
         # Stable keys exist before the first network call (E23.1).
         create_key=client_job_id, submit_key=f"{client_job_id}:submit",
         cancel_key=f"{client_job_id}:cancel",
-        upload_bytes_total=upload_bytes_total, blend_identity=blend_identity)
+        upload_bytes_total=upload_bytes_total, blend_identity=blend_identity,
+        object_uuids=tuple(sorted(object_uuids)))

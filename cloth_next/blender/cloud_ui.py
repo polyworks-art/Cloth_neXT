@@ -112,8 +112,37 @@ class CLOTHNEXT_OT_cloud_job_action(bpy.types.Operator):
 _PENDING_DECISIONS: dict[str, str] = {}
 
 
-def draw_jobs(layout) -> None:
-    """Global Cloud Jobs list (all jobs of this OS user, any .blend)."""
+SCENE_JOBS_PROPERTY = "cloth_next_cloud_job_ids"
+
+
+def remember_job(scene, client_job_id: str) -> None:
+    """Store the job in the .blend so it is found again after a move/rename."""
+    ids = [value for value in str(getattr(scene, SCENE_JOBS_PROPERTY, "") or "").split(",")
+           if value]
+    if client_job_id not in ids:
+        ids.append(client_job_id)
+        setattr(scene, SCENE_JOBS_PROPERTY, ",".join(ids[-200:]))
+
+
+def file_jobs(scene, records) -> tuple:
+    """Jobs sent from this .blend: stored ids, else matching object UUIDs (T10)."""
+    from .. import export_identity
+    ids = set(str(getattr(scene, SCENE_JOBS_PROPERTY, "") or "").split(","))
+    uuids = set()
+    for obj in getattr(scene, "objects", ()):
+        settings = getattr(obj, "cloth_next", None)
+        if (settings is not None and getattr(settings, "enabled", False)
+                and str(getattr(settings, "persistent_export_id", "") or "")):
+            try:
+                uuids.add(export_identity.export_uuid(obj))
+            except (ValueError, AttributeError):
+                continue
+    return tuple(record for record in records
+                 if record.client_job_id in ids or uuids.intersection(record.object_uuids))
+
+
+def draw_jobs(layout, *, scene=None) -> None:
+    """Cloud Jobs list: all jobs of this OS user, or only this .blend's."""
     view = cloud_runtime.view()
     header = layout.row()
     header.label(text="Cloud Jobs")
@@ -125,8 +154,11 @@ def draw_jobs(layout) -> None:
         row.label(text=view.message,
                   icon="ERROR" if view.error_code else "INFO")
     jobs = [job for job in view.jobs if job.state is not LocalState.DISCARDED]
+    if scene is not None:
+        jobs = list(file_jobs(scene, jobs))
     if not jobs:
-        layout.label(text="No Cloud jobs yet")
+        layout.label(text="No Cloud jobs for this file" if scene is not None
+                     else "No Cloud jobs yet")
         return
     for record in reversed(jobs[-20:]):
         box = layout.box()
@@ -208,6 +240,11 @@ CLASSES = (CLOTHNEXT_OT_cloud_job_action,)
 
 
 def register() -> None:
+    scene_type = getattr(bpy.types, "Scene", None)
+    if scene_type is not None:
+        setattr(scene_type, SCENE_JOBS_PROPERTY, bpy.props.StringProperty(
+            name="Cloud Jobs", default="", options={"HIDDEN"},
+            description="Cloud jobs sent from this file"))
     if _auto_step not in cloud_runtime._main_thread_hooks:
         cloud_runtime._main_thread_hooks.append(_auto_step)
     header = getattr(bpy.types, "STATUSBAR_HT_header", None)
@@ -218,6 +255,12 @@ def register() -> None:
 def unregister() -> None:
     if _auto_step in cloud_runtime._main_thread_hooks:
         cloud_runtime._main_thread_hooks.remove(_auto_step)
+    scene_type = getattr(bpy.types, "Scene", None)
+    if scene_type is not None and hasattr(scene_type, SCENE_JOBS_PROPERTY):
+        try:
+            delattr(scene_type, SCENE_JOBS_PROPERTY)
+        except (AttributeError, RuntimeError):
+            pass
     header = getattr(bpy.types, "STATUSBAR_HT_header", None)
     if header is not None and hasattr(header, "remove"):
         try:

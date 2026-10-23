@@ -19,7 +19,11 @@
     },
     "auto_activate_unchanged_scene": {
       "ok": true,
-      "detail": "[('MESH_CACHE', 'C:\\\\Users\\\\timch\\\\Documents\\\\GitHub\\\\Cloth_neXT\\\\.hydro-test-tmp\\\\cloud0\\\\e2e-2\\\\cache\\\\cn_test_cloth_cloud_8b53079473f5_f812ae41.pc2')]"
+      "detail": "[('MESH_CACHE', 'C:\\\\Users\\\\timch\\\\Documents\\\\GitHub\\\\Cloth_neXT\\\\.hydro-test-tmp\\\\cloud0\\\\e2e-3\\\\cache\\\\cn_test_cloth_cloud_e8e2c947a315_635e1f4d.pc2')]"
+    },
+    "job_listed_for_this_file": {
+      "ok": true,
+      "detail": "e8e2c947a3154377abbdcc2554bfdd2d"
     },
     "playback_matches_pc2": {
       "ok": true,
@@ -31,7 +35,7 @@
     },
     "moved_object_is_stale_settings": {
       "ok": true,
-      "detail": "(('f812ae41-5537-98b0-32b4-dafe33a05e65', <Verdict.STALE_SETTINGS: 'STALE_SETTINGS'>, 'CloudSheet: settings changed'),)"
+      "detail": "(('635e1f4d-83e2-5f26-2ded-1fd3e3260127', <Verdict.STALE_SETTINGS: 'STALE_SETTINGS'>, 'CloudSheet: settings changed'),)"
     },
     "changed_topology_is_refused": {
       "ok": true,

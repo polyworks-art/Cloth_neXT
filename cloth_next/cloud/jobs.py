@@ -88,7 +88,8 @@ class CloudJobs:
             snapshot_digest=package.snapshot.digest,
             package_hashes=package.hashes,
             upload_bytes_total=package.total_bytes,
-            blend_identity=blend_identity))
+            blend_identity=blend_identity,
+            object_uuids=[item["uuid"] for item in package.manifest["objects"]]))
 
     # Helpers ---------------------------------------------------------------
     def _retry(self, call, *, cancelled=lambda: False):

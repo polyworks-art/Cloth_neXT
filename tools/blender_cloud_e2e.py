@@ -135,6 +135,10 @@ attached = wait(lambda: any(m.type == "MESH_CACHE" and "cloud" in m.filepath
 check("auto_activate_unchanged_scene", attached,
       [(m.type, getattr(m, "filepath", "")) for m in sheet.modifiers])
 
+check("job_listed_for_this_file",
+      [j.client_job_id for j in cloud_ui.file_jobs(bpy.context.scene, cloud_runtime.view().jobs)]
+      == [job.client_job_id], bpy.context.scene.cloth_next_cloud_job_ids)
+
 # 2. Playback equals the activated PC2.
 modifier = next(m for m in sheet.modifiers if m.type == "MESH_CACHE")
 path = Path(bpy.path.abspath(modifier.filepath))
