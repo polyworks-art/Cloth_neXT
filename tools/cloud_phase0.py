@@ -83,7 +83,16 @@ from cloth_next.ppf_run.session import (SessionDeformable, SessionScene,  # noqa
 from cloth_next.updater import engines  # noqa: E402
 from tests.cloud_backend import CloudTestBackend, solver_executor  # noqa: E402
 
-REPORT = {"scene": ARGS.scene, "engine": ARGS.engine, "reproducible": ARGS.reproducible, "blender": bpy.app.version_string,
+def _addon_commit() -> str:
+    import subprocess
+    try:
+        return subprocess.run(["git", "-C", str(ARGS.repo), "rev-parse", "HEAD"],
+                              capture_output=True, text=True, check=True).stdout.strip()
+    except (OSError, subprocess.CalledProcessError):
+        return "unknown"
+
+
+REPORT = {"addon_commit": _addon_commit(), "scene": ARGS.scene, "engine": ARGS.engine, "reproducible": ARGS.reproducible, "blender": bpy.app.version_string,
           "addon_version": manifest_version(), "steps": {}}
 
 
@@ -330,7 +339,8 @@ REPORT["steps"]["2_package"] = {
     "hydro_volume_bytes": sum(f.size for f in package.files if f.role == "hydro-volume"),
     "total_bytes": package.total_bytes, "snapshot_digest": package.snapshot.digest,
     "payload_hashes_match_local": (
-        package.manifest["payload_hashes"]["data"] == plan.scene.data_hash)}
+        next(item["sha256"] for item in package.manifest["files"]
+             if item["role"] == "data") == plan.scene.data_hash)}
 (ARGS.output / "manifest.json").write_text(json.dumps(package.manifest, indent=2),
                                            encoding="utf-8")
 save()
@@ -371,7 +381,7 @@ REPORT["steps"]["5_download"] = {
     "build_id": manifest.build_id,
     "bytes": sum(item.size for item in manifest.files),
     "files": len(manifest.files), "frames": manifest.frame_count,
-    "surface_map": any(item.name == "surface-map.cbor" for item in manifest.files)}
+    "surface_map": any(item.name == "surface-map.bin" for item in manifest.files)}
 save()
 
 
