@@ -63,6 +63,7 @@ from ..export_cache import ExportPayloadCache, deterministic_key
 from ..sample_plan import build_collider_timeline, build_sample_plan
 from ..bake import cache_metadata
 from ..bake import pc2
+from ..bake import result_import
 from ..bake.controller import InvalidTransition, shared_controller
 from ..bake.frame_range import BakeFrameRange, BakeRangeError
 from ..bake.status import (BakeActivity, BakeJobKind, BakeState,
@@ -1643,19 +1644,8 @@ def _detect_sewing_edges(mesh) -> tuple[tuple[tuple[int, int], ...],
     return pairs, hanging
 
 
-def _snap_closed_sewing_pairs(positions, pairs, threshold: float):
-    """Close solved seams exactly once PPF has pulled a pair into range."""
-    if not pairs or threshold <= 0.0:
-        return positions
-    import numpy as np
-    result = np.asarray(positions).copy()
-    baseline = np.asarray(positions)
-    for first, second in pairs:
-        if np.linalg.norm(baseline[first] - baseline[second]) < threshold:
-            midpoint = 0.5 * (baseline[first] + baseline[second])
-            result[first] = midpoint
-            result[second] = midpoint
-    return result
+# Shared with the Cloud result import; kept under its historical name.
+_snap_closed_sewing_pairs = result_import.snap_closed_sewing_pairs
 
 
 def _self_intersection_vertices(vertices, triangles) -> tuple[int, tuple[int, ...]]:
@@ -7532,79 +7522,46 @@ def _locate_confirmed_intersection_pairs(snapshot, diagnostic_path=None):
                     "path": str(diagnostic_path), "reason": str(exc)})
     return tuple(found)
 
+def _import_targets(targets) -> tuple[result_import.ImportTarget, ...]:
+    return tuple(result_import.ImportTarget(
+        target.uuid, target.object_name, target.pc2_path,
+        target.initial_local, target.world_matrix, target.stitch_pairs,
+        target.stitch_snap_distance, target.material_meta)
+        for target in targets)
+
+
 def _worker_main_multi(plan: RunPlan) -> None:
     def emit(event) -> None:
         _queue.put(("event", event))
 
     targets = _plan_deformables(plan)
-    writers = {}
-    partials = {}
     recovery_partials = dict(
         plan.recovery_options.partial_pc2
         if plan.recovery_options is not None else ())
+    caches = result_import.PlaybackCacheImport(
+        _import_targets(targets), frame_count=plan.frame_count,
+        recovery_partials=recovery_partials)
+    writers = caches.writers
     failure_stage = "CACHE_SETUP"
     try:
-        for target in targets:
-            if target.material_meta:
-                partial = cache_metadata.partial_metadata(
-                    cache_path=target.pc2_path,
-                    fingerprints=target.material_meta["fingerprints"],
-                    identities=target.material_meta["identities"],
-                    expected=target.material_meta["expected"],
-                    details=target.material_meta["details"])
-                cache_metadata.write_atomic(
-                    cache_metadata.sidecar_path(target.pc2_path), partial)
-                partials[target.uuid] = partial
-        to_local = {target.uuid: solver_world_to_object_local(
-                    target.world_matrix) for target in targets}
-        transform_seconds = 0.0
-        write_seconds = 0.0
+        caches.begin()
 
         def ensure_writers() -> None:
-            nonlocal write_seconds, failure_stage
+            nonlocal failure_stage
             if writers:
                 return
             failure_stage = "CACHE_SETUP"
-            step = time.monotonic()
-            for target in targets:
-                writer = pc2.StreamingPc2Writer(
-                    target.pc2_path,
-                    vertex_count=len(target.initial_local),
-                    frame_count=plan.frame_count,
-                    start_frame=import_result.PC2_START_FRAME,
-                    sample_rate=import_result.PC2_SAMPLE_RATE,
-                    resume_path=(
-                        Path(recovery_partials[target.uuid])
-                        if target.uuid in recovery_partials else None))
-                if writer.frames_written == 0:
-                    writer.write_frame(target.initial_local)
-                writers[target.uuid] = writer
-            write_seconds += time.monotonic() - step
+            caches.ensure_writers()
             failure_stage = "SIMULATION"
 
         def consume(frame: SolverFrame) -> None:
-            nonlocal transform_seconds, write_seconds
             if _cancel_event.is_set():
                 raise SessionCancelled()
             # Contact BUILD completed before SolverSession can invoke this
             # sink.  Initial validation failures therefore create no PC2.
             ensure_writers()
-            for target in targets:
-                positions = frame.positions_by_uuid.get(target.uuid)
-                if positions is None:
-                    raise ValueError(
-                        f"solver frame has no result for {target.object_name}")
-                positions = _snap_closed_sewing_pairs(
-                    positions, target.stitch_pairs,
-                    target.stitch_snap_distance)
-                step = time.monotonic()
-                local = transform_points_numpy(to_local[target.uuid], positions)
-                transform_seconds += time.monotonic() - step
-                step = time.monotonic()
-                writers[target.uuid].write_frame(local)
-                write_seconds += time.monotonic() - step
-            live_paths = {target.uuid: str(
-                writers[target.uuid].expose_live()) for target in targets}
+            caches.write_frame(frame.positions_by_uuid)
+            live_paths = caches.live_paths()
             emit(type("CacheEvent", (), {
                 "phase": "TRANSFORMING_FRAME",
                 "message": (f"Creating {len(targets)} playback caches · frame "
@@ -7623,41 +7580,28 @@ def _worker_main_multi(plan: RunPlan) -> None:
         diagnostics = session.run()
         ensure_writers()
         _merge_export_diagnostics(diagnostics, plan)
-        diagnostics.timings["coordinate_transform"] = transform_seconds
-        diagnostics.timings["pc2_write"] = write_seconds
+        diagnostics.timings["coordinate_transform"] = caches.transform_seconds
+        diagnostics.timings["pc2_write"] = caches.write_seconds
         emit(type("CacheEvent", (), {
             "phase": "FINALIZING_CACHE",
             "message": f"Finalizing {len(targets)} playback caches",
             "frame_current": None, "frame_total": plan.frame_count,
             "indeterminate": True})())
         failure_stage = "CACHE_FINALIZE"
-        headers = {}
-        for target in targets:
-            writer = writers[target.uuid]
-            headers[target.uuid] = writer.finalize()
-            partial = partials.get(target.uuid)
-            if partial is not None:
-                identities = dict(partial["identities"])
-                solver_identity = dict(identities.get("solver", {}))
-                solver_identity.update({
-                    "mode": diagnostics.solver_mode,
-                    "package_version": diagnostics.package_version or "unknown",
-                    "protocol_version": diagnostics.protocol_version or "unknown",
-                    "schema_version": diagnostics.schema_version or "unknown"})
-                identities["solver"] = solver_identity
-                partial["identities"] = identities
-                if getattr(diagnostics, "contact_samples", 0):
-                    details = dict(partial.get("details", {}))
-                    details["contacts"] = {
-                        "last": diagnostics.contact_last,
-                        "peak": diagnostics.contact_peak,
-                        "samples": diagnostics.contact_samples}
-                    partial["details"] = details
-                metadata = cache_metadata.completed_metadata(
-                    partial, cache_path=target.pc2_path,
-                    timings=diagnostics.timings)
-                cache_metadata.write_atomic(
-                    cache_metadata.sidecar_path(target.pc2_path), metadata)
+        solver_identity = contacts = None
+        if caches.partials:
+            solver_identity = {
+                "mode": diagnostics.solver_mode,
+                "package_version": diagnostics.package_version or "unknown",
+                "protocol_version": diagnostics.protocol_version or "unknown",
+                "schema_version": diagnostics.schema_version or "unknown"}
+            if getattr(diagnostics, "contact_samples", 0):
+                contacts = {"last": diagnostics.contact_last,
+                            "peak": diagnostics.contact_peak,
+                            "samples": diagnostics.contact_samples}
+        headers = caches.finalize(
+            solver_identity=solver_identity, contacts=contacts,
+            timings=diagnostics.timings)
         diagnostics.timings["total"] = time.monotonic() - _run_started_at
         _queue.put(("finished", headers, diagnostics))
     except SessionCancelled as exc:

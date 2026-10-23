@@ -442,6 +442,72 @@ def _session_error(message: str, technical: str, *,
         recommended_action=action, recoverable=True, context=context))
 
 
+@dataclass(frozen=True, slots=True)
+class PreparedSolverInputs:
+    """Solver inputs after local Water Flow preparation.
+
+    ``scene`` no longer carries a water descriptor when preparation turned it
+    into files: a native fluid PARAM payload, or hydrodynamic volumes named by
+    ``environment``. A legacy held stream (protocol 0.23) stays a descriptor.
+    """
+
+    scene: SessionScene
+    environment: dict[str, str] = field(default_factory=dict)
+    native_fluid_seconds: float | None = None
+
+
+def prepare_solver_inputs(scene: SessionScene, resolved: ResolvedSolver,
+                          work_directory: Path, *,
+                          check_cancel: Callable[[], None],
+                          event: Callable[..., None]) -> PreparedSolverInputs:
+    """Run the local Water Flow preparation shared by local and Cloud Bakes."""
+    if not scene.water_stream_json:
+        return PreparedSolverInputs(scene)
+    descriptor = json.loads(scene.water_stream_json)
+    environment: dict[str, str] = {}
+    seconds = None
+    if descriptor.get('field_kind') == 'experimental-hydrodynamic':
+        from ..gaia.hydrodynamic_session import prepare_session
+        def report_surface(current,total):
+            event('EXPORTING','Preparing native hydrodynamic surfaces',
+                progress_current=current,progress_total=total,
+                activity_code='ENCODING_NATIVE_FLUID')
+        environment = prepare_session(descriptor,
+            resolved.executable_path,work_directory,
+            check_cancel=check_cancel,progress=report_surface,
+            scene=scene)
+        scene = replace(scene,water_stream_json='')
+    if descriptor.get('field_kind') == 'native-file':
+        from ..gaia.native_fluid import native_fluid_payload_file
+        payload_path = work_directory / ('native-fluid-' + uuid_module.uuid4().hex + '.cbor')
+        encoding_total = ((descriptor['last'] - descriptor['first'] + 1)
+                          * len(descriptor['targets']))
+        encoding_current = 0
+        def report_native_encoding(frame):
+            nonlocal encoding_current
+            encoding_current += 1
+            event('EXPORTING', f'Encoding native fluid frame {frame}',
+                progress_current=encoding_current, progress_total=encoding_total,
+                activity_code="ENCODING_NATIVE_FLUID")
+        event('EXPORTING', 'Encoding native fluid sequence',
+              progress_current=0, progress_total=encoding_total,
+              activity_code="ENCODING_NATIVE_FLUID")
+        encoding_started = time.monotonic()
+        digest = native_fluid_payload_file(scene.param_payload, descriptor,
+            payload_path, check_cancel=check_cancel,
+            progress=report_native_encoding)
+        seconds = time.monotonic() - encoding_started
+        scene = replace(scene, param_payload=payload_path,
+                        param_hash=digest, water_stream_json='')
+    return PreparedSolverInputs(scene, environment, seconds)
+
+
+def _extraction_targets(targets) -> tuple[results.ExtractionTarget, ...]:
+    return tuple(results.ExtractionTarget(
+        target.uuid, target.vertex_count, target.deformable_type,
+        target.world_matrix) for target in targets)
+
+
 class SolverSession:
     """Drives one complete vertical-slice run against a real PPF server."""
 
@@ -452,6 +518,8 @@ class SolverSession:
                  emit: Callable[[SessionEvent], None] | None = None,
                  cancel_event: threading.Event | None = None,
                  frame_sink: Callable[[SolverFrame], None] | None = None,
+                 raw_output_sink: Callable[[str, bytes], None] | None = None,
+                 hydrodynamic_environment: dict[str, str] | None = None,
                  poll_interval: float = _POLL_INTERVAL,
                  build_timeout: float = 600.0,
                  simulate_timeout: float = 600.0,
@@ -470,6 +538,14 @@ class SolverSession:
         self._emit = emit or (lambda event: None)
         self._cancel = cancel_event or threading.Event()
         self._frame_sink = frame_sink or (lambda frame: None)
+        # Receives every validated raw solver output file (vertex map,
+        # surface map, vert_<N>.bin) by its solver-relative path. The Cloud
+        # test executor archives exactly these bytes; local Bakes ignore it.
+        self._raw_output_sink = raw_output_sink or (lambda path, blob: None)
+        # Already prepared hydrodynamic volumes (a Cloud package); a local
+        # Bake prepares them in run() from its water descriptor instead.
+        if hydrodynamic_environment:
+            self._hydrodynamic_environment = dict(hydrodynamic_environment)
         self._poll_interval = poll_interval
         self._build_timeout = build_timeout
         self._simulate_timeout = simulate_timeout
@@ -1692,36 +1768,23 @@ class SolverSession:
                                  project_name=self.scene.project_name,
                                  path=results.MAP_PATH)
         schema_version = int(self.resolved.schema_version or "1")
-        output_map = results.parse_output_map(
-            blob, schema_version=schema_version)
         self.diagnostics.bytes_transferred += len(blob)
         targets = self.scene.dynamic_objects
-        solid_targets = [target for target in targets
-                         if target.deformable_type == "SOLID"]
         surface_blob = None
-        if solid_targets:
+        if any(target.deformable_type == "SOLID" for target in targets):
             surface_blob = wire.data_receive(
                 self._address, self.transport,
                 project_name=self.scene.project_name,
                 path=results.SURFACE_MAP_PATH)
             self.diagnostics.bytes_transferred += len(surface_blob)
-        total_vertices = max(index for values in output_map.indices_by_uuid.values()
-                             for index in values) + 1
-        for target in targets:
-            if target.deformable_type == "SOLID":
-                raw_indices = output_map.indices_by_uuid.get(target.uuid)
-                if raw_indices is None:
-                    raise results.ResultValidationError(
-                        f"solver output map has no entry for {target.uuid}")
-                assert surface_blob is not None
-                self._surface_maps_by_uuid[target.uuid] = results.parse_surface_map(
-                    surface_blob, target.uuid, target.vertex_count,
-                    schema_version=schema_version)
-            else:
-                raw_indices = output_map.indices_for(target.uuid,
-                                                     target.vertex_count)
-            self._indices_by_uuid[target.uuid] = results.object_index_array(
-                raw_indices, total_vertices=total_vertices, uuid=target.uuid)
+        output_map, extraction = results.prepare_output_extraction(
+            blob, surface_blob, _extraction_targets(targets),
+            schema_version=schema_version)
+        self._indices_by_uuid = dict(extraction.indices_by_uuid)
+        self._surface_maps_by_uuid = dict(extraction.surface_maps_by_uuid)
+        self._raw_output_sink(results.MAP_PATH, blob)
+        if surface_blob is not None:
+            self._raw_output_sink(results.SURFACE_MAP_PATH, surface_blob)
         return output_map
 
     def _fetch_frame(self, output_map: results.OutputMap,
@@ -1740,45 +1803,17 @@ class SolverSession:
         self.diagnostics.timings["frame_decode"] = (
             self.diagnostics.timings.get("frame_decode", 0.0)
             + time.monotonic() - step)
+        self._raw_output_sink(results.frame_file_path(frame), blob)
         step = time.monotonic()
-        positions_by_uuid = {}
-        for target in self.scene.dynamic_objects:
-            indices = self._indices_by_uuid[target.uuid]
-            surface_map = self._surface_maps_by_uuid.get(target.uuid)
-            if surface_map is None:
-                extracted = results.extract_object_frame_numpy(
-                    positions, indices, frame=frame, uuid=target.uuid,
-                    expected_count=target.vertex_count)
-                positions_by_uuid[target.uuid] = extracted
-                continue
-            tet_world = positions[indices]
-            world = np.asarray(target.world_matrix,
-                               dtype=np.float64)
-            inverse = np.linalg.inv(world)
-            homogeneous = np.concatenate(
-                (tet_world.astype(np.float64),
-                 np.ones((len(tet_world), 1))), axis=1)
-            tet_local = (homogeneous @ inverse.T)[:, :3]
-            smap = surface_map
-            triangles = smap.surface_triangles[smap.tri_indices]
-            v0, v1, v2 = (tet_local[triangles[:, index]] for index in range(3))
-            b1, b2 = v1 - v0, v2 - v0
-            normal = np.cross(b1, b2)
-            length = np.linalg.norm(normal, axis=1)
-            safe = length > 1e-10
-            normal[safe] /= length[safe, None]
-            normal[~safe] = 0.0
-            c = smap.coefficients
-            source_local = (v0 + c[:, 0:1] * b1 + c[:, 1:2] * b2
-                            + c[:, 2:3] * normal)
-            source_h = np.concatenate(
-                (source_local, np.ones((len(source_local), 1))), axis=1)
-            positions_by_uuid[target.uuid] = (
-                source_h @ world.T)[:, :3].astype(np.float32)
+        targets = self.scene.dynamic_objects
+        positions_by_uuid = results.extract_dynamic_frame(
+            positions, results.OutputExtraction(
+                self._indices_by_uuid, self._surface_maps_by_uuid),
+            _extraction_targets(targets), frame=frame)
         self.diagnostics.timings["frame_extract"] = (
             self.diagnostics.timings.get("frame_extract", 0.0)
             + time.monotonic() - step)
-        first = positions_by_uuid[self.scene.dynamic_objects[0].uuid]
+        first = positions_by_uuid[targets[0].uuid]
         return SolverFrame(frame, first, positions_by_uuid)
 
     def _simulate_and_fetch(self, *, resume: bool = False) -> None:
@@ -2476,43 +2511,17 @@ class SolverSession:
             if not contact_validation_only:
                 self._recovery_start()
             self._check_cancel()
-            if self.scene.water_stream_json:
-                descriptor = json.loads(self.scene.water_stream_json)
-                if descriptor.get('field_kind') == 'experimental-hydrodynamic':
-                    from ..gaia.hydrodynamic_session import prepare_session
-                    def report_surface(current,total):
-                        self._event('EXPORTING','Preparing native hydrodynamic surfaces',
-                            progress_current=current,progress_total=total,
-                            activity_code='ENCODING_NATIVE_FLUID')
-                    self._hydrodynamic_environment = prepare_session(descriptor,
-                        self.resolved.executable_path,self.work_directory,
-                        check_cancel=self._check_cancel,progress=report_surface,
-                        scene=self.scene)
-                    self.scene = replace(self.scene,water_stream_json='')
-                if descriptor.get('field_kind') == 'native-file':
-                    from ..gaia.native_fluid import native_fluid_payload_file
-                    payload_path = self.work_directory / ('native-fluid-' + uuid_module.uuid4().hex + '.cbor')
-                    encoding_total = ((descriptor['last'] - descriptor['first'] + 1)
-                                      * len(descriptor['targets']))
-                    encoding_current = 0
-                    def report_native_encoding(frame):
-                        nonlocal encoding_current
-                        encoding_current += 1
-                        self._event('EXPORTING', f'Encoding native fluid frame {frame}',
-                            progress_current=encoding_current, progress_total=encoding_total,
-                            activity_code="ENCODING_NATIVE_FLUID")
-                    self._event('EXPORTING', 'Encoding native fluid sequence',
-                                progress_current=0, progress_total=encoding_total,
-                                activity_code="ENCODING_NATIVE_FLUID")
-                    encoding_started = time.monotonic()
-                    digest = native_fluid_payload_file(self.scene.param_payload, descriptor,
-                        payload_path, check_cancel=self._check_cancel,
-                        progress=report_native_encoding)
-                    self.diagnostics.timings['native_fluid_encoding'] = (
-                        time.monotonic() - encoding_started)
-                    self.scene = replace(self.scene, param_payload=payload_path,
-                                         param_hash=digest, water_stream_json='')
-                    self.diagnostics.param_hash = digest
+            prepared = prepare_solver_inputs(
+                self.scene, self.resolved, self.work_directory,
+                check_cancel=self._check_cancel, event=self._event)
+            if prepared.scene is not self.scene:
+                self.scene = prepared.scene
+                self.diagnostics.param_hash = prepared.scene.param_hash
+            if prepared.environment:
+                self._hydrodynamic_environment = dict(prepared.environment)
+            if prepared.native_fluid_seconds is not None:
+                self.diagnostics.timings['native_fluid_encoding'] = (
+                    prepared.native_fluid_seconds)
             if owned:
                 self._event("STARTING_SOLVER", "Starting simulation solver",
                             indeterminate=True)

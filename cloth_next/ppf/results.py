@@ -200,3 +200,98 @@ def extract_object_frame(
                 f"vertex {index}")
         result.append(position)
     return tuple(result)
+
+
+@dataclass(frozen=True, slots=True)
+class ExtractionTarget:
+    """One dynamic object as the result import needs it (no bpy, no paths).
+
+    ``world_matrix`` is the solver world matrix (``Z2Y @ world``) exported
+    with the object; SOLID surface reconstruction needs it.
+    """
+
+    uuid: str
+    vertex_count: int
+    deformable_type: str = "SHELL"
+    world_matrix: tuple | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class OutputExtraction:
+    """Validated per-object indices (and SOLID surface maps) for one run."""
+
+    indices_by_uuid: dict[str, np.ndarray]
+    surface_maps_by_uuid: dict[str, SurfaceMap]
+
+
+def prepare_output_extraction(map_blob: bytes, surface_blob: bytes | None,
+                              targets, *, schema_version: int = 1) \
+        -> tuple[OutputMap, OutputExtraction]:
+    """Validate the solver's vertex map (and surface map) for ``targets``.
+
+    Shared by the local solver session and the Cloud result import so both
+    read raw solver output through one code path.
+    """
+    output_map = parse_output_map(map_blob, schema_version=schema_version)
+    total_vertices = max(index for values in output_map.indices_by_uuid.values()
+                         for index in values) + 1
+    indices_by_uuid: dict[str, np.ndarray] = {}
+    surface_maps: dict[str, SurfaceMap] = {}
+    for target in targets:
+        if target.deformable_type == "SOLID":
+            raw_indices = output_map.indices_by_uuid.get(target.uuid)
+            if raw_indices is None:
+                raise ResultValidationError(
+                    f"solver output map has no entry for {target.uuid}")
+            if surface_blob is None:
+                raise ResultValidationError(
+                    f"solver output has no surface map for {target.uuid}")
+            surface_maps[target.uuid] = parse_surface_map(
+                surface_blob, target.uuid, target.vertex_count,
+                schema_version=schema_version)
+        else:
+            raw_indices = output_map.indices_for(target.uuid,
+                                                 target.vertex_count)
+        indices_by_uuid[target.uuid] = object_index_array(
+            raw_indices, total_vertices=total_vertices, uuid=target.uuid)
+    return output_map, OutputExtraction(indices_by_uuid, surface_maps)
+
+
+def _reconstruct_solid_surface(tet_world: np.ndarray, surface_map: SurfaceMap,
+                               world_matrix) -> np.ndarray:
+    world = np.asarray(world_matrix, dtype=np.float64)
+    inverse = np.linalg.inv(world)
+    homogeneous = np.concatenate(
+        (tet_world.astype(np.float64), np.ones((len(tet_world), 1))), axis=1)
+    tet_local = (homogeneous @ inverse.T)[:, :3]
+    triangles = surface_map.surface_triangles[surface_map.tri_indices]
+    v0, v1, v2 = (tet_local[triangles[:, index]] for index in range(3))
+    b1, b2 = v1 - v0, v2 - v0
+    normal = np.cross(b1, b2)
+    length = np.linalg.norm(normal, axis=1)
+    safe = length > 1e-10
+    normal[safe] /= length[safe, None]
+    normal[~safe] = 0.0
+    c = surface_map.coefficients
+    source_local = v0 + c[:, 0:1] * b1 + c[:, 1:2] * b2 + c[:, 2:3] * normal
+    source_h = np.concatenate(
+        (source_local, np.ones((len(source_local), 1))), axis=1)
+    return (source_h @ world.T)[:, :3].astype(np.float32)
+
+
+def extract_dynamic_frame(positions: np.ndarray, extraction: OutputExtraction,
+                          targets, *, frame: int) -> dict[str, np.ndarray]:
+    """Split one decoded solver frame into solver-world positions per object,
+    in each object's original vertex order (SOLID: reconstructed surface)."""
+    result: dict[str, np.ndarray] = {}
+    for target in targets:
+        indices = extraction.indices_by_uuid[target.uuid]
+        surface_map = extraction.surface_maps_by_uuid.get(target.uuid)
+        if surface_map is None:
+            result[target.uuid] = extract_object_frame_numpy(
+                positions, indices, frame=frame, uuid=target.uuid,
+                expected_count=target.vertex_count)
+            continue
+        result[target.uuid] = _reconstruct_solid_surface(
+            positions[indices], surface_map, target.world_matrix)
+    return result
