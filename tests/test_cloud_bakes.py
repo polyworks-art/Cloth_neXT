@@ -202,10 +202,9 @@ def test_snapshot_is_deterministic_and_verifies(tmp_path):
                   addon_version="2.9.39", payload_hashes={"data": "a", "param": "b"})
     first = build_snapshot(**kwargs)
     second = build_snapshot(**kwargs)
-    assert first.json_bytes == second.json_bytes
+    assert first.file_bytes == second.file_bytes
     assert first.digest == second.digest
-    restored = load_snapshot(first.json_bytes, first.arrays,
-                             expected_digest=first.digest)
+    restored = load_snapshot(first.file_bytes, expected_digest=first.digest)
     np.testing.assert_array_equal(restored.initial_local("uuid-shirt"),
                                   np.asarray(deformables[0].initial_local, "<f4"))
     # Local install provenance is dropped; nothing else is invented.
@@ -213,12 +212,12 @@ def test_snapshot_is_deterministic_and_verifies(tmp_path):
     assert "source_metadata" not in meta["identities"]["solver"]
     assert restored.objects[0]["solver_world_matrix"] == [
         list(row) for row in solver_world_matrix(IDENTITY)]
-    damaged = bytearray(first.arrays)
-    damaged[0] ^= 1
+    damaged = bytearray(first.file_bytes)
+    damaged[-1] ^= 1
     with pytest.raises(SnapshotError):
-        load_snapshot(first.json_bytes, bytes(damaged))
+        load_snapshot(bytes(damaged))
     with pytest.raises(SnapshotError, match="digest"):
-        load_snapshot(first.json_bytes, first.arrays, expected_digest="0" * 64)
+        load_snapshot(first.file_bytes, expected_digest="0" * 64)
 
 
 def test_snapshot_rejects_private_paths(tmp_path):
@@ -308,7 +307,8 @@ def test_package_manifest_has_hashes_and_no_private_data(cloud, tmp_path):
     roles = {item["role"]: item for item in manifest["files"]}
     assert roles["data"]["sha256"] == plan.scene.data_hash
     assert roles["param"]["sha256"] == plan.scene.param_hash
-    assert {"official-bindings", "snapshot", "snapshot-arrays"} <= set(roles)
+    assert {"official-bindings", "import-snapshot"} <= set(roles)
+    assert roles["import-snapshot"]["sha256"] == package.snapshot.digest
     assert manifest["snapshot_digest"] == package.snapshot.digest
     assert manifest["objects"] == [{
         "uuid": "uuid-shirt", "deformable_type": "SHELL", "vertex_count": 4,

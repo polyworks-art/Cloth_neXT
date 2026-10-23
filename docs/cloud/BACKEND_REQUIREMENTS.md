@@ -81,3 +81,20 @@ schreiben und als Umgebung übergeben, `SolverSession(...).run()` mit
   ist bis dahin nur gegen den Testserver geprüft.
 - Linux-Builds und Zuordnung Server-Build ↔ lokale `build_id` (B2).
 - Angebot/Kostenobergrenze (B3), Kontingent, Aufbewahrung (P1–P3).
+
+## 6. Abgleich mit Vertrag v1 (Pilot, 23.10.2026) – Änderungswünsche
+
+OpenAPI/Beispiele lagen beim Abgleich nicht vor; Grundlage ist die Markdown-Beschreibung.
+
+| # | Vertrag v1 | Bedarf aus Phase 0 | Wunsch |
+|---|---|---|---|
+| C1 | `files`: genau `data`, `param`, `import-snapshot`, `fluid` | GAIA/AETHER 0.26 brauchen `official-bindings` (Nähte, Face-Friction, Material Zones), nach BUILD mit dem Solver-Python angewendet | Rolle `official-bindings` aufnehmen (Pflicht bei Protokoll 0.26) |
+| C2 | `fluid` genau dann, wenn Water Flow | Hydrodynamic Pressure: `hydro-model` + viele `hydro-volume`-Dateien (≈ 12 MB/Frame, relative Pfade, zwei Umgebungsvariablen); Native Flow: Fluid steckt bereits in `param` | Rollen `hydro-model`/`hydro-volume`; `fluid` nicht verlangen |
+| C3 | eine Upload-Session pro Rolle | mehrere Dateien je Rolle (`hydro-volume`) | Upload-Session pro Datei: Rolle + relativer Name (validiert, keine absoluten Pfade, kein `..`) |
+| C4 | Teilergebnisse aus | – | ok; E18 bleibt offen |
+| C5 | Build-Zuordnung: Desktop-`build_id` **und** Artefakt-Hashes | Add-on kennt `gaia-build.json` (`build_id`, Datei-Hashes) bzw. AETHER-Release-Tag | Feldliste in der OpenAPI benötigt; welche Hashes genau? |
+| C6 | Submit verlangt `quote_id` + `accepted_maximum` | Bestätigungsdialog mit Server-Angebot | passt; Add-on zeigt Test-Einheiten nur als solche |
+| C7 | Server berechnet `manifest_sha256` | Add-on hatte eigenen Hash | Add-on speichert den Server-Wert (umgestellt) |
+| C8 | `import_snapshot_digest` = Datei-Hash | Snapshot war JSON + Binär | Add-on liefert jetzt eine Datei, Digest = Datei-Hash (umgestellt) |
+| C9 | Ergebnis über `result-session` + `results/{sha256}?t=` | Add-on lädt Dateien bereichsweise mit Hash | passt; erlaubter Download-Host muss feststehen |
+| C10 | Zustände `starting`, `cancelling` | – | Add-on bildet sie auf „Running“/„Cancelling“ ab |

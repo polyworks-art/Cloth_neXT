@@ -24,8 +24,8 @@ from .snapshot import ImportSnapshot, SnapshotError, load_snapshot
 
 def load_archived_snapshot(archive: ResultArchive, client_job_id: str,
                            expected_digest: str) -> ImportSnapshot:
-    json_bytes, arrays = archive.load_snapshot_bytes(client_job_id)
-    return load_snapshot(json_bytes, arrays, expected_digest=expected_digest)
+    return load_snapshot(archive.load_snapshot_bytes(client_job_id),
+                         expected_digest=expected_digest)
 
 
 def _with_actual_range(target: result_import.ImportTarget, frame_count: int,

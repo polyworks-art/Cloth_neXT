@@ -8,11 +8,13 @@ scene (an object moved since export would otherwise land shifted without
 any error). The solver supplies the vertex map and, for SOLID objects, the
 surface map; the snapshot supplies the rest.
 
-Serialization is deterministic: one canonical JSON document plus one binary
-blob of little-endian float32 initial positions (exactly the bytes PC2
-sample 0 receives). The JSON names the blob's SHA-256, so the snapshot
-digest (SHA-256 of the canonical JSON) covers both. Fields are copied by
-name, never by dumping dataclasses, and the result is privacy-scanned.
+Serialization is deterministic and a single file: ``CNXSNAP1``, the
+little-endian u64 length of a canonical JSON document, that document, then
+the little-endian float32 initial positions (exactly the bytes PC2 sample 0
+receives). The snapshot digest is the SHA-256 of the whole file, which is
+what the Cloud contract's ``import_snapshot_digest`` names. Fields are
+copied by name, never by dumping dataclasses, and the result is
+privacy-scanned.
 """
 
 from __future__ import annotations
@@ -21,6 +23,7 @@ import copy
 from dataclasses import dataclass
 import hashlib
 import json
+import struct
 from typing import Any, Mapping, Sequence
 
 import numpy as np
@@ -42,6 +45,8 @@ PC2_LAYOUT = {
     "sample0": "exported initial state = Blender frame 1",
 }
 _FLOAT = np.dtype("<f4")
+MAGIC = b"CNXSNAP1"
+_HEADER = struct.Struct("<8sQ")
 _OBJECT_TYPES = frozenset({"SHELL", "SOLID", "ROD"})
 
 
@@ -91,8 +96,13 @@ class ImportSnapshot:
         return canonical_bytes(self.document)
 
     @property
+    def file_bytes(self) -> bytes:
+        raw = self.json_bytes
+        return _HEADER.pack(MAGIC, len(raw)) + raw + self.arrays
+
+    @property
     def digest(self) -> str:
-        return hashlib.sha256(self.json_bytes).hexdigest()
+        return hashlib.sha256(self.file_bytes).hexdigest()
 
     @property
     def objects(self) -> tuple[dict[str, Any], ...]:
@@ -209,15 +219,24 @@ def build_snapshot(*, deformables: Sequence[Any], session_objects: Sequence[Any]
     }
     privacy.require_clean(document, label="Import Snapshot")
     # Round-trip once: guarantees allow_nan=False and canonical stability.
-    return load_snapshot(canonical_bytes(document), arrays)
+    raw = canonical_bytes(document)
+    return load_snapshot(_HEADER.pack(MAGIC, len(raw)) + raw + arrays)
 
 
-def load_snapshot(json_bytes: bytes, arrays: bytes, *,
+def load_snapshot(file_bytes: bytes, *,
                   expected_digest: str | None = None) -> ImportSnapshot:
-    """Parse and fully verify a stored snapshot."""
+    """Parse and fully verify a stored snapshot file."""
+    file_bytes = bytes(file_bytes)
     if expected_digest is not None and \
-            hashlib.sha256(json_bytes).hexdigest() != expected_digest:
+            hashlib.sha256(file_bytes).hexdigest() != expected_digest:
         raise SnapshotError("Import Snapshot digest mismatch")
+    if len(file_bytes) < _HEADER.size:
+        raise SnapshotError("Import Snapshot is truncated")
+    magic, length = _HEADER.unpack_from(file_bytes)
+    if magic != MAGIC or _HEADER.size + length > len(file_bytes):
+        raise SnapshotError("not a Cloth NeXt Import Snapshot file")
+    json_bytes = file_bytes[_HEADER.size:_HEADER.size + length]
+    arrays = file_bytes[_HEADER.size + length:]
     try:
         document = json.loads(json_bytes.decode("utf-8"))
     except (UnicodeError, ValueError) as exc:

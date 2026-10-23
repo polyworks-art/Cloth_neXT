@@ -29,8 +29,7 @@ from .transport import ResultFile, ResultManifest
 
 RESULTS_DIRECTORY = "cloud-results"
 MANIFEST_NAME = "result-manifest.json"
-SNAPSHOT_JSON = "import-snapshot.json"
-SNAPSHOT_ARRAYS = "import-snapshot.bin"
+SNAPSHOT_FILE = "import-snapshot"
 MAP_NAME = "map.cbor"
 SURFACE_MAP_NAME = "surface-map.cbor"
 _BLOCK = re.compile(r"frames-(\d{6})-(\d{6})\.bin")
@@ -123,10 +122,8 @@ class ResultArchive:
         storage.atomic_write(self.file_path(client_job_id, MANIFEST_NAME),
                              json.dumps(document, sort_keys=True, indent=1))
 
-    def store_snapshot(self, client_job_id: str, json_bytes: bytes,
-                       arrays: bytes) -> None:
-        storage.atomic_write(self.file_path(client_job_id, SNAPSHOT_JSON), json_bytes)
-        storage.atomic_write(self.file_path(client_job_id, SNAPSHOT_ARRAYS), arrays)
+    def store_snapshot(self, client_job_id: str, file_bytes: bytes) -> None:
+        storage.atomic_write(self.file_path(client_job_id, SNAPSHOT_FILE), file_bytes)
 
     # Reading -----------------------------------------------------------------
     def load_manifest(self, client_job_id: str) -> ResultManifest:
@@ -138,9 +135,8 @@ class ResultArchive:
         except (OSError, ValueError, TypeError) as exc:
             raise ResultCorrupt("stored result manifest is unreadable") from exc
 
-    def load_snapshot_bytes(self, client_job_id: str) -> tuple[bytes, bytes]:
-        return (self.file_path(client_job_id, SNAPSHOT_JSON).read_bytes(),
-                self.file_path(client_job_id, SNAPSHOT_ARRAYS).read_bytes())
+    def load_snapshot_bytes(self, client_job_id: str) -> bytes:
+        return self.file_path(client_job_id, SNAPSHOT_FILE).read_bytes()
 
     def verify(self, client_job_id: str, manifest: ResultManifest) -> None:
         for item in manifest.files:

@@ -345,28 +345,17 @@ class CloudJobs:
                                     result_folder=client_job_id)
 
     def _archive_snapshot(self, record: JobRecord) -> None:
-        manifest = load_manifest(self.store, record.manifest_sha256, required=False)
-        blobs = {}
-        if manifest is not None:
-            for role in ("snapshot", "snapshot-arrays"):
-                item = next(entry for entry in manifest["files"] if entry["role"] == role)
-                try:
-                    blobs[role] = self.store.verify(item["sha256"], size=item["size"]).read_bytes()
-                except (BlobMissing, BlobCorrupt):
-                    blobs[role] = self.backend.fetch_package_file(record.job_id,
-                                                                  item["sha256"])
-        else:
-            server_manifest = self.backend.fetch_package_file(record.job_id,
-                                                              record.manifest_sha256)
-            import json
-            document = json.loads(server_manifest)
-            for role in ("snapshot", "snapshot-arrays"):
-                item = next(entry for entry in document["files"] if entry["role"] == role)
-                blobs[role] = self.backend.fetch_package_file(record.job_id, item["sha256"])
-        snapshot = load_snapshot(blobs["snapshot"], blobs["snapshot-arrays"],
-                                 expected_digest=record.snapshot_digest)
-        self.archive.store_snapshot(record.client_job_id, snapshot.json_bytes,
-                                    snapshot.arrays)
+        """Keep the snapshot with the result; local copy first, else server."""
+        raw = None
+        if self.store.has(record.snapshot_digest):
+            try:
+                raw = self.store.verify(record.snapshot_digest).read_bytes()
+            except (BlobMissing, BlobCorrupt):
+                raw = None
+        if raw is None:
+            raw = self.backend.fetch_package_file(record.job_id, record.snapshot_digest)
+        snapshot = load_snapshot(raw, expected_digest=record.snapshot_digest)
+        self.archive.store_snapshot(record.client_job_id, snapshot.file_bytes)
 
 
 def load_manifest(store: PackageStore, sha256: str, *, required: bool = True):

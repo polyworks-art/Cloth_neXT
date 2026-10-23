@@ -12,7 +12,7 @@ to run the solver:
 ``official-bindings``   Sewing / face friction rows for the official frontend
 ``hydro-model``         Hydrodynamic Pressure model (when used)
 ``hydro/<name>``        Hydrodynamic Pressure volumes (when used)
-``snapshot``            Import Snapshot JSON, ``snapshot-arrays`` its floats
+``import-snapshot``     Import Snapshot file (opaque to the server)
 
 Every file is copied into the ``PackageStore`` before the manifest exists,
 hashes are over the uncompressed bytes, and the manifest is privacy-scanned.
@@ -214,12 +214,10 @@ def build_package(plan, deformables, *, store: PackageStore,
         frame_count=plan.frame_count, fps=plan.fps, solver=solver,
         addon_version=addon_version,
         payload_hashes={"data": scene.data_hash, "param": scene.param_hash})
-    snapshot_json = store.put_bytes(snapshot.json_bytes)
-    snapshot_arrays = store.put_bytes(snapshot.arrays)
-    files.append(PackageFile("snapshot", "import-snapshot.json",
-                             snapshot_json.sha256, snapshot_json.size))
-    files.append(PackageFile("snapshot-arrays", "import-snapshot.bin",
-                             snapshot_arrays.sha256, snapshot_arrays.size))
+    snapshot_file = store.put_bytes(snapshot.file_bytes,
+                                    expected_sha256=snapshot.digest)
+    files.append(PackageFile("import-snapshot", "import-snapshot",
+                             snapshot_file.sha256, snapshot_file.size))
     timings["snapshot"] = time.monotonic() - step
 
     client_job_id = client_job_id or uuid.uuid4().hex
