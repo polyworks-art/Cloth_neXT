@@ -1078,6 +1078,8 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         elif status.capabilities is not None and status.capabilities.retention_days:
             box.label(text=f"Results stay available for {status.capabilities.retention_days} days")
         box.prop(self, "cloud_auto_download")
+        from . import cloud_ui
+        cloud_ui.draw_jobs(box)
 
     def _draw_solver_section(self, layout) -> None:
         box = layout.box()

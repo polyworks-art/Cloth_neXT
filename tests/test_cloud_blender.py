@@ -130,3 +130,53 @@ def test_bake_label_names_location(blender_env, monkeypatch):
     assert ui.bake_button_text(None, model) == "Rebake · Cloud"
     monkeypatch.setattr(ui, "bake_location", lambda _c: "LOCAL")
     assert ui.bake_button_text(None, model) == "Rebake · This Computer"
+
+
+class _Layout:
+    def __init__(self, log):
+        self.log = log
+        self.alert = False
+
+    def row(self, **_kwargs):
+        return _Layout(self.log)
+
+    box = column = row
+
+    def label(self, text="", **_kwargs):
+        self.log.append(("label", text))
+
+    def operator(self, idname, text="", **_kwargs):
+        props = SimpleNamespace()
+        self.log.append(("operator", text, props))
+        return props
+
+    def prop(self, *_args, **_kwargs):
+        pass
+
+
+def test_jobs_list_draws_from_snapshot_only(blender_env, monkeypatch):
+    import importlib
+    import builtins
+    from cloth_next.cloud.registry import new_record
+    ui = importlib.import_module("cloth_next.blender.cloud_ui")
+    runtime = importlib.import_module("cloth_next.blender.cloud_runtime")
+    record = new_record(client_job_id="c" * 32, display_name="Shirt · 1–24",
+                        solver=GAIA, manifest_sha256="0" * 64,
+                        snapshot_digest="1" * 64, package_hashes=(),
+                        upload_bytes_total=100)
+    paused = record.__class__(**{**record.to_json(), "state": LocalState.UPLOAD_PAUSED,
+                                 "package_hashes": (), "uploaded": ()})
+    monkeypatch.setattr(runtime, "view", lambda: runtime.CloudView(jobs=(paused,)))
+    real_open = builtins.open
+    monkeypatch.setattr(builtins, "open", lambda *a, **k: (_ for _ in ()).throw(
+        AssertionError("draw opened a file")))
+    try:
+        log = []
+        ui.draw_jobs(_Layout(log))
+    finally:
+        monkeypatch.setattr(builtins, "open", real_open)
+    labels = [entry[1] for entry in log if entry[0] == "label"]
+    assert "Shirt · 1–24 · GAIA" in labels
+    assert "Upload paused – not sent" in labels
+    assert [entry[1] for entry in log if entry[0] == "operator"][1:] == [
+        "Resume Upload", "Cancel"]

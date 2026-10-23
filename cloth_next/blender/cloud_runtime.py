@@ -172,6 +172,12 @@ def _perform(runtime: CloudJobs, action: str, client_job_id: str) -> str:
     if action == "download":
         runtime.download(client_job_id)
         return "Cloud result downloaded"
+    if action == "delete_result":
+        # Confirmed by the operator dialog; only this action deletes it (E20).
+        runtime.archive.delete_job(client_job_id, confirmed=True)
+        runtime.registry.update(client_job_id, state=LocalState.SUCCEEDED,
+                                result_folder="")
+        return "Downloaded Cloud result deleted"
     if action == "cancel":
         runtime.cancel(client_job_id)
         return "Cloud job cancelled"
