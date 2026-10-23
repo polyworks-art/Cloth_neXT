@@ -152,7 +152,7 @@ def test_solver_panel_contains_large_main_bake_action(blender_env, monkeypatch):
                             "Ready · Protocol 0.11", ("Schema 1",)))
     panel = ui.CLOTHNEXT_PT_solver(); panel.layout = RecordingLayout()
     panel.draw(context)
-    assert ("clothnext.bake", "BAKE", True) in panel.layout.operators
+    assert ("clothnext.bake", "Bake · This Computer", True) in panel.layout.operators
     split_index = panel.layout.containers.index("split")
     assert panel.layout.containers[split_index:split_index + 3] == [
         "split", "column", "column"]
@@ -170,7 +170,7 @@ def test_bake_disabled_when_ppf_unavailable(blender_env, monkeypatch):
                         lambda _c: ui._SolverStatus(False, "Not configured"))
     panel = ui.CLOTHNEXT_PT_solver(); panel.layout = RecordingLayout()
     panel.draw(context)
-    assert ("clothnext.bake", "BAKE", False) in panel.layout.operators
+    assert ("clothnext.bake", "Bake · This Computer", False) in panel.layout.operators
     assert "The simulation solver is not configured." in panel.layout.labels
     assert any(item[0] == "clothnext.open_preferences"
                for item in panel.layout.operators)
@@ -440,7 +440,7 @@ def test_solver_panel_offers_cache_directory_button(blender_env, monkeypatch):
     # The set-directory button is present and stays enabled even though the
     # Bake button itself is disabled, so the artist can satisfy the gate.
     assert ("clothnext.set_cache_directory", "", True) in panel.layout.operators
-    assert ("clothnext.bake", "BAKE", False) in panel.layout.operators
+    assert ("clothnext.bake", "Bake · This Computer", False) in panel.layout.operators
     env.registration.unregister()
 
 
@@ -459,7 +459,7 @@ def test_cloth_simulation_places_bake_directory_and_statistics_together(
     panel = ui.CLOTHNEXT_PT_simulation()
     panel.layout = RecordingLayout()
     panel.draw(context)
-    assert ("clothnext.bake", "BAKE", True) in panel.layout.operators
+    assert ("clothnext.bake", "Bake · This Computer", True) in panel.layout.operators
     assert ("clothnext.set_cache_directory", "", True) in panel.layout.operators
     assert not any(identifier == "clothnext.validate"
                    for identifier, _text, _enabled in panel.layout.operators)
@@ -532,7 +532,7 @@ def test_soft_body_simulation_reuses_bake_action_and_scene_statistics(
     panel = ui.CLOTHNEXT_PT_simulation()
     panel.layout = RecordingLayout()
     panel.draw(context)
-    assert ("clothnext.bake", "BAKE", True) in panel.layout.operators
+    assert ("clothnext.bake", "Bake · This Computer", True) in panel.layout.operators
     assert ("clothnext.set_cache_directory", "", True) in \
         panel.layout.operators
     assert "2 Deformables · 2 Colliders · 1 Force" in panel.layout.labels
@@ -560,7 +560,7 @@ def test_rigid_body_simulation_uses_role_specific_scene_statistics(
     panel = ui.CLOTHNEXT_PT_simulation()
     panel.layout = RecordingLayout()
     panel.draw(context)
-    assert ("clothnext.bake", "BAKE", True) in panel.layout.operators
+    assert ("clothnext.bake", "Bake · This Computer", True) in panel.layout.operators
     assert ("clothnext.set_cache_directory", "", True) in \
         panel.layout.operators
     assert "1 Rigid Body · 2 Deformables · 2 Colliders" in \
@@ -592,7 +592,7 @@ def test_cable_rope_simulation_reuses_bake_and_compact_statistics(
     panel = ui.CLOTHNEXT_PT_simulation()
     panel.layout = RecordingLayout()
     panel.draw(context)
-    assert ("clothnext.bake", "BAKE", True) in panel.layout.operators
+    assert ("clothnext.bake", "Bake · This Computer", True) in panel.layout.operators
     assert ("clothnext.set_cache_directory", "", True) in \
         panel.layout.operators
     assert "2 Deformables · 1 Collider · 1 Force" in panel.layout.labels
@@ -629,7 +629,7 @@ def test_collider_simulation_starts_global_bake_without_quality_row(
     panel = ui.CLOTHNEXT_PT_simulation()
     panel.layout = RecordingLayout()
     panel.draw(context)
-    assert ("clothnext.bake", "BAKE", True) in panel.layout.operators
+    assert ("clothnext.bake", "Bake · This Computer", True) in panel.layout.operators
     assert ("clothnext.set_cache_directory", "", True) in \
         panel.layout.operators
     assert "Quality" not in panel.layout.labels
@@ -665,7 +665,7 @@ def test_force_simulation_starts_global_bake_without_quality_row(
     panel = ui.CLOTHNEXT_PT_simulation()
     panel.layout = RecordingLayout()
     panel.draw(context)
-    assert ("clothnext.bake", "BAKE", True) in panel.layout.operators
+    assert ("clothnext.bake", "Bake · This Computer", True) in panel.layout.operators
     assert ("clothnext.set_cache_directory", "", True) in \
         panel.layout.operators
     assert "Quality" not in panel.layout.labels
@@ -720,7 +720,7 @@ def test_large_animated_collider_warns_below_enabled_bake_button(
     panel = ui.CLOTHNEXT_PT_solver(); panel.layout = RecordingLayout()
     panel.draw(context)
 
-    assert ("clothnext.bake", "BAKE", True) in panel.layout.operators
+    assert ("clothnext.bake", "Bake · This Computer", True) in panel.layout.operators
     assert "Large animated Collider capture: ~2.85 GiB" in panel.layout.labels
     assert "Bake allowed · Low-poly collision proxy recommended." in \
         panel.layout.labels
@@ -741,7 +741,7 @@ def test_high_collider_gap_and_grip_warn_without_blocking_bake(
     panel = ui.CLOTHNEXT_PT_solver(); panel.layout = RecordingLayout()
     panel.draw(context)
 
-    assert ("clothnext.bake", "BAKE", True) in panel.layout.operators
+    assert ("clothnext.bake", "Bake · This Computer", True) in panel.layout.operators
     assert "High Collision Gap and Friction can destabilize pinned Cloth." in \
         panel.layout.labels
     assert "Bake allowed · Try Gap 0.001 and Friction 0.2–0.3" in \

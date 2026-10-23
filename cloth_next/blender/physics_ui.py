@@ -486,7 +486,7 @@ class CLOTHNEXT_PT_solver(_ClothNextSubpanel, bpy.types.Panel):
         bake_button = split.column(align=True)
         bake_button.scale_y = 1.6
         bake_button.enabled = model.enabled and not snapshot.active
-        bake_button.operator("clothnext.bake", text=model.action,
+        bake_button.operator("clothnext.bake", text=bake_button_text(context, model),
                              **icon_registry.icon_kwargs("bake",
                                                          "RENDER_ANIMATION"))
         # Small folder button on the right sets the Cache Directory. It stays
@@ -863,7 +863,26 @@ def _bake_panel_model(context, solver_status: _SolverStatus | None = None) \
             for obj in cloths):
         reason = ("Set a Cache Directory (folder button next to Bake) so the "
                   "result survives a Blender restart.")
+    location = bake_location(context)
+    if not reason and location == "CLOUD":
+        from ..cloud import service
+        # Never a silent fallback to this computer (concept 12.1).
+        reason = service.availability().reason or (
+            "Cloud submission is not connected in this version.")
     return _BakePanelModel(not reason, action, reason, summary, cache_label)
+
+
+def bake_location(context) -> str:
+    try:
+        from .addon_identity import addon_preferences
+        return str(addon_preferences(context, __package__).bake_location)
+    except (KeyError, AttributeError, TypeError):
+        return "LOCAL"
+
+
+def bake_button_text(context, model) -> str:
+    where = "Cloud" if bake_location(context) == "CLOUD" else "This Computer"
+    return f"{model.action.title()} · {where}"
 
 
 def _animated_collider_capture_warning(context, solver_test):
@@ -1087,7 +1106,7 @@ def _draw_bake_action(layout, context, model, snapshot) -> None:
     bake_button = split.column(align=True)
     bake_button.scale_y = 1.6
     bake_button.enabled = model.enabled
-    bake_button.operator("clothnext.bake", text=model.action,
+    bake_button.operator("clothnext.bake", text=bake_button_text(context, model),
                          **icon_registry.icon_kwargs("bake",
                                                      "RENDER_ANIMATION"))
     set_dir = split.column(align=True)

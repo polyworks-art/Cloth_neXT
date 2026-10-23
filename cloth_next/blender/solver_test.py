@@ -10611,6 +10611,15 @@ class CLOTHNEXT_OT_bake(bpy.types.Operator):
                 and not shared_controller.snapshot().active)
 
     def execute(self, context):
+        from .physics_ui import bake_location
+        if bake_location(context) == "CLOUD":
+            # Cloud is a separate submission path; it never falls back to a
+            # local Bake. Until the Cloud service is connected it refuses.
+            from ..cloud import service
+            status = service.availability()
+            self.report({"ERROR"}, status.reason or
+                        "Cloud submission is not connected in this version.")
+            return {"CANCELLED"}
         try:
             from . import solver_backends
             _job_id, waiting = solver_backends.begin_bake(context)

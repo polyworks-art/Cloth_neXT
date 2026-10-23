@@ -926,6 +926,17 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         default="AUTO",
         description="Backend for future Bakes; an explicit choice never falls back")
 
+    bake_location: bpy.props.EnumProperty(
+        name="Bake Location",
+        items=(("LOCAL", "This Computer", "Simulate with the selected solver on this computer"),
+               ("CLOUD", "Cloud", "Send the exported Bake to the PolyWorks Cloud and retrieve the result later")),
+        default="LOCAL",
+        description="Where future Bakes run. Cloth NeXt never switches location by itself")
+    cloud_auto_download: bpy.props.BoolProperty(
+        name="Download Results Automatically", default=True,
+        description="Download finished Cloud results while Blender is running and enough disk space is free; "
+                    "otherwise they stay on the server until they expire")
+
     developer_tools: bpy.props.BoolProperty(
         name="Developer Tools", default=False,
         description="Show internal solver tests and UI diagnostics in the "
@@ -993,6 +1004,8 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
             owner.label(text="Enable Hydrodynamic Pressure on the cloth's Fluid Interaction panel.")
             owner.label(text="Self-contact parity 19/20; trajectory repeatability exceeds 8 mm.")
 
+        self._draw_bake_location(layout)
+
         general = layout.box()
         general.label(text="General")
         general.prop(self, "auto_launch_bake_window")
@@ -1048,6 +1061,23 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         from .account_status import current_view
         draw_account_card(layout, repository_status(context.preferences.extensions.repos),
                           current_view())
+
+    def _draw_bake_location(self, layout) -> None:
+        """Cached Cloud status only: no network or file access while drawing."""
+        from ..cloud import service
+        box = layout.box()
+        box.label(text="Bake Location")
+        box.prop(self, "bake_location")
+        if getattr(self, "bake_location", "LOCAL") != "CLOUD":
+            return
+        status = service.availability()
+        if not status.available:
+            row = box.row()
+            row.alert = True
+            row.label(text=status.reason, icon="ERROR")
+        elif status.capabilities is not None and status.capabilities.retention_days:
+            box.label(text=f"Results stay available for {status.capabilities.retention_days} days")
+        box.prop(self, "cloud_auto_download")
 
     def _draw_solver_section(self, layout) -> None:
         box = layout.box()
