@@ -50,6 +50,8 @@ def parse():
     parser.add_argument("--blend", type=Path)
     parser.add_argument("--flip-cache", type=Path)
     parser.add_argument("--character-dna", action="store_true")
+    parser.add_argument("--dry", action="store_true",
+                        help="water scene with Water Flow off (control run)")
     parser.add_argument("--first", type=int, default=130)
     parser.add_argument("--last", type=int, default=140)
     return parser.parse_args(sys.argv[sys.argv.index("--") + 1:])
@@ -266,8 +268,8 @@ def scene_water():
         s = obj.cloth_next
         s.bake_start, s.bake_end = ARGS.first, ARGS.last
         s.cache_directory = str(ARGS.output / "local")
-        s.water_flow_enabled = True
-        s.water_hydrodynamic_pressure = True
+        s.water_flow_enabled = not ARGS.dry
+        s.water_hydrodynamic_pressure = not ARGS.dry
         s.water_flow_domain = domains[0]
         s.water_flow_container = str(ARGS.output / "Fluid.gaia")
         s.water_flow_influence = 1.0

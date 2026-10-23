@@ -109,7 +109,9 @@ def main() -> int:
                              for item in snapshot.objects],
         "snapshot_arrays_files": 0,
         "snapshot_arrays_note": "initial positions are inside the single import-snapshot file",
-        "fluid_file": False, "water_mode": manifest["water_mode"],
+        "fluid_files": sorted({item["role"] for item in manifest["files"]
+                               if item["role"].startswith("hydro") or item["role"] == "fluid"}),
+        "water_mode": manifest["water_mode"],
         "privacy_findings": hits,
         "native_hashes_match_manifest": (
             identity["solver_sha256"] == manifest["solver_sha256"]
