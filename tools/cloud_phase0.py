@@ -104,13 +104,16 @@ def engine_identity(root: Path, resolved) -> dict:
     common = {"package_version": resolved.package_version or "unknown",
               "protocol_version": resolved.protocol_version or "unknown",
               "schema_version": resolved.schema_version or "unknown"}
+    from cloth_next.cloud.package import native_hashes
+    common.update(native_hashes(resolved))
     build = engines.read_gaia_build(root)
     if build is not None:
         return {"engine": "GAIA", "build_id": build.build_id, "version": build.version,
                 "source_revision": build.source_revision, "platform": build.platform,
                 "backend": build.backend, **common}
     tag = root.name if root.name != "aether" else "2026-10-13-12-32"
-    return {"engine": "AETHER", "build_id": f"aether:{tag}", "release_tag": tag, **common}
+    return {"engine": "AETHER", "build_id": tag, "version": tag, "release_tag": tag,
+            **common}
 
 
 ROOT = ARGS.solver_root.resolve()
@@ -341,11 +344,16 @@ real_executor = solver_executor(RESOLVED, ARGS.output / "server",
                                 report=EXECUTE_REPORT)
 
 
-backend = CloudTestBackend(executor=real_executor, builds=(SOLVER["build_id"],))
+backend = CloudTestBackend(executor=real_executor, builds=[{
+    "engine": SOLVER["engine"], "build_id": SOLVER["build_id"],
+    "solver_sha256": SOLVER["solver_sha256"], "worker_sha256": SOLVER["worker_sha256"],
+    "server_build": SOLVER["build_id"]}])
 registry = JobRegistry(account)
 archive = ResultArchive(account / "cloud-results")
 jobs = CloudJobs(backend, registry, store, archive, upload_block=4 * 1024 * 1024)
 jobs.register(package)
+quoted = jobs.request_quote(package.client_job_id)
+jobs.accept_quote(package.client_job_id, quoted.quote_id)
 step = time.monotonic()
 record = jobs.upload_and_submit(package.client_job_id)
 REPORT["steps"]["3_transfer"] = {"seconds": round(time.monotonic() - step, 2),

@@ -30,6 +30,8 @@ def parse():
     parser.add_argument("--solver-root", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--frames", type=int, default=12)
+    parser.add_argument("--http", action="store_true",
+                        help="talk Cloud API v1 over loopback HTTP (zstd uploads)")
     return parser.parse_args(sys.argv[sys.argv.index("--") + 1:])
 
 
@@ -69,14 +71,24 @@ RESOLVED = SolverResolver(solver_test._version_probe).resolve(SolverResolutionCo
 BUILD = engines.read_gaia_build(ROOT)
 SOLVER = {"engine": "GAIA", "build_id": BUILD.build_id, "version": BUILD.version,
           "package_version": RESOLVED.package_version, "protocol_version":
-          RESOLVED.protocol_version, "schema_version": RESOLVED.schema_version}
+          RESOLVED.protocol_version, "schema_version": RESOLVED.schema_version,
+          **cloud_package.native_hashes(RESOLVED)}
 solver_test.resolve_solver = lambda _context: RESOLVED
 # The copied solver has no registry installation; identify it like Blender would.
 cloud_package.solver_identity = lambda _resolved: dict(SOLVER)
-backend = CloudTestBackend(builds=(BUILD.build_id,), executor=solver_executor(
-    RESOLVED, ARGS.output / "server", BUILD.build_id))
-service.install_backend(lambda: backend)
-service.record_capabilities(backend.capabilities())
+backend = CloudTestBackend(builds=[{
+    "engine": "GAIA", "build_id": BUILD.build_id, "solver_sha256": SOLVER["solver_sha256"],
+    "worker_sha256": SOLVER["worker_sha256"], "server_build": BUILD.build_id + "-server"}],
+    executor=solver_executor(RESOLVED, ARGS.output / "server", BUILD.build_id + "-server"))
+client = backend
+if ARGS.http:
+    from cloth_next.cloud.http_v1 import HttpCloudBackend
+    from tests.cloud_http_server import TOKEN, CloudHttpServer
+    SERVER = CloudHttpServer(backend)
+    client = HttpCloudBackend(lambda: TOKEN, origin=SERVER.origin)
+    REPORT["transport"] = "http-v1-loopback"
+service.install_backend(lambda: client)
+service.record_capabilities(client.capabilities())
 cloud_runtime.reset()
 
 prefs = bpy.context.preferences.addons["cloth_next"].preferences
@@ -122,6 +134,13 @@ def wait(predicate, seconds=60.0):
     return False
 
 
+awaiting = wait(lambda: any(job.state is LocalState.AWAITING_APPROVAL
+                             for job in cloud_runtime.view().jobs))
+pending = cloud_runtime.view().jobs[-1] if cloud_runtime.view().jobs else None
+check("quote_waits_for_confirmation", awaiting and not any(
+    name == "create_job" for _a, name in backend.calls),
+    pending and cloud_runtime.describe_state(pending))
+cloud_runtime.approve(pending.client_job_id, pending.quote_id)   # "Review & Send"
 queued = wait(lambda: any(job.state is LocalState.QUEUED for job in cloud_runtime.view().jobs))
 check("upload_and_submit_confirmed", queued, cloud_runtime.view().message)
 backend.run_pending()                       # real GAIA run on this PC

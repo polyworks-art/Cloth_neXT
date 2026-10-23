@@ -37,6 +37,13 @@ from .package_store import PackageStore, StoredBlob
 from .snapshot import ImportSnapshot, build_snapshot, canonical_bytes
 
 MANIFEST_SCHEMA_VERSION = 1
+_TOKEN_INVALID = __import__("re").compile(r"[^A-Za-z0-9_.+-]+")
+
+
+def _token(value, fallback: str = "unknown") -> str:
+    """OpenAPI identifier fields allow ``[A-Za-z0-9_.+-]{1,128}`` only."""
+    text = _TOKEN_INVALID.sub("-", str(value or "")).strip("-")[:128]
+    return text or fallback
 HYDRO_MODEL_ENV = "PPF_EXPERIMENTAL_HYDRO_TEST_JSON"
 HYDRO_VOLUME_ENV = "PPF_EXPERIMENTAL_HYDRO_VOLUME_DIR"
 # Local preparation logs; they name local FLIP paths and are not solver input.
@@ -265,19 +272,19 @@ def build_package(plan, deformables, *, store: PackageStore,
     manifest = {
         "schema_version": MANIFEST_SCHEMA_VERSION,
         "client_job_id": client_job_id,
-        "addon_version": str(addon_version),
-        "blender_version": str(blender_version),
+        "addon_version": _token(addon_version),
+        "blender_version": _token(blender_version),
         "engine": solver["engine"],
-        "solver_version": str(solver.get("version") or solver["build_id"]),
-        "build_id": solver["build_id"],
+        "solver_version": _token(solver.get("version") or solver["build_id"]),
+        "build_id": _token(solver["build_id"]),
         "solver_sha256": solver["solver_sha256"],
         "worker_sha256": solver["worker_sha256"],
-        "protocol": str(solver.get("protocol_version", "")),
-        "payload_schema": str(solver.get("schema_version", "")),
+        "protocol": _token(solver.get("protocol_version")),
+        "payload_schema": _token(solver.get("schema_version")),
         "frame_start": int(plan.frame_start),
         "frame_end": int(plan.frame_end),
         "fps": float(plan.fps),
-        "quality": str(getattr(plan, "preset_identifier", "") or "default"),
+        "quality": _token(getattr(plan, "preset_identifier", ""), "default"),
         "deterministic": bool(getattr(plan.resolved, "solver_environment", ())),
         "water_flow": water_mode != "none",
         "water_mode": water_mode,

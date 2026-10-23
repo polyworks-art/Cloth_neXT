@@ -169,6 +169,14 @@ def _perform(runtime: CloudJobs, action: str, client_job_id: str) -> str:
         if record.submitted_confirmed:
             return "Job confirmed. You can close Blender."
         return ""
+    if action == "capabilities":
+        try:
+            service.record_capabilities(runtime.backend.capabilities())
+        except Exception as exc:  # noqa: BLE001 - cached as a trusted code
+            from ..cloud import errors as cloud_errors
+            service.record_capabilities(None, cloud_errors.code_of(exc))
+            raise
+        return ""
     if action == "quote":
         runtime.request_quote(client_job_id)
         return "Review the Cloud cost limit to send this job."
@@ -248,9 +256,18 @@ def tick() -> float:
 
 
 def start() -> None:
-    """After register: settle unclear jobs from an earlier session (E23.4)."""
+    """After register: connect if Cloud routing is on, then settle unclear
+    jobs from an earlier session (E23.4) and fetch the capabilities."""
+    if service.backend() is None:
+        try:
+            factory = service.default_factory()
+        except ValueError:
+            factory = None  # an invalid origin keeps Cloud unavailable
+        if factory is not None:
+            service.install_backend(factory)
     if service.availability().reason == service.PENDING_REASON:
         return
+    enqueue("capabilities")
     enqueue("recover")
 
 

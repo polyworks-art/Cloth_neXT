@@ -115,6 +115,8 @@ class CloudJobs:
         manifest = load_manifest(self.store, record.manifest_sha256)
         # The artist is waiting for this answer: no silent backoff loop.
         capabilities = self.backend.capabilities()
+        if capabilities.raw_chunk_bytes:
+            self._upload_block = min(self._upload_block, capabilities.raw_chunk_bytes)
         mapping = capabilities.mapping_for(manifest)
         if mapping is None:
             self.registry.update(client_job_id, state=LocalState.UPLOAD_PAUSED,

@@ -59,7 +59,7 @@ class RawRunOutput:
 
 class CloudTestBackend:
     def __init__(self, *, executor=None, account: str = "account-a",
-                 builds=None, quote_maximum: float = 30.0) -> None:
+                 builds=None, quote_maximum: int = 30) -> None:
         self.lock = threading.Lock()
         self.account = account
         self.executor = executor

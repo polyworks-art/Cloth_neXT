@@ -37,11 +37,11 @@ from cloth_next.topology import reference_topology_signature
 
 from tests.cloud_backend import CloudTestBackend, RawRunOutput
 
-GAIA = {"engine": "GAIA", "build_id": "gaia:test", "version": "0.26.0-test",
+GAIA = {"engine": "GAIA", "build_id": "gaia-test", "version": "0.26.0-test",
         "package_version": "0.26.0", "protocol_version": "0.26",
         "schema_version": "2", "solver_sha256": "a" * 64, "worker_sha256": "b" * 64}
-OFFERED = [{"engine": "GAIA", "build_id": "gaia:test", "solver_sha256": "a" * 64,
-            "worker_sha256": "b" * 64, "server_build": "gaia:test-linux"}]
+OFFERED = [{"engine": "GAIA", "build_id": "gaia-test", "solver_sha256": "a" * 64,
+            "worker_sha256": "b" * 64, "server_build": "gaia-test-linux"}]
 IDENTITY = ((1.0, 0, 0, 0), (0, 1.0, 0, 0), (0, 0, 1.0, 0), (0, 0, 0, 1.0))
 MOVED = ((1.0, 0, 0, 2.0), (0, 1.0, 0, -1.0), (0, 0, 1.0, 0.5), (0, 0, 0, 1.0))
 
@@ -62,7 +62,7 @@ class Deformable:  # DeformablePlan-shaped
 
 def material_meta(vertex_count, frame_count, *, name="Shirt"):
     return {
-        "fingerprints": {"settings": "s" * 8, "geometry": "g" * 8,
+        "fingerprints": {"settings": "5" * 64, "geometry": "6" * 64,
                          "combined": "c" * 8, "topology": "t" * 8,
                          "object": "o" * 8, "scene": "x" * 8},
         "identities": {"cloth_next_version": "2.9.39", "blender_version": "5.2.2",
@@ -90,20 +90,20 @@ def make_plan(tmp_path, *, frames=5, world=IDENTITY, param_marker=b"param",
     initial = tuple((float(i), float(i % 2), 0.0) for i in range(4))
     data, param = scene_payloads(tmp_path, param_marker=param_marker)
     kind = "SOLID" if solid else "SHELL"
-    session_object = SessionDeformable("uuid-shirt", "uuid-shirt", 4, kind,
+    session_object = SessionDeformable("7d0e2b1c-3f4a-4c5d-8e6f-0a1b2c3d4e5f", "7d0e2b1c-3f4a-4c5d-8e6f-0a1b2c3d4e5f", 4, kind,
                                        solver_world_matrix(world))
     scene = SessionScene(
-        "clothnext_test", "uuid-shirt", "uuid-shirt", 4, "", "", frames,
+        "clothnext_test", "7d0e2b1c-3f4a-4c5d-8e6f-0a1b2c3d4e5f", "7d0e2b1c-3f4a-4c5d-8e6f-0a1b2c3d4e5f", 4, "", "", frames,
         data, param, envelope.payload_sha256(data), envelope.payload_sha256(param),
         deformables=(session_object,), official_bridge_json='{"stitches":[]}')
-    deformable = Deformable(initial, world, name, "uuid-shirt",
+    deformable = Deformable(initial, world, name, "7d0e2b1c-3f4a-4c5d-8e6f-0a1b2c3d4e5f",
                             tmp_path / "local" / "cn_test_cloth_shirt.pc2",
                             "topology-1", material_meta(4, frames, name=name),
                             "CLOTH", tuple(stitch_pairs), snap)
     plan = SimpleNamespace(
         scene=scene, resolved=SimpleNamespace(solver_environment=()),
         frame_start=1, frame_end=frames, frame_count=frames, fps=24.0,
-        settings_fingerprint="s" * 8, geometry_fingerprint="g" * 8)
+        settings_fingerprint="5" * 64, geometry_fingerprint="6" * 64)
     return plan, (deformable,)
 
 
@@ -124,8 +124,8 @@ def synthetic_frames(frames, *, total=6, solid=False):
 
 def vertex_map_blob():
     return cbor_codec.dumps({"version": 2, "kind": "VertexMap",
-                             "payload": {"uuid-shirt": [0, 1, 2, 3],
-                                         "uuid-collider": [4, 5]}})
+                             "payload": {"7d0e2b1c-3f4a-4c5d-8e6f-0a1b2c3d4e5f": [0, 1, 2, 3],
+                                         "7d0e2b1c-3f4a-4c5d-8e6f-0a1b2c3d4e60": [4, 5]}})
 
 
 def synthetic_executor(*, partial_after=None, failed=""):
@@ -178,7 +178,7 @@ def local_reference(tmp_path, deformables, frames, *, schema=2):
         d.material_meta) for d in deformables)
     _map, extraction = solver_results.prepare_output_extraction(
         vertex_map_blob(), None,
-        (solver_results.ExtractionTarget("uuid-shirt", 4, "SHELL"),),
+        (solver_results.ExtractionTarget("7d0e2b1c-3f4a-4c5d-8e6f-0a1b2c3d4e5f", 4, "SHELL"),),
         schema_version=schema)
     caches = result_import.PlaybackCacheImport(targets, frame_count=frames)
     caches.begin()
@@ -186,7 +186,7 @@ def local_reference(tmp_path, deformables, frames, *, schema=2):
     for index, positions in enumerate(synthetic_frames(frames), start=1):
         caches.write_frame(solver_results.extract_dynamic_frame(
             positions, extraction,
-            (solver_results.ExtractionTarget("uuid-shirt", 4, "SHELL"),),
+            (solver_results.ExtractionTarget("7d0e2b1c-3f4a-4c5d-8e6f-0a1b2c3d4e5f", 4, "SHELL"),),
             frame=index))
     caches.finalize(solver_identity={"package_version": "0.26.0",
                                      "protocol_version": "0.26",
@@ -215,7 +215,7 @@ def test_snapshot_is_deterministic_and_verifies(tmp_path):
     assert first.file_bytes == second.file_bytes
     assert first.digest == second.digest
     restored = load_snapshot(first.file_bytes, expected_digest=first.digest)
-    np.testing.assert_array_equal(restored.initial_local("uuid-shirt"),
+    np.testing.assert_array_equal(restored.initial_local("7d0e2b1c-3f4a-4c5d-8e6f-0a1b2c3d4e5f"),
                                   np.asarray(deformables[0].initial_local, "<f4"))
     # Local install provenance is dropped; nothing else is invented.
     meta = restored.objects[0]["material_meta"]
@@ -321,7 +321,7 @@ def test_package_manifest_has_hashes_and_no_private_data(cloud, tmp_path):
     assert roles["import-snapshot"]["sha256"] == package.snapshot.digest
     assert manifest["import_snapshot_digest"] == package.snapshot.digest
     assert manifest["objects"] == [{
-        "uuid": "uuid-shirt", "deformable_type": "SHELL", "vertex_count": 4}]
+        "uuid": "7d0e2b1c-3f4a-4c5d-8e6f-0a1b2c3d4e5f", "deformable_type": "SHELL", "vertex_count": 4}]
     assert privacy.findings(manifest) == []
     raw = cloud.store.verify(package.manifest_sha256).read_bytes()
     assert hashlib.sha256(raw).hexdigest() == package.manifest_sha256
@@ -387,15 +387,15 @@ def test_full_cycle_matches_local_import_bytes(cloud, tmp_path):
                                       record.snapshot_digest)
     target = tmp_path / "cloud" / "cn_test_cloth_shirt.pc2"
     import_result(archive, package.client_job_id, snapshot=snapshot,
-                  job_id=record.job_id, pc2_paths={"uuid-shirt": target})
+                  job_id=record.job_id, pc2_paths={"7d0e2b1c-3f4a-4c5d-8e6f-0a1b2c3d4e5f": target})
     reference = local_reference(tmp_path, deformables, 5)
     assert target.read_bytes() == reference.read_bytes()
     cloud_meta = json.loads(cache_metadata.sidecar_path(target).read_text())
     local_meta = json.loads(cache_metadata.sidecar_path(reference).read_text())
     assert cloud_meta.pop("execution") == {
         "kind": "cloud", "job_id": record.job_id,
-        "client_job_id": package.client_job_id, "build_id": "gaia:test-linux",
-        "desktop_build_id": "gaia:test",
+        "client_job_id": package.client_job_id, "build_id": "gaia-test-linux",
+        "desktop_build_id": "gaia-test",
         "snapshot_digest": snapshot.digest, "solver_frames": 4,
         "partial_of_job": False}
     for meta in (cloud_meta, local_meta):
@@ -404,8 +404,8 @@ def test_full_cycle_matches_local_import_bytes(cloud, tmp_path):
         meta.pop("timings", None)
         meta["identities"]["solver"].pop("source_metadata", None)
     assert cloud_meta == local_meta
-    inspection = cache_metadata.inspect_cache(target, settings_fingerprint="s" * 8,
-                                              geometry_fingerprint="g" * 8)
+    inspection = cache_metadata.inspect_cache(target, settings_fingerprint="5" * 64,
+                                              geometry_fingerprint="6" * 64)
     assert inspection.condition is cache_metadata.CacheCondition.READY
 
 
@@ -416,7 +416,7 @@ def test_import_uses_snapshot_matrix_not_current_scene(cloud, tmp_path):
                                       record.snapshot_digest)
     target = tmp_path / "cloud.pc2"
     import_result(cloud.jobs.archive, package.client_job_id, snapshot=snapshot,
-                  job_id=record.job_id, pc2_paths={"uuid-shirt": target})
+                  job_id=record.job_id, pc2_paths={"7d0e2b1c-3f4a-4c5d-8e6f-0a1b2c3d4e5f": target})
     frames = list(pc2.iter_frames(target))
     expected = synthetic_frames(5)[0][:4].astype(np.float64)
     from cloth_next.ppf.coordinates import solver_world_to_object_local, transform_points_numpy
@@ -628,7 +628,7 @@ def test_partial_result_writes_shorter_complete_cache(cloud, tmp_path):
                                       record.snapshot_digest)
     target = tmp_path / "partial.pc2"
     import_result(cloud.jobs.archive, package.client_job_id, snapshot=snapshot,
-                  job_id=record.job_id, pc2_paths={"uuid-shirt": target})
+                  job_id=record.job_id, pc2_paths={"7d0e2b1c-3f4a-4c5d-8e6f-0a1b2c3d4e5f": target})
     assert pc2.read_header(target).frame_count == 3
     meta = json.loads(cache_metadata.sidecar_path(target).read_text())
     assert meta["details"]["partial_of_job"] is True
@@ -644,7 +644,7 @@ def test_sewing_snap_runs_in_cloud_import(cloud, tmp_path):
                                       record.snapshot_digest)
     target = tmp_path / "sewn.pc2"
     import_result(cloud.jobs.archive, package.client_job_id, snapshot=snapshot,
-                  job_id=record.job_id, pc2_paths={"uuid-shirt": target})
+                  job_id=record.job_id, pc2_paths={"7d0e2b1c-3f4a-4c5d-8e6f-0a1b2c3d4e5f": target})
     frames = list(pc2.iter_frames(target))
     np.testing.assert_array_equal(frames[1][0], frames[1][1])
     assert target.read_bytes() == local_reference(tmp_path, deformables, 5).read_bytes()
@@ -671,14 +671,14 @@ def test_solid_reconstruction_uses_shared_surface_map(tmp_path):
 def test_import_rejects_result_from_another_build(cloud, tmp_path):
     def wrong_build(job, files):
         output = synthetic_executor()(job, files)
-        output.build_id = "gaia:other"
+        output.build_id = "gaia-other"
         return output
     cloud.backend.executor = wrong_build
     _plan, _deformables, package = package_for(cloud, tmp_path)
     cloud.jobs.upload_and_submit(package.client_job_id)
     cloud.backend.run_pending()
     cloud.jobs.refresh(package.client_job_id)
-    with pytest.raises(ResultError, match="gaia:other"):
+    with pytest.raises(ResultError, match="gaia-other"):
         cloud.jobs.download(package.client_job_id)
 
 
@@ -772,7 +772,7 @@ def test_nothing_is_created_before_approval(cloud, tmp_path):
         cloud.jobs.upload_and_submit(package.client_job_id)
     record = cloud.jobs.request_quote(package.client_job_id)
     assert (record.quote_maximum, record.quote_unit) == (30.0, "test_second")
-    assert record.server_build_id == "gaia:test-linux"
+    assert record.server_build_id == "gaia-test-linux"
     assert not any(name == "create_job" for _a, name in cloud.backend.calls)
     with pytest.raises(ApprovalRequired):
         cloud.jobs.accept_quote(package.client_job_id, "another-quote")

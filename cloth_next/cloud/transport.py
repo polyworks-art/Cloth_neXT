@@ -90,11 +90,14 @@ class DesktopBuild:
     worker_sha256: str
     server_build: str = ""
     water_modes: tuple[str, ...] = ()
+    protocol: str = ""
+    payload_schema: str = ""
+    water_flow: bool = True
 
 
 @dataclass(frozen=True, slots=True)
 class Capabilities:
-    enabled: bool
+    enabled: bool                            # Cloud API usable at all
     engines: tuple[str, ...]
     builds: tuple[str, ...]                  # offered desktop build ids
     package_schema: int
@@ -105,14 +108,24 @@ class Capabilities:
     raw_chunk_bytes: int = 4 * 1024 * 1024
     billing_mode: str = ""
     partial_results: bool = False
+    execution_enabled: bool = False          # RunPod execution configured
+    upload_encodings: tuple[str, ...] = ("identity",)
 
     def mapping_for(self, solver: Mapping[str, Any]) -> DesktopBuild | None:
-        """The configured mapping for exactly this desktop build, if any."""
+        """The configured mapping for exactly this desktop build, if any.
+
+        Engine, build id and both native hashes must match; protocol, payload
+        schema and water support too when the runtime declares them.
+        """
         for item in self.desktop_builds:
             if (item.engine == solver.get("engine")
                     and item.build_id == solver.get("build_id")
                     and item.solver_sha256 == solver.get("solver_sha256")
-                    and item.worker_sha256 == solver.get("worker_sha256")):
+                    and item.worker_sha256 == solver.get("worker_sha256")
+                    and (not item.protocol or item.protocol == solver.get("protocol"))
+                    and (not item.payload_schema
+                         or item.payload_schema == solver.get("payload_schema"))
+                    and (item.water_flow or not solver.get("water_flow"))):
                 return item
         return None
 

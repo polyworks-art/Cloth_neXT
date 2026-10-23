@@ -223,7 +223,7 @@ def test_review_lines_show_server_quote_and_test_billing(blender_env):
                                  "quote_maximum": 30.0, "quote_unit": "test_second",
                                  "quote_expires_at": "2026-10-23T12:10:00Z",
                                  "quote_billing_mode": "test"})
-    manifest = {"engine": "GAIA", "build_id": "gaia:test", "frame_start": 1,
+    manifest = {"engine": "GAIA", "build_id": "gaia-test", "frame_start": 1,
                 "frame_end": 24, "fps": 24.0, "water_mode": "hydrodynamic",
                 "objects": [{"vertex_count": 625}],
                 "files": [{"size_bytes": 2_000_000}]}

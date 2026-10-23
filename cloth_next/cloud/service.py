@@ -33,6 +33,33 @@ _capabilities: transport.Capabilities | None = None
 _last_error: str = ""
 
 
+CLOUD_API_ENV = "CLOTH_NEXT_CLOUD_API"
+
+
+def default_factory(environ=None):
+    """The HTTP backend when Cloud routing is switched on, else ``None``.
+
+    Cloud API v1 is a pilot: production routing and submission are not
+    enabled yet, so the add-on only talks to it when ``CLOTH_NEXT_CLOUD_API``
+    names the origin (``https://api.cloth-next.de`` or a loopback test
+    server). The bearer token is read from the existing account vault on the
+    worker thread for every request; it never passes through Blender's UI.
+    """
+    import os
+    environ = os.environ if environ is None else environ
+    origin = str(environ.get(CLOUD_API_ENV, "") or "").strip()
+    if not origin:
+        return None
+    from .http_v1 import HttpCloudBackend, validate_origin
+    origin = validate_origin(origin)
+
+    def token() -> str | None:
+        from ..polyworks.service import AccountService
+        return AccountService()._token()
+    backend = HttpCloudBackend(token, origin=origin)
+    return lambda: backend
+
+
 def install_backend(factory: Callable[[], transport.CloudBackend] | None) -> None:
     """Install (or remove with ``None``) the backend factory."""
     global _factory, _capabilities, _last_error
