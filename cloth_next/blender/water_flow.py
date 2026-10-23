@@ -846,6 +846,11 @@ def _native_registry():
     return registry, bool(registry.selected and registry.selected.protocol_version == '0.26')
 
 
+def _gaia_access_granted() -> bool:
+    from . import gaia_account
+    return gaia_account.access_granted()
+
+
 class _WaterFlowSubpanel:
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
@@ -873,9 +878,12 @@ class CLOTHNEXT_PT_water_flow(bpy.types.Panel):
     def draw_header(self, context):
         from ..bake.controller import shared_controller
         from . import icon_registry
+        s = context.object.cloth_next
         row = self.layout.row(align=True)
-        row.enabled = not shared_controller.snapshot().active
-        row.prop(context.object.cloth_next, 'water_flow_enabled', text='')
+        # Switching on needs GAIA access; switching off always stays possible.
+        row.enabled = (not shared_controller.snapshot().active
+                       and (s.water_flow_enabled or _gaia_access_granted()))
+        row.prop(s, 'water_flow_enabled', text='')
         row.label(text='', **icon_registry.icon_kwargs('gaia_water', 'PHYSICS'))
     @classmethod
     def poll(cls, context):
@@ -886,6 +894,11 @@ class CLOTHNEXT_PT_water_flow(bpy.types.Panel):
         s, layout = context.object.cloth_next, self.layout
         layout.use_property_split = True
         layout.use_property_decorate = False
+        if not s.water_flow_enabled and not _gaia_access_granted():
+            row = layout.row()
+            row.label(text='Needs GAIA access', icon='LOCKED')
+            row.operator('clothnext.open_preferences', text='Preferences')
+        layout = layout.column()
         layout.enabled = s.water_flow_enabled and not shared_controller.snapshot().active
         _registry, native = _native_registry()
         source = layout.column(align=True)
@@ -901,13 +914,8 @@ class CLOTHNEXT_PT_water_flow(bpy.types.Panel):
         if not native:
             response.prop(s, 'water_flow_velocity_scale', text='Velocity Scale')
             return
-        if not s.water_hydrodynamic_pressure:
-            response.prop(s, 'water_flow_influence', text='Influence')
-            from .physics_ui import _developer_tools_enabled
-            if _developer_tools_enabled(context):
-                # Velocity-relaxation coupling predates Hydrodynamic Pressure.
-                response.prop(s, 'water_flow_coupling_strength', text='Coupling Strength')
-                response.prop(s, 'water_flow_native_flow', text='Velocity Damping')
+        # Velocity-relaxation Native Flow stays only as the code fallback for GAIA
+        # builds without pressure support; its controls are no longer shown.
         if s.water_hydrodynamic_pressure and abs(s.water_flow_influence - 1.) > 1e-7:
             # Hidden under pressure, but a leftover value would block the Bake.
             response.prop(s, 'water_flow_influence', text='Influence')

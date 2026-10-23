@@ -168,7 +168,11 @@ def _on_shared_water_update(self, context) -> None:
 
 def _on_water_flow_enabled_update(self, context) -> None:
     """Turning Water Flow on starts with Hydrodynamic Pressure where GAIA supports it."""
-    from . import water_settings
+    from . import gaia_account, water_settings
+    if self.water_flow_enabled and not water_settings._sharing and not gaia_account.access_granted():
+        # GAIA Water Flow is a GAIA-access feature; the panel locks the switch too.
+        self.water_flow_enabled = False
+        return
     if (self.water_flow_enabled and not self.water_hydrodynamic_pressure
             and not water_settings._sharing and _hydrodynamic_pressure_available()):
         self.water_hydrodynamic_pressure = True
@@ -922,7 +926,7 @@ class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
     """Phase 3B object-level Cloth NeXt settings."""
 
     water_flow_enabled: bpy.props.BoolProperty(name="Water Flow", default=False,
-        description="Let a baked FLIP fluid move the cloth (one-way: the water is not affected). Shared by all Cloth objects in this scene",
+        description="Let a baked FLIP fluid move the cloth (one-way: the water is not affected). Shared by all Cloth objects in this scene. Needs GAIA access",
         update=_on_water_flow_enabled_update)
     water_hydrodynamic_pressure: bpy.props.BoolProperty(name="Hydrodynamic Pressure", default=False,
         description="Water pushes and drags the fabric through its surface, including inside folds. Needs a GAIA CUDA build with pressure support",
