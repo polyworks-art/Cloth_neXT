@@ -32,7 +32,9 @@ _NEXT = {
                                 BakeState.ERROR},
     BakeState.STARTING_RUN: {BakeState.EXPORTING, BakeState.FINISHED,
                              BakeState.PREPARING_WATER, BakeState.CANCELLING, BakeState.ERROR},
-    BakeState.EXPORTING: {BakeState.STARTING_SOLVER, BakeState.CANCELLING, BakeState.ERROR},
+    # EXPORTING -> FINISHED: a Cloud submission ends locally once packaged.
+    BakeState.EXPORTING: {BakeState.STARTING_SOLVER, BakeState.FINISHED,
+                          BakeState.CANCELLING, BakeState.ERROR},
     # STARTING_SOLVER -> SIMULATING stays for the display-only UI preview;
     # the real run goes through UPLOADING and BUILDING.
     BakeState.STARTING_SOLVER: {BakeState.UPLOADING, BakeState.SIMULATING,

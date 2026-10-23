@@ -128,6 +128,7 @@ from ..curve_rod import CurveRodError, sample_curve
 from ..ppf_run import import_result
 from ..ppf_run.session import (
     SessionCancelled,
+    SessionEvent,
     SessionDeformable,
     SessionScene,
     SolverFrame,
@@ -183,6 +184,11 @@ _last_work_directory: Path | None = None
 _run_started_at: float = 0.0
 _unsubscribe = None
 _pending_plan: "RunPlan | None" = None
+# Cloud Bakes: the Bake operator requests a Cloud submission; the Bake that
+# starts next records its job id here. Such a run exports and packages, then
+# finishes; it never starts the local solver and never touches local caches.
+_cloud_submit_requested = False
+_cloud_submit_job_id = ""
 _pending_job_id = ""
 _pin_capture = None
 _export_timing_sink: dict[str, float] | None = None
@@ -7085,6 +7091,8 @@ def _owned_recovery_partial(path: Path) -> Path | None:
 
 def prepare_cache_for_new_run(plan: RunPlan) -> None:
     """Validate old ownership; preserve the old result until attach succeeds."""
+    if is_cloud_submit():
+        return  # a Cloud submission never prepares or replaces local caches
     if getattr(plan, "deformables", ()):
         for target in plan.deformables:
             prepare_cache_for_new_run(_plan_for_target(plan, target))
@@ -7639,6 +7647,34 @@ def _worker_main_multi(plan: RunPlan) -> None:
             code = classify_error("SIMULATING", summary, details)
         _queue.put(("error", summary,
                     _record_worker_failure(plan, summary, details, code), code))
+
+
+def _cloud_package_worker(plan: RunPlan) -> None:
+    """Package the exported run for the Cloud instead of solving it locally."""
+    from . import cloud_runtime
+
+    def event(phase, message, **kwargs) -> None:
+        _queue.put(("event", SessionEvent(phase, message, **{
+            key: value for key, value in kwargs.items()
+            if key in SessionEvent.__dataclass_fields__})))
+
+    def check_cancel() -> None:
+        if _cancel_event.is_set():
+            raise SessionCancelled()
+    try:
+        event("EXPORTING", "Packaging for the Cloud", indeterminate=True)
+        package = cloud_runtime.package_plan(
+            plan, _plan_deformables(plan), check_cancel=check_cancel, event=event)
+        _queue.put(("cloud_packaged", package))
+    except SessionCancelled:
+        _queue.put(("cancelled", False, None))
+    except Exception as exc:  # noqa: BLE001 - mapped to a trusted code
+        from ..cloud import errors as cloud_errors
+        code = cloud_errors.code_of(exc)
+        public, info, text = cloud_errors.describe(code)
+        details = traceback.format_exc()
+        _queue.put(("error", "Packaging the Cloud Bake failed. " + text,
+                    _record_worker_failure(plan, text, details, public), public))
 
 
 def _worker_main(plan: RunPlan) -> None:
@@ -8944,7 +8980,7 @@ def uninstall_recovery_ui_handler() -> None:
 
 
 def _pump_once() -> float | None:
-    global _worker, _active_plan, _ram_auto_cancel_triggered
+    global _worker, _active_plan, _ram_auto_cancel_triggered, _cloud_submit_job_id
     global _intersection_violations, _intersection_violation_index
     global _diagnostic_result
     plan = _active_plan
@@ -9097,6 +9133,23 @@ def _pump_once() -> float | None:
             _refresh_recovery_ui(plan)
             modal_lock.release()
             shared_telemetry.set_solver_pid(None)
+            return None
+        elif kind == "cloud_packaged":
+            from . import cloud_runtime
+            try:
+                record = cloud_runtime.submit(message[1])
+                shared_controller.transition(
+                    BakeState.FINISHED,
+                    status_message=("Package ready · uploading to Cloud – "
+                                    "keep Blender open until the job is confirmed"),
+                    activity_label=f"Cloud job {record.display_name}",
+                    estimated_remaining_seconds=None)
+            except Exception as exc:  # noqa: BLE001 - shown via trusted text
+                shared_controller.fail("The Cloud job could not be registered.",
+                                       str(exc), error_code="CNX-E200")
+            _cloud_submit_job_id = ""
+            _worker, _active_plan = None, None
+            modal_lock.release()
             return None
         elif kind == "contact_validated":
             # A validation continuation is deliberately not a successful
@@ -9407,11 +9460,14 @@ def _start_prepared_run(plan: RunPlan) -> None:
     _eta_estimator.reset()
     if _unsubscribe is None:
         _unsubscribe = shared_controller.subscribe(_on_controller_snapshot)
-    _worker = threading.Thread(target=_worker_main, args=(plan,),
-                               name="clothnext-bake-worker", daemon=True)
+    cloud = is_cloud_submit()
+    _worker = threading.Thread(
+        target=_cloud_package_worker if cloud else _worker_main, args=(plan,),
+        name="clothnext-bake-worker", daemon=True)
     try:
         _restore_live_playback()
-        _hide_previous_playback(plan)
+        if not cloud:
+            _hide_previous_playback(plan)
         _worker.start()
     except Exception as exc:
         _restore_live_playback()
@@ -9623,6 +9679,11 @@ def _begin_controller(job_kind: BakeJobKind) -> str:
         frame_end=None).job_id
 
 
+def is_cloud_submit() -> bool:
+    return bool(_cloud_submit_job_id
+                and shared_controller.snapshot().job_id == _cloud_submit_job_id)
+
+
 def start_run(context, *, job_kind: BakeJobKind = BakeJobKind.SOLVER_TEST) -> str:
     """Immediate developer diagnostic; production has a readiness gate."""
     global _ram_auto_cancel_enabled
@@ -9716,8 +9777,11 @@ def begin_production_bake(context, *, _water_job_id=None) -> tuple[str, bool]:
     if _water_job_id is None:
         _cancel_event.clear()
     _ram_auto_cancel_triggered = False
+    global _cloud_submit_requested, _cloud_submit_job_id
     if _water_job_id is None:
         job_id = _begin_controller(BakeJobKind.BAKE)
+        _cloud_submit_job_id = job_id if _cloud_submit_requested else ""
+        _cloud_submit_requested = False
     else:
         owner = shared_controller.snapshot()
         if owner.job_id != _water_job_id or owner.state is not BakeState.PREPARING_WATER:
@@ -10611,15 +10675,18 @@ class CLOTHNEXT_OT_bake(bpy.types.Operator):
                 and not shared_controller.snapshot().active)
 
     def execute(self, context):
+        global _cloud_submit_requested
         from .physics_ui import bake_location
+        _cloud_submit_requested = False
         if bake_location(context) == "CLOUD":
             # Cloud is a separate submission path; it never falls back to a
-            # local Bake. Until the Cloud service is connected it refuses.
+            # local Bake.
             from ..cloud import service
             status = service.availability()
-            self.report({"ERROR"}, status.reason or
-                        "Cloud submission is not connected in this version.")
-            return {"CANCELLED"}
+            if not status.available:
+                self.report({"ERROR"}, status.reason)
+                return {"CANCELLED"}
+            _cloud_submit_requested = True
         try:
             from . import solver_backends
             _job_id, waiting = solver_backends.begin_bake(context)
