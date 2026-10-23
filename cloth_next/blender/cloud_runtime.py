@@ -213,9 +213,18 @@ def _run() -> None:
             _publish(jobs=records, message=text, error_code=public)
 
 
+_main_thread_hooks: list = []
+
+
 def tick() -> float:
     """Main-thread timer: periodic refresh requests; never blocks."""
     global _last_refresh
+    for hook in tuple(_main_thread_hooks):
+        try:
+            hook()
+        except Exception as exc:  # noqa: BLE001 - a hook never stops the timer
+            log_with_context(_LOG, 30, "Cloud main-thread step failed",
+                             {"error_type": type(exc).__name__})
     now = time.monotonic()
     if (service.availability().reason != service.PENDING_REASON
             and now - _last_refresh >= REFRESH_SECONDS):

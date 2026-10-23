@@ -701,3 +701,32 @@ def test_every_cloud_failure_maps_to_a_trusted_cnx_code():
     assert errors.code_of(wire.CloudUnconfirmed("submit")) == "unconfirmed"
     assert errors.code_of(UploadPaused("network")) == "upload_paused"
     assert errors.code_of(wire.CloudError("not-a-known-code")) == "unknown"
+
+
+# Graded activation -----------------------------------------------------------------
+
+def _snapshot_objects():
+    return [{"uuid": "u1", "object_name": "Shirt", "vertex_count": 4,
+             "topology_signature": "topo",
+             "material_meta": {"fingerprints": {"settings": "S", "geometry": "G"}}}]
+
+
+@pytest.mark.parametrize("current, settings, geometry, expected", [
+    ({"u1": ("present", 4, "topo", None)}, "S", "G", "READY"),
+    ({"u1": ("present", 4, "topo", None)}, "S2", "G", "STALE_SETTINGS"),
+    ({"u1": ("present", 4, "topo", None)}, "S2", "G2", "STALE_GEOMETRY"),
+    ({"u1": ("present", 4, "topo2", None)}, "S", "G", "INCOMPATIBLE"),
+    ({"u1": ("present", 5, "topo", None)}, "S", "G", "INCOMPATIBLE"),
+    ({}, "S", "G", "INCOMPATIBLE"),
+    ({"u1": ("present", 4, "topo", 200.0)}, "S", "G", "NEWER_LOCAL"),
+    ({"u1": ("present", 4, "topo", 50.0)}, "S", "G", "READY"),
+])
+def test_activation_grades_changes(current, settings, geometry, expected):
+    from cloth_next.cloud.activation import CurrentObject, Verdict, classify
+    now = {uuid: CurrentObject(True, count, topo, local)
+           for uuid, (_p, count, topo, local) in current.items()}
+    decision = classify(_snapshot_objects(), now, settings_fingerprint=settings,
+                        geometry_fingerprint=geometry, submitted_at=100.0)
+    assert decision.verdict is Verdict(expected)
+    assert decision.may_auto_activate == (expected == "READY")
+    assert decision.may_activate == (expected != "INCOMPATIBLE")

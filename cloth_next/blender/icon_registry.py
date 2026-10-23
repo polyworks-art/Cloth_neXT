@@ -14,7 +14,7 @@ _NAMES = ("cloth_next", "gaia_engine", "gaia_water", "cloth", "rod", "soft_body"
           "solver_settings", "engine", "result", "diagnostics",
           "maintenance", "add", "download", "gpu", "health", "link",
           "monitor", "question", "remove", "settings", "update", "upload",
-          "validate")
+          "validate", "cloud")
 
 
 def register():

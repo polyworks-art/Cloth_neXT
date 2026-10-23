@@ -81,7 +81,7 @@ from cloth_next.ppf.resolver import SolverResolutionContext, SolverResolver  # n
 from cloth_next.ppf_run.session import (SessionDeformable, SessionScene,  # noqa: E402
                                         SolverSession, new_project_name)
 from cloth_next.updater import engines  # noqa: E402
-from tests.cloud_backend import CloudTestBackend, RawRunOutput  # noqa: E402
+from tests.cloud_backend import CloudTestBackend, solver_executor  # noqa: E402
 
 REPORT = {"scene": ARGS.scene, "engine": ARGS.engine, "reproducible": ARGS.reproducible, "blender": bpy.app.version_string,
           "addon_version": manifest_version(), "steps": {}}
@@ -335,54 +335,10 @@ save()
 
 # Step 3-5: transfer, real execution, download -----------------------------------------
 
-def real_executor(job, files):
-    manifest = json.loads(files["manifest.json"])
-    work = ARGS.output / "server" / job["job_id"]
-    (work / "run").mkdir(parents=True)
-    data = work / "data.bin"
-    param = work / "param.bin"
-    data.write_bytes(files["data"])
-    param.write_bytes(files["param"])
-    environment = {}
-    if manifest["water"] == "hydrodynamic":
-        volumes = work / "hydro" / "volumes"
-        for name, raw in files.items():
-            if name.startswith("hydro/"):
-                path = volumes / name[len("hydro/"):]
-                path.parent.mkdir(parents=True, exist_ok=True)
-                path.write_bytes(raw)
-        model = work / "hydro" / "model.json"
-        model.write_bytes(files["hydro-model.json"])
-        environment = {HYDRO_MODEL_ENV: str(model), HYDRO_VOLUME_ENV: str(volumes)}
-    objects = tuple(SessionDeformable(item["uuid"], item["uuid"], item["vertex_count"],
-                                      item["deformable_type"],
-                                      tuple(tuple(row) for row in item["solver_world_matrix"]))
-                    for item in manifest["objects"])
-    first = objects[0]
-    hashes = {item["role"]: item["sha256"] for item in manifest["files"]}
-    scene = SessionScene(
-        new_project_name(), first.name, first.uuid, first.vertex_count, "", "",
-        manifest["frames"]["count"], data, param, hashes["data"], hashes["param"],
-        deformable_type=first.deformable_type, deformable_world_matrix=first.world_matrix,
-        deformables=objects,
-        official_bridge_json=files.get("official-bindings.json", b"").decode("utf-8"))
-    raw = {}
-    session = SolverSession(resolved=RESOLVED, scene=scene, work_directory=work / "run",
-                            raw_output_sink=lambda path, blob: raw.__setitem__(path, blob),
-                            hydrodynamic_environment=environment)
-    begun = time.monotonic()
-    diagnostics = session.run()
-    runtime = time.monotonic() - begun
-    executed = engine_identity(ROOT, RESOLVED)["build_id"]
-    REPORT["steps"]["4_execute"] = {"seconds": round(runtime, 2),
-                                    "executed_build_id": executed,
-                                    "solver_timings": dict(diagnostics.timings)}
-    count = manifest["frames"]["count"] - 1
-    return RawRunOutput(
-        map_blob=raw[solver_results.MAP_PATH],
-        surface_blob=raw.get(solver_results.SURFACE_MAP_PATH),
-        frames=[raw[solver_results.frame_file_path(i)] for i in range(1, count + 1)],
-        build_id=executed, runtime_seconds=runtime)
+EXECUTE_REPORT = {}
+real_executor = solver_executor(RESOLVED, ARGS.output / "server",
+                                engine_identity(ROOT, RESOLVED)["build_id"],
+                                report=EXECUTE_REPORT)
 
 
 backend = CloudTestBackend(executor=real_executor, builds=(SOLVER["build_id"],))
@@ -398,7 +354,7 @@ REPORT["steps"]["3_transfer"] = {"seconds": round(time.monotonic() - step, 2),
 save()
 backend.run_pending()
 record = jobs.refresh(package.client_job_id)
-REPORT["steps"]["4_execute"]["state"] = record.state.value
+REPORT["steps"]["4_execute"] = dict(EXECUTE_REPORT, state=record.state.value)
 step = time.monotonic()
 record = jobs.download(package.client_job_id)
 manifest = archive.load_manifest(package.client_job_id)

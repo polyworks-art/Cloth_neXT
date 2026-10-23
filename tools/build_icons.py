@@ -19,7 +19,7 @@ REQUIRED = ("cloth_next", "gaia_water", "cloth", "rod", "soft_body", "collider",
             "solver_settings", "engine", "result", "diagnostics",
             "maintenance", "add", "download", "gpu", "health", "link",
             "monitor", "question", "remove", "settings", "update", "upload",
-            "validate")
+            "validate", "cloud")
 SIZE = (64, 64)
 WHITE = (255, 255, 255)
 BRAND_WHITE = (245, 245, 243)

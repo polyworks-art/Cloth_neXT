@@ -487,8 +487,7 @@ class CLOTHNEXT_PT_solver(_ClothNextSubpanel, bpy.types.Panel):
         bake_button.scale_y = 1.6
         bake_button.enabled = model.enabled and not snapshot.active
         bake_button.operator("clothnext.bake", text=bake_button_text(context, model),
-                             **icon_registry.icon_kwargs("bake",
-                                                         "RENDER_ANIMATION"))
+                             **bake_button_icon(context))
         # Small folder button on the right sets the Cache Directory. It stays
         # enabled even when Bake is disabled for a missing directory, so the
         # artist can satisfy the requirement without leaving the panel.
@@ -880,6 +879,13 @@ def bake_location(context) -> str:
         return "LOCAL"
 
 
+def bake_button_icon(context) -> dict:
+    """Croissant for This Computer, cloud for Cloud."""
+    if bake_location(context) == "CLOUD":
+        return icon_registry.icon_kwargs("cloud", "WORLD")
+    return icon_registry.icon_kwargs("bake", "RENDER_ANIMATION")
+
+
 def bake_button_text(context, model) -> str:
     where = "Cloud" if bake_location(context) == "CLOUD" else "This Computer"
     return f"{model.action.title()} · {where}"
@@ -1107,8 +1113,7 @@ def _draw_bake_action(layout, context, model, snapshot) -> None:
     bake_button.scale_y = 1.6
     bake_button.enabled = model.enabled
     bake_button.operator("clothnext.bake", text=bake_button_text(context, model),
-                         **icon_registry.icon_kwargs("bake",
-                                                     "RENDER_ANIMATION"))
+                         **bake_button_icon(context))
     set_dir = split.column(align=True)
     set_dir.scale_y = 1.6
     set_dir.operator("clothnext.set_cache_directory", text="",

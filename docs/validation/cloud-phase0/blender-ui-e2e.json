@@ -1,0 +1,46 @@
+{
+  "blender": "5.2.3 LTS",
+  "checks": {
+    "bake_cloud_packages_and_finishes": {
+      "ok": true,
+      "detail": "{'FINISHED'} FINISHED Package ready \u00b7 uploading to Cloud \u2013 keep Blender open until the job is confirmed "
+    },
+    "no_local_cache_written": {
+      "ok": true,
+      "detail": ""
+    },
+    "upload_and_submit_confirmed": {
+      "ok": true,
+      "detail": "Job confirmed. You can close Blender."
+    },
+    "auto_download": {
+      "ok": true,
+      "detail": "STORED Cloud result downloaded"
+    },
+    "auto_activate_unchanged_scene": {
+      "ok": true,
+      "detail": "[('MESH_CACHE', 'C:\\\\Users\\\\timch\\\\Documents\\\\GitHub\\\\Cloth_neXT\\\\.hydro-test-tmp\\\\cloud0\\\\e2e-2\\\\cache\\\\cn_test_cloth_cloud_8b53079473f5_f812ae41.pc2')]"
+    },
+    "playback_matches_pc2": {
+      "ok": true,
+      "detail": "frames=12 error=0.0"
+    },
+    "sidecar_ready": {
+      "ok": true,
+      "detail": "Cache ready"
+    },
+    "moved_object_is_stale_settings": {
+      "ok": true,
+      "detail": "(('f812ae41-5537-98b0-32b4-dafe33a05e65', <Verdict.STALE_SETTINGS: 'STALE_SETTINGS'>, 'CloudSheet: settings changed'),)"
+    },
+    "changed_topology_is_refused": {
+      "ok": true,
+      "detail": "CloudSheet: mesh topology or vertex order changed"
+    },
+    "clear_result_keeps_archive": {
+      "ok": true,
+      "detail": ""
+    }
+  },
+  "result": "PASS"
+}

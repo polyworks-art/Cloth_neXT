@@ -287,3 +287,68 @@ class CloudTestBackend:
 def _block_range(name: str):
     from cloth_next.cloud.results import parse_block_name
     return parse_block_name(name)
+
+
+def solver_executor(resolved, work_root, build_id: str, *, report: dict | None = None):
+    """Executor that runs the real solver on a job's package files.
+
+    Mirrors what a Cloud server has to do (docs/cloud/BACKEND_REQUIREMENTS.md):
+    rebuild the SessionScene from manifest + files, hand prepared hydro
+    volumes in as environment, run, and return the untouched raw output.
+    """
+    import json
+    import time
+    from pathlib import Path
+    from cloth_next.cloud.package import HYDRO_MODEL_ENV, HYDRO_VOLUME_ENV
+    from cloth_next.ppf import results as solver_results
+    from cloth_next.ppf_run.session import (SessionDeformable, SessionScene,
+                                            SolverSession, new_project_name)
+
+    def run(job, files):
+        manifest = json.loads(files["manifest.json"])
+        work = Path(work_root) / job["job_id"]
+        (work / "run").mkdir(parents=True)
+        data, param = work / "data.bin", work / "param.bin"
+        data.write_bytes(files["data"])
+        param.write_bytes(files["param"])
+        environment = {}
+        if manifest["water"] == "hydrodynamic":
+            volumes = work / "run" / "hydro" / "volumes"
+            for name, raw in files.items():
+                if name.startswith("hydro/"):
+                    path = volumes / name[len("hydro/"):]
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_bytes(raw)
+            model = work / "run" / "hydro" / "model.json"
+            model.write_bytes(files["hydro-model.json"])
+            environment = {HYDRO_MODEL_ENV: str(model), HYDRO_VOLUME_ENV: str(volumes)}
+        objects = tuple(SessionDeformable(
+            item["uuid"], item["uuid"], item["vertex_count"], item["deformable_type"],
+            tuple(tuple(row) for row in item["solver_world_matrix"]))
+            for item in manifest["objects"])
+        first = objects[0]
+        hashes = {item["role"]: item["sha256"] for item in manifest["files"]}
+        scene = SessionScene(
+            new_project_name(), first.name, first.uuid, first.vertex_count, "", "",
+            manifest["frames"]["count"], data, param, hashes["data"], hashes["param"],
+            deformable_type=first.deformable_type,
+            deformable_world_matrix=first.world_matrix, deformables=objects,
+            official_bridge_json=files.get("official-bindings.json", b"").decode("utf-8"))
+        raw = {}
+        session = SolverSession(
+            resolved=resolved, scene=scene, work_directory=work / "run",
+            raw_output_sink=lambda path, blob: raw.__setitem__(path, blob),
+            hydrodynamic_environment=environment)
+        begun = time.monotonic()
+        diagnostics = session.run()
+        runtime = time.monotonic() - begun
+        if report is not None:
+            report.update(seconds=round(runtime, 2), executed_build_id=build_id,
+                          solver_timings=dict(diagnostics.timings))
+        count = manifest["frames"]["count"] - 1
+        return RawRunOutput(
+            map_blob=raw[solver_results.MAP_PATH],
+            surface_blob=raw.get(solver_results.SURFACE_MAP_PATH),
+            frames=[raw[solver_results.frame_file_path(i)] for i in range(1, count + 1)],
+            build_id=build_id, runtime_seconds=runtime)
+    return run

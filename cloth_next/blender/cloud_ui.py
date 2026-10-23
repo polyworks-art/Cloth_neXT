@@ -18,6 +18,9 @@ _ACTIONS = (
     ("PAUSE", "Pause Upload", "Pause the upload; it can be resumed later, also after a restart"),
     ("CANCEL", "Cancel", "Cancel the job; an unsent upload is discarded and costs nothing"),
     ("DOWNLOAD", "Download", "Download the result into the Cloud result archive"),
+    ("ACTIVATE", "Activate", "Create the playback cache from the downloaded result and attach it"),
+    ("ACTIVATE_ANYWAY", "Activate Anyway",
+     "Attach although settings or geometry changed or a newer local Bake exists"),
     ("DELETE_RESULT", "Delete Downloaded Result", "Delete the downloaded raw result from this computer"),
     ("REFRESH", "Refresh", "Ask the Cloud service for the current state of your jobs"),
 )
@@ -38,7 +41,7 @@ def actions_for(record) -> tuple[str, ...]:
                  LocalState.CANCELLED, LocalState.FAILED):
         return ("DOWNLOAD",)
     if state is LocalState.STORED:
-        return ("DELETE_RESULT",)
+        return ("ACTIVATE", "DELETE_RESULT")
     return ()
 
 
@@ -60,11 +63,13 @@ class CLOTHNEXT_OT_cloud_job_action(bpy.types.Operator):
         return ""
 
     def invoke(self, context, event):
-        if self.action in {"DELETE_RESULT", "CANCEL"}:
+        if self.action in {"DELETE_RESULT", "CANCEL", "ACTIVATE_ANYWAY"}:
             return context.window_manager.invoke_confirm(self, event)
         return self.execute(context)
 
-    def execute(self, _context):
+    def execute(self, context):
+        if self.action in {"ACTIVATE", "ACTIVATE_ANYWAY"}:
+            return self._activate(context, self.action == "ACTIVATE_ANYWAY")
         if self.action == "PAUSE":
             cloud_runtime.pause_upload()
         elif self.action == "RESUME":
@@ -78,6 +83,33 @@ class CLOTHNEXT_OT_cloud_job_action(bpy.types.Operator):
         elif self.action == "REFRESH":
             cloud_runtime.enqueue("refresh")
         return {"FINISHED"}
+
+    def _activate(self, context, confirmed):
+        from ..cloud import errors
+        from ..cloud.activation import Verdict
+        from . import cloud_activation
+        try:
+            decision = cloud_activation.activate(context, self.client_job_id,
+                                                 confirmed=confirmed)
+        except Exception as exc:  # noqa: BLE001 - trusted text only
+            _code, _info, text = errors.describe(errors.code_of(exc))
+            detail = str(exc) if isinstance(exc, cloud_activation.ActivationRefused) else ""
+            self.report({"ERROR"}, f"{text} {detail}".strip())
+            return {"CANCELLED"}
+        if decision.verdict is not Verdict.READY and not confirmed:
+            _PENDING_DECISIONS[self.client_job_id] = decision.verdict.value
+            self.report({"WARNING"}, "; ".join(text for _u, verdict, text in
+                                               decision.per_object
+                                               if verdict is not Verdict.READY)
+                        + ". Use Activate Anyway to attach it.")
+            return {"CANCELLED"}
+        _PENDING_DECISIONS.pop(self.client_job_id, None)
+        self.report({"INFO"}, "Cloud result activated")
+        return {"FINISHED"}
+
+
+# Last activation verdict per job that needs a decision (main thread only).
+_PENDING_DECISIONS: dict[str, str] = {}
 
 
 def draw_jobs(layout) -> None:
@@ -100,12 +132,21 @@ def draw_jobs(layout) -> None:
         box = layout.box()
         top = box.row()
         top.label(text=f"{record.display_name} · {record.engine}")
-        for action in actions_for(record):
+        actions = list(actions_for(record))
+        if record.client_job_id in _PENDING_DECISIONS and "ACTIVATE" in actions:
+            actions[actions.index("ACTIVATE")] = "ACTIVATE_ANYWAY"
+        for action in actions:
             label = next(text for identifier, text, _d in _ACTIONS if identifier == action)
             props = top.operator(CLOTHNEXT_OT_cloud_job_action.bl_idname, text=label)
             props.action = action
             props.client_job_id = record.client_job_id
         box.label(text=cloud_runtime.describe_state(record))
+        pending = _PENDING_DECISIONS.get(record.client_job_id)
+        if pending:
+            box.label(text={"STALE_SETTINGS": "Settings changed since sending",
+                            "STALE_GEOMETRY": "Geometry changed since sending",
+                            "NEWER_LOCAL": "A newer local Bake exists"}.get(pending, pending),
+                      icon="ERROR")
         if record.expires_at and record.state not in _UPLOAD_STATES | _PAUSED_STATES:
             box.label(text=f"Available until {record.expires_at}")
 
@@ -123,16 +164,60 @@ def draw_status_notice(self, _context) -> None:
         self.layout.label(text="Cloud: confirming submission with server…", icon="TIME")
 
 
+_auto_seen: set[str] = set()
+# Jobs downloaded in this session; only these activate automatically, so a
+# restart never re-attaches an older stored result over newer work.
+_downloaded_here: set[str] = set()
+
+
+def _auto_step() -> None:
+    """Main thread: automatic download, then automatic activation (E9).
+
+    Download only while Blender runs and the preference is on (free space is
+    checked by the download itself). Activation only when nothing relevant
+    changed and no newer local result would be replaced.
+    """
+    from .addon_identity import addon_preferences
+    try:
+        prefs = addon_preferences(bpy.context, __package__)
+    except KeyError:
+        return
+    if not getattr(prefs, "cloud_auto_download", False):
+        return
+    for record in cloud_runtime.view().jobs:
+        key = f"{record.client_job_id}:{record.state.value}"
+        if key in _auto_seen:
+            continue
+        if record.state is LocalState.SUCCEEDED:
+            _auto_seen.add(key)
+            _downloaded_here.add(record.client_job_id)
+            cloud_runtime.enqueue("download", record.client_job_id)
+        elif (record.state is LocalState.STORED
+              and record.client_job_id in _downloaded_here):
+            _auto_seen.add(key)
+            from . import cloud_activation
+            try:
+                decision = cloud_activation.activate(bpy.context, record.client_job_id)
+            except Exception:  # noqa: BLE001 - stays stored; the list offers Activate
+                continue
+            if not decision.may_auto_activate:
+                _PENDING_DECISIONS[record.client_job_id] = decision.verdict.value
+
+
 CLASSES = (CLOTHNEXT_OT_cloud_job_action,)
 
 
 def register() -> None:
+    if _auto_step not in cloud_runtime._main_thread_hooks:
+        cloud_runtime._main_thread_hooks.append(_auto_step)
     header = getattr(bpy.types, "STATUSBAR_HT_header", None)
     if header is not None and hasattr(header, "append"):
         header.append(draw_status_notice)
 
 
 def unregister() -> None:
+    if _auto_step in cloud_runtime._main_thread_hooks:
+        cloud_runtime._main_thread_hooks.remove(_auto_step)
     header = getattr(bpy.types, "STATUSBAR_HT_header", None)
     if header is not None and hasattr(header, "remove"):
         try:
