@@ -1,36 +1,48 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Deterministic in-process Cloud backend (test double, NOT the real service).
 
-Implements ``cloth_next.cloud.transport.CloudBackend`` for the add-on side of
-Phase 0 while the real ``/v1/cloud/`` contract is pending. It keeps state in
-memory per account, deduplicates package files per account only (B5), honours
-idempotency keys (B16) and can inject the failures E23 cares about:
+Implements ``cloth_next.cloud.transport.CloudBackend`` with the semantics of
+Cloud API v1 (pilot contract of 23 October 2026, ``tests/fixtures/cloud_v1``):
+quotes in test units, idempotent create/submit with account-global keys,
+one upload session per ``(role, name)``, account-only content reuse,
+``offset_mismatch``, a server-computed ``manifest_sha256`` and raw results
+under the v1 file names. Failures E23 cares about can be injected:
 
 * ``lose_response`` - perform the next named operation, then raise
   ``CloudUnconfirmed`` (the answer was lost after the server acted);
-* ``fail_before`` - raise ``CloudUnconfirmed`` before acting (nothing happened);
+* ``fail_before`` - raise ``CloudUnconfirmed`` before acting;
 * ``offline`` - every call raises ``CloudError("network_unavailable")``;
-* ``corrupt_download`` - flip one byte in the next downloaded block.
+* ``corrupt_download`` - flip one byte in the next downloaded block;
+* ``cut_upload_after`` - drop the connection before a chunk crossing that
+  byte count is confirmed.
 
 Jobs run only when ``run_pending`` is called, through an ``executor``. The
-default executor is synthetic; ``tools/cloud_phase0.py`` installs one that
-runs the real local GAIA/AETHER solver on the uploaded package.
+default executor is synthetic; ``solver_executor`` runs the real local
+GAIA/AETHER solver on the uploaded package.
 """
 from __future__ import annotations
 
 import hashlib
 import itertools
+import json
 import threading
+import uuid
 
 from cloth_next.cloud import transport as wire
 from cloth_next.cloud.results import MAP_NAME, SURFACE_MAP_NAME, block_name
-from cloth_next.cloud.snapshot import canonical_bytes
 
 FRAMES_PER_BLOCK = 25
 
 
+def manifest_sha256(manifest) -> str:
+    """v1: SHA-256 of sorted-key compact UTF-8 JSON, no non-finite values."""
+    raw = json.dumps(manifest, sort_keys=True, separators=(",", ":"),
+                     ensure_ascii=False, allow_nan=False).encode("utf-8")
+    return hashlib.sha256(raw).hexdigest()
+
+
 class RawRunOutput:
-    """What an executor returns: raw solver files keyed by role."""
+    """What an executor returns: raw solver files."""
 
     def __init__(self, *, map_blob: bytes, frames: list[bytes],
                  surface_blob: bytes | None = None, build_id: str = "",
@@ -47,22 +59,32 @@ class RawRunOutput:
 
 class CloudTestBackend:
     def __init__(self, *, executor=None, account: str = "account-a",
-                 builds=("gaia:test", "aether:test")) -> None:
+                 builds=None, quote_maximum: float = 30.0) -> None:
         self.lock = threading.Lock()
         self.account = account
         self.executor = executor
-        self.builds = tuple(builds)
-        self.blobs: dict[str, dict[str, bytes]] = {}     # account -> sha -> bytes
-        self.partial_uploads: dict[tuple, bytearray] = {}
-        self.jobs: dict[str, dict] = {}                   # job_id -> job
-        self.idempotency: dict[tuple, tuple] = {}         # (account, key) -> (fingerprint, response)
+        # Offered desktop identities: dicts with engine, build_id,
+        # solver_sha256, worker_sha256, server_build. None offers whatever a
+        # manifest names (synthetic tests).
+        self.desktop_builds = builds
+        self.quote_maximum = quote_maximum
+        self.blobs: dict[str, dict[str, bytes]] = {}       # account -> sha -> bytes
+        self.uploads: dict[str, dict] = {}                 # upload_id -> session
+        self.jobs: dict[str, dict] = {}                    # job_id -> job
+        self.quotes: dict[str, dict] = {}
+        self.idempotency: dict[tuple, tuple] = {}          # (account, key) -> (fp, job_id)
         self.calls: list[tuple] = []
         self.lose_response: set[str] = set()
         self.fail_before: set[str] = set()
         self.offline = False
         self.corrupt_download = False
-        self.cut_upload_after: int | None = None          # bytes accepted, then drop
+        self.cut_upload_after: int | None = None
+        self.expire_quotes = False
+        self.partial_results = False   # v1: off until native validation exists
         self._ids = itertools.count(1)
+
+    def _new_id(self) -> str:
+        return str(uuid.UUID(int=next(self._ids)))
 
     # Injection helpers ------------------------------------------------------
     def _enter(self, name: str) -> None:
@@ -85,109 +107,177 @@ class CloudTestBackend:
     def _job(self, job_id: str) -> dict:
         job = self.jobs.get(job_id)
         if job is None or job["account"] != self.account:
-            raise wire.CloudError("job_not_found")
+            raise wire.CloudError("not_found", status=404)
         return job
 
     def _info(self, job: dict) -> wire.JobInfo:
-        missing = tuple(sorted(sha for sha in job["files"]
-                               if sha not in self._account_blobs()))
         return wire.JobInfo(
             job_id=job["job_id"], client_job_id=job["client_job_id"],
-            state=job["state"], missing_files=missing,
-            progress_frames=job.get("progress"), total_frames=job["total_frames"],
-            queue_position=1 if job["state"] == wire.QUEUED else None,
-            expires_at=job.get("expires_at"), build_id=job["build_id"],
-            error_code=job.get("error_code", ""), display_name=job["display_name"])
+            state=job["state"], progress_frames=job.get("progress"),
+            total_frames=job["total_frames"], expires_at=job.get("expires_at"),
+            build_id=job["manifest"]["build_id"],
+            error_code=job.get("error_code", "") or "",
+            manifest_sha256=job["manifest_sha256"])
 
-    def _idempotent(self, key: str, fingerprint: str, create):
+    def _claim_key(self, key: str, fingerprint: str, create):
         slot = (self.account, key)
         if slot in self.idempotency:
-            previous, response = self.idempotency[slot]
+            previous, job_id = self.idempotency[slot]
             if previous != fingerprint:
-                raise wire.CloudError("idempotency_conflict")
-            return response
-        response = create()
-        self.idempotency[slot] = (fingerprint, response)
-        return response
+                raise wire.CloudError("idempotency_conflict", status=409)
+            return job_id
+        job_id = create()
+        self.idempotency[slot] = (fingerprint, job_id)
+        return job_id
+
+    def _offered(self, manifest) -> dict | None:
+        if self.desktop_builds is None:
+            return {"engine": manifest["engine"], "build_id": manifest["build_id"],
+                    "solver_sha256": manifest["solver_sha256"],
+                    "worker_sha256": manifest["worker_sha256"],
+                    "server_build": manifest["build_id"]}
+        for item in self.desktop_builds:
+            if all(item[key] == manifest[key] for key in
+                   ("engine", "build_id", "solver_sha256", "worker_sha256")):
+                return item
+        return None
 
     # CloudBackend -------------------------------------------------------------
     def capabilities(self):
         self._enter("capabilities")
-        return wire.Capabilities(True, ("GAIA", "AETHER"), self.builds, 1,
-                                 64 * 1024 ** 3, retention_days=14)
+        offered = tuple(self.desktop_builds or ())
+        return wire.Capabilities(
+            True, ("GAIA", "AETHER"), tuple(item["build_id"] for item in offered),
+            1, 64 * 1024 ** 3, retention_days=14, billing_mode="test",
+            desktop_builds=tuple(wire.DesktopBuild(
+                item["engine"], item["build_id"], item["solver_sha256"],
+                item["worker_sha256"], item.get("server_build", item["build_id"]))
+                for item in offered))
 
-    def create_job(self, *, client_job_id, manifest, manifest_sha256,
-                   idempotency_key, quote_id=None):
+    def quote(self, manifest):
+        self._enter("quote")
+        if self._offered(manifest) is None:
+            raise wire.CloudError("engine_build_unavailable", status=409)
+        quote_id = self._new_id()
+        digest = manifest_sha256(manifest)
+        self.quotes[quote_id] = {"manifest_sha256": digest,
+                                 "maximum": self.quote_maximum}
+        return wire.Quote(quote_id, self.quote_maximum, "test_second",
+                          "2026-10-23T12:10:00Z", "test", False,
+                          self.quote_maximum, digest)
+
+    def create_job(self, *, client_job_id, manifest, idempotency_key):
         self._enter("create_job")
         with self.lock:
-            if manifest["solver"]["build_id"] not in self.builds:
-                raise wire.CloudError("build_unavailable")
+            offered = self._offered(manifest)
+            if offered is None:
+                raise wire.CloudError("engine_build_unavailable", status=409)
+            digest = manifest_sha256(manifest)
 
             def create():
-                job_id = f"job-{next(self._ids):04d}"
-                files = {item["sha256"]: item["size"] for item in manifest["files"]}
-                raw_manifest = canonical_bytes(manifest)
-                if hashlib.sha256(raw_manifest).hexdigest() != manifest_sha256:
-                    raise wire.CloudError("hash_mismatch")
+                job_id = self._new_id()
                 self.jobs[job_id] = {
                     "job_id": job_id, "client_job_id": client_job_id,
-                    "account": self.account, "state": wire.AWAITING_UPLOAD,
-                    "manifest": manifest, "manifest_sha256": manifest_sha256,
-                    "manifest_bytes": raw_manifest,
-                    "files": files, "build_id": manifest["solver"]["build_id"],
-                    "total_frames": manifest["frames"]["count"] - 1,
-                    "display_name": manifest["display_name"], "submits": 0}
+                    "account": self.account, "state": wire.UPLOADING,
+                    "manifest": manifest, "manifest_sha256": digest,
+                    "files": {(item["role"], item["name"]): item
+                              for item in manifest["files"]},
+                    "attached": set(),
+                    "total_frames": manifest["frame_end"] - manifest["frame_start"],
+                    "server_build": offered.get("server_build", manifest["build_id"]),
+                    "submits": 0, "quote_id": None}
                 return job_id
-            job_id = self._idempotent(idempotency_key, manifest_sha256, create)
+            job_id = self._claim_key(idempotency_key, f"create:{digest}", create)
             return self._leave("create_job", self._info(self.jobs[job_id]))
 
-    def upload_state(self, job_id, sha256):
-        self._enter("upload_state")
+    def open_upload(self, job_id, role, name):
+        self._enter("open_upload")
         job = self._job(job_id)
-        size = job["files"][sha256]
-        if sha256 in self._account_blobs():
-            return wire.FileUploadState(sha256, size, size, True)
-        received = len(self.partial_uploads.get((self.account, sha256), b""))
-        return wire.FileUploadState(sha256, size, received, False)
+        item = job["files"].get((role, name))
+        if item is None:
+            raise wire.CloudError("invalid_file_role", status=400)
+        if item["sha256"] in self._account_blobs():
+            job["attached"].add((role, name))
+            return wire.FileUploadState(role, name, item["size_bytes"],
+                                        item["size_bytes"], True, "", True, True)
+        for upload_id, session in self.uploads.items():
+            if session["job_id"] == job_id and session["key"] == (role, name) \
+                    and not session["completed"]:
+                return self._session_state(upload_id)
+        upload_id = self._new_id()
+        self.uploads[upload_id] = {"job_id": job_id, "key": (role, name),
+                                   "item": item, "buffer": bytearray(),
+                                   "completed": False, "confirmed": False,
+                                   "account": self.account}
+        return self._session_state(upload_id)
 
-    def upload_block(self, job_id, sha256, offset, data):
-        self._enter("upload_block")
-        job = self._job(job_id)
-        size = job["files"][sha256]
-        buffer = self.partial_uploads.setdefault((self.account, sha256), bytearray())
-        if offset == len(buffer):  # a repeated block is ignored (idempotent)
-            if self.cut_upload_after is not None and \
-                    len(buffer) + len(data) > self.cut_upload_after:
-                keep = max(0, self.cut_upload_after - len(buffer))
-                buffer.extend(data[:keep])
-                self.cut_upload_after = None
-                raise wire.CloudUnconfirmed("connection dropped")
-            buffer.extend(data)
-        return self._leave("upload_block", wire.FileUploadState(
-            sha256, size, len(buffer), False))
+    def _session(self, upload_id):
+        session = self.uploads.get(upload_id)
+        if session is None or session["account"] != self.account:
+            raise wire.CloudError("not_found", status=404)
+        return session
 
-    def complete_upload(self, job_id, sha256):
+    def _session_state(self, upload_id):
+        session = self._session(upload_id)
+        role, name = session["key"]
+        return wire.FileUploadState(role, name, session["item"]["size_bytes"],
+                                    len(session["buffer"]), session["confirmed"],
+                                    upload_id, False, session["completed"])
+
+    def upload_status(self, upload_id):
+        self._enter("upload_status")
+        return self._session_state(upload_id)
+
+    def upload_chunk(self, upload_id, offset, data):
+        self._enter("upload_chunk")
+        session = self._session(upload_id)
+        buffer = session["buffer"]
+        if offset + len(data) <= len(buffer) and \
+                bytes(buffer[offset:offset + len(data)]) == bytes(data):
+            return self._leave("upload_chunk", self._session_state(upload_id))
+        if offset != len(buffer):
+            raise wire.CloudError("offset_mismatch", status=409)
+        if self.cut_upload_after is not None and \
+                len(buffer) + len(data) > self.cut_upload_after:
+            self.cut_upload_after = None
+            raise wire.CloudUnconfirmed("connection dropped")
+        buffer.extend(data)
+        return self._leave("upload_chunk", self._session_state(upload_id))
+
+    def complete_upload(self, upload_id):
         self._enter("complete_upload")
-        job = self._job(job_id)
-        buffer = bytes(self.partial_uploads.pop((self.account, sha256), b""))
-        if hashlib.sha256(buffer).hexdigest() != sha256:
-            return wire.FileUploadState(sha256, job["files"][sha256], 0, False)
-        self._account_blobs()[sha256] = buffer
-        return self._leave("complete_upload", wire.FileUploadState(
-            sha256, len(buffer), len(buffer), True))
+        session = self._session(upload_id)
+        raw = bytes(session["buffer"])
+        item = session["item"]
+        if len(raw) != item["size_bytes"] or \
+                hashlib.sha256(raw).hexdigest() != item["sha256"]:
+            raise wire.CloudError("integrity_mismatch", status=400)
+        session["completed"] = session["confirmed"] = True
+        self._account_blobs()[item["sha256"]] = raw
+        self.jobs[session["job_id"]]["attached"].add(session["key"])
+        return self._leave("complete_upload", self._session_state(upload_id))
 
-    def submit(self, job_id, *, idempotency_key):
+    def submit(self, job_id, *, quote_id, accepted_maximum, idempotency_key):
         self._enter("submit")
         with self.lock:
             job = self._job(job_id)
+            if job["state"] != wire.UPLOADING and job["quote_id"] == quote_id:
+                # A retry with the accepted quote returns the same job (v1).
+                return self._leave("submit", self._info(job))
+            quote = self.quotes.get(quote_id)
 
             def accept():
-                if any(sha not in self._account_blobs() for sha in job["files"]):
-                    raise wire.CloudError("upload_incomplete")
+                if quote is None or quote["manifest_sha256"] != job["manifest_sha256"] \
+                        or float(quote["maximum"]) != float(accepted_maximum) \
+                        or self.expire_quotes:
+                    raise wire.CloudError("invalid_quote", status=409)
+                if set(job["files"]) - job["attached"]:
+                    raise wire.CloudError("upload_incomplete", status=409)
                 job["state"] = wire.QUEUED
                 job["submits"] += 1
+                job["quote_id"] = quote_id
                 return job_id
-            self._idempotent(idempotency_key, job_id, accept)
+            self._claim_key(idempotency_key, f"submit:{job_id}:{quote_id}", accept)
             return self._leave("submit", self._info(job))
 
     def get_job(self, job_id):
@@ -206,23 +296,24 @@ class CloudTestBackend:
         return tuple(self._info(job) for job in self.jobs.values()
                      if job["account"] == self.account)
 
-    def cancel(self, job_id, *, idempotency_key):
+    def cancel(self, job_id):
         self._enter("cancel")
         job = self._job(job_id)
-        if job["state"] in (wire.AWAITING_UPLOAD, wire.QUEUED, wire.RUNNING):
+        if job["state"] in (wire.UPLOADING, wire.QUEUED, wire.STARTING, wire.RUNNING):
             job["state"] = wire.CANCELLED
         return self._leave("cancel", self._info(job))
 
     def result_manifest(self, job_id):
         self._enter("result_manifest")
         job = self._job(job_id)
-        if job["state"] not in (wire.SUCCEEDED, wire.STOPPED_AT_LIMIT,
-                                wire.CANCELLED, wire.FAILED) or "result" not in job:
-            raise wire.CloudError("job_not_found")
+        allowed = {wire.SUCCEEDED} | ({wire.STOPPED_AT_LIMIT} if self.partial_results
+                                      else set())
+        if job["state"] not in allowed or "result" not in job:
+            raise wire.CloudError("result_unavailable", status=410)
         return job["result_manifest"]
 
-    def download_block(self, job_id, name, offset, length):
-        self._enter("download_block")
+    def download_result(self, job_id, name, offset, length):
+        self._enter("download_result")
         job = self._job(job_id)
         data = job["result"][name][offset:offset + length]
         if self.corrupt_download and data:
@@ -233,20 +324,16 @@ class CloudTestBackend:
     def fetch_package_file(self, job_id, sha256):
         self._enter("fetch_package_file")
         job = self._job(job_id)
-        if sha256 == job["manifest_sha256"]:
-            return job["manifest_bytes"]
-        if sha256 not in job["files"]:
-            raise wire.CloudError("job_not_found")
-        return self._account_blobs()[sha256]
+        if not any(item["sha256"] == sha256 for item in job["files"].values()):
+            raise wire.CloudError("not_found", status=404)
+        return self.blobs[job["account"]][sha256]
 
     # Execution ---------------------------------------------------------------
-    def package_files(self, job: dict) -> dict[str, bytes]:
-        """Package bytes by manifest role/name, as a server would read them."""
+    def package_files(self, job: dict) -> dict:
+        """Execution inputs by (role, name); snapshot roles are withheld (v1)."""
         blobs = self.blobs[job["account"]]
-        files = {"manifest.json": job["manifest_bytes"]}
-        for item in job["manifest"]["files"]:
-            files[item["name"]] = blobs[item["sha256"]]
-        return files
+        return {key: blobs[item["sha256"]] for key, item in job["files"].items()
+                if key[0] not in ("import-snapshot", "snapshot-arrays")}
 
     def run_pending(self) -> None:
         for job in list(self.jobs.values()):
@@ -257,6 +344,7 @@ class CloudTestBackend:
             self._publish(job, output)
 
     def _publish(self, job: dict, output: RawRunOutput) -> None:
+        from cloth_next.cloud.results import parse_block_name
         result = {MAP_NAME: output.map_blob}
         if output.surface_blob is not None:
             result[SURFACE_MAP_NAME] = output.surface_blob
@@ -264,76 +352,83 @@ class CloudTestBackend:
         for first in range(1, len(frames) + 1, FRAMES_PER_BLOCK):
             last = min(first + FRAMES_PER_BLOCK - 1, len(frames))
             result[block_name(first, last)] = b"".join(frames[first - 1:last])
+        result["execution.json"] = b"{}"
         job["result"] = result
         job["progress"] = len(frames)
         if output.failed_code:
             job["state"] = wire.FAILED
             job["error_code"] = output.failed_code
+        elif output.partial:
+            job["state"] = wire.STOPPED_AT_LIMIT
         else:
-            job["state"] = (wire.STOPPED_AT_LIMIT if output.partial
-                            else wire.SUCCEEDED)
-        files = tuple(wire.ResultFile(
-            name, hashlib.sha256(data).hexdigest(), len(data),
-            *(parse if (parse := _block_range(name)) else (None, None)))
-            for name, data in sorted(result.items()))
-        snapshot_digest = job["manifest"]["snapshot_digest"]
+            job["state"] = wire.SUCCEEDED
+        files = []
+        for name, data in sorted(result.items()):
+            span = parse_block_name(name) or (None, None)
+            kind = ("vertex_map" if name == MAP_NAME else
+                    "surface_map" if name == SURFACE_MAP_NAME else
+                    "execution_metadata" if name == "execution.json" else "frame_block")
+            files.append(wire.ResultFile(name, hashlib.sha256(data).hexdigest(),
+                                         len(data), *span, kind))
         job["result_manifest"] = wire.ResultManifest(
-            job_id=job["job_id"], build_id=output.build_id or job["build_id"],
-            snapshot_digest=snapshot_digest, frame_count=len(frames),
-            partial=bool(output.partial or output.failed_code), files=files,
+            job_id=job["job_id"], build_id=output.build_id or job["server_build"],
+            snapshot_digest=job["manifest"]["import_snapshot_digest"],
+            frame_count=len(frames), partial=job["state"] == wire.STOPPED_AT_LIMIT,
+            files=tuple(files),
             runtime_seconds=output.runtime_seconds)
-
-
-def _block_range(name: str):
-    from cloth_next.cloud.results import parse_block_name
-    return parse_block_name(name)
 
 
 def solver_executor(resolved, work_root, build_id: str, *, report: dict | None = None):
     """Executor that runs the real solver on a job's package files.
 
-    Mirrors what a Cloud server has to do (docs/cloud/BACKEND_REQUIREMENTS.md):
-    rebuild the SessionScene from manifest + files, hand prepared hydro
-    volumes in as environment, run, and return the untouched raw output.
+    Mirrors the v1 adapter requirements: materialize ``<role>/<name>``,
+    BUILD, apply ``official-bindings``, run with the hydro environment, and
+    return the untouched raw output.
     """
-    import json
     import time
     from pathlib import Path
     from cloth_next.cloud.package import HYDRO_MODEL_ENV, HYDRO_VOLUME_ENV
     from cloth_next.ppf import results as solver_results
     from cloth_next.ppf_run.session import (SessionDeformable, SessionScene,
                                             SolverSession, new_project_name)
+    identity = ((1.0, 0.0, 0.0, 0.0), (0.0, 1.0, 0.0, 0.0),
+                (0.0, 0.0, 1.0, 0.0), (0.0, 0.0, 0.0, 1.0))
 
     def run(job, files):
-        manifest = json.loads(files["manifest.json"])
+        manifest = job["manifest"]
         work = Path(work_root) / job["job_id"]
-        (work / "run").mkdir(parents=True)
-        data, param = work / "data.bin", work / "param.bin"
-        data.write_bytes(files["data"])
-        param.write_bytes(files["param"])
+        inputs = work / "input"
+        for (role, name), raw in files.items():
+            path = inputs / role / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(raw)
+        (work / "run").mkdir(parents=True, exist_ok=True)
+        by_role = {}
+        for item in manifest["files"]:
+            by_role.setdefault(item["role"], []).append(item)
         environment = {}
-        if manifest["water"] == "hydrodynamic":
-            volumes = work / "run" / "hydro" / "volumes"
-            for name, raw in files.items():
-                if name.startswith("hydro/"):
-                    path = volumes / name[len("hydro/"):]
-                    path.parent.mkdir(parents=True, exist_ok=True)
-                    path.write_bytes(raw)
-            model = work / "run" / "hydro" / "model.json"
-            model.write_bytes(files["hydro-model.json"])
-            environment = {HYDRO_MODEL_ENV: str(model), HYDRO_VOLUME_ENV: str(volumes)}
-        objects = tuple(SessionDeformable(
-            item["uuid"], item["uuid"], item["vertex_count"], item["deformable_type"],
-            tuple(tuple(row) for row in item["solver_world_matrix"]))
-            for item in manifest["objects"])
+        if manifest["water_mode"] == "hydrodynamic":
+            model = inputs / "hydro-model" / by_role["hydro-model"][0]["name"]
+            environment = {HYDRO_MODEL_ENV: str(model),
+                           HYDRO_VOLUME_ENV: str(inputs / "hydro-volume")}
+        # SOLID surface reconstruction runs on the client from the snapshot;
+        # the server only needs raw frames, so identity matrices suffice here.
+        objects = tuple(SessionDeformable(item["uuid"], item["uuid"],
+                                          item["vertex_count"],
+                                          item["deformable_type"], identity)
+                        for item in manifest["objects"])
         first = objects[0]
-        hashes = {item["role"]: item["sha256"] for item in manifest["files"]}
+        data = inputs / "data" / by_role["data"][0]["name"]
+        param = inputs / "param" / by_role["param"][0]["name"]
+        bindings = by_role.get("official-bindings")
         scene = SessionScene(
             new_project_name(), first.name, first.uuid, first.vertex_count, "", "",
-            manifest["frames"]["count"], data, param, hashes["data"], hashes["param"],
-            deformable_type=first.deformable_type,
-            deformable_world_matrix=first.world_matrix, deformables=objects,
-            official_bridge_json=files.get("official-bindings.json", b"").decode("utf-8"))
+            manifest["frame_end"] - manifest["frame_start"] + 1, data, param,
+            by_role["data"][0]["sha256"], by_role["param"][0]["sha256"],
+            deformable_type=first.deformable_type, deformable_world_matrix=identity,
+            deformables=objects,
+            official_bridge_json=((inputs / "official-bindings" / bindings[0]["name"])
+                                  .read_text(encoding="utf-8") if bindings else ""))
         raw = {}
         session = SolverSession(
             resolved=resolved, scene=scene, work_directory=work / "run",
@@ -345,7 +440,7 @@ def solver_executor(resolved, work_root, build_id: str, *, report: dict | None =
         if report is not None:
             report.update(seconds=round(runtime, 2), executed_build_id=build_id,
                           solver_timings=dict(diagnostics.timings))
-        count = manifest["frames"]["count"] - 1
+        count = manifest["frame_end"] - manifest["frame_start"]
         return RawRunOutput(
             map_blob=raw[solver_results.MAP_PATH],
             surface_blob=raw.get(solver_results.SURFACE_MAP_PATH),

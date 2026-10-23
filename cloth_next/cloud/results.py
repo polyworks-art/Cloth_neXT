@@ -30,8 +30,8 @@ from .transport import ResultFile, ResultManifest
 RESULTS_DIRECTORY = "cloud-results"
 MANIFEST_NAME = "result-manifest.json"
 SNAPSHOT_FILE = "import-snapshot"
-MAP_NAME = "map.cbor"
-SURFACE_MAP_NAME = "surface-map.cbor"
+MAP_NAME = "vertex-map.bin"
+SURFACE_MAP_NAME = "surface-map.bin"
 _BLOCK = re.compile(r"frames-(\d{6})-(\d{6})\.bin")
 _SAFE_NAME = re.compile(r"[A-Za-z0-9._-]{1,96}")
 _JOB = re.compile(r"[A-Za-z0-9_-]{8,128}")

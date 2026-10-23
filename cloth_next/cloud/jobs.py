@@ -3,7 +3,10 @@
 """Cloud job lifecycle: upload, submit, reconcile, refresh, download.
 
 Pure and blocking; Blender runs it on a worker thread and only reads registry
-snapshots on the main thread. Every money-relevant step follows E23:
+snapshots on the main thread. The order follows Cloud API v1: capabilities
+and quote, explicit approval of the quoted maximum (E10), create, one upload
+session per ``(role, name)``, submit with the accepted quote. Every
+money-relevant step follows E23:
 
 * idempotency keys are created with the record, before any network call;
 * the intent is persisted before ``create_job`` / ``submit`` is sent;
@@ -34,7 +37,9 @@ DOWNLOAD_RESERVE_MIN = 1024 * 1024 * 1024
 
 _SERVER_TO_LOCAL = {
     wire.QUEUED: LocalState.QUEUED,
+    wire.STARTING: LocalState.RUNNING,
     wire.RUNNING: LocalState.RUNNING,
+    wire.CANCELLING: LocalState.RUNNING,
     wire.SUCCEEDED: LocalState.SUCCEEDED,
     wire.FAILED: LocalState.FAILED,
     wire.CANCELLED: LocalState.CANCELLED,
@@ -45,6 +50,18 @@ _SERVER_TO_LOCAL = {
 
 class UploadPaused(Exception):
     """The upload stopped (cancel request or network); resumable."""
+
+
+class ApprovalRequired(Exception):
+    """No accepted, current quote: the artist must confirm a new maximum."""
+
+    code = "quote_expired"
+
+
+class BuildNotOffered(Exception):
+    """The Cloud has no configured mapping for this exact desktop build."""
+
+    code = "build_unavailable"
 
 
 class InsufficientDownloadSpace(Exception):
@@ -82,14 +99,43 @@ class CloudJobs:
     def register(self, package: CloudPackage, *, blend_identity: str = "") -> JobRecord:
         return self.registry.add(new_record(
             client_job_id=package.client_job_id,
-            display_name=package.manifest["display_name"],
-            solver=package.manifest["solver"],
+            display_name=package.display_name or package.client_job_id,
+            solver=package.solver,
             manifest_sha256=package.manifest_sha256,
             snapshot_digest=package.snapshot.digest,
             package_hashes=package.hashes,
             upload_bytes_total=package.total_bytes,
             blend_identity=blend_identity,
             object_uuids=[item["uuid"] for item in package.manifest["objects"]]))
+
+    # Quote + approval (E10) ------------------------------------------------
+    def request_quote(self, client_job_id: str) -> JobRecord:
+        """Check the build mapping, get a binding quote, wait for approval."""
+        record = self.registry.get(client_job_id)
+        manifest = load_manifest(self.store, record.manifest_sha256)
+        # The artist is waiting for this answer: no silent backoff loop.
+        capabilities = self.backend.capabilities()
+        mapping = capabilities.mapping_for(manifest)
+        if mapping is None:
+            self.registry.update(client_job_id, state=LocalState.UPLOAD_PAUSED,
+                                 error_code="build_unavailable")
+            raise BuildNotOffered(manifest["build_id"])
+        quote = self.backend.quote(manifest)
+        return self.registry.update(
+            client_job_id, state=LocalState.AWAITING_APPROVAL,
+            server_build_id=mapping.server_build or mapping.build_id,
+            quote_id=quote.quote_id, quote_maximum=quote.maximum,
+            quote_unit=quote.unit, quote_expires_at=quote.expires_at,
+            quote_billing_mode=quote.billing_mode, quote_accepted=False,
+            error_code="")
+
+    def accept_quote(self, client_job_id: str, quote_id: str) -> JobRecord:
+        """Main thread, after the artist confirmed exactly this quote."""
+        record = self.registry.get(client_job_id)
+        if record.quote_id != quote_id or record.quote_maximum is None:
+            raise ApprovalRequired("the confirmed quote is not the current one")
+        return self.registry.update(client_job_id, quote_accepted=True,
+                                    state=LocalState.UPLOAD_PAUSED)
 
     # Helpers ---------------------------------------------------------------
     def _retry(self, call, *, cancelled=lambda: False):
@@ -140,6 +186,8 @@ class CloudJobs:
             return self.reconcile(client_job_id)
         if record.state not in NOT_SUBMITTED:
             return record
+        if not record.quote_accepted or not record.quote_id:
+            raise ApprovalRequired("confirm the Cloud cost limit first")
         manifest = load_manifest(self.store, record.manifest_sha256)
         if not record.job_id:
             record = self.registry.update(client_job_id,
@@ -147,7 +195,6 @@ class CloudJobs:
             try:
                 info = self.backend.create_job(
                     client_job_id=client_job_id, manifest=manifest,
-                    manifest_sha256=record.manifest_sha256,
                     idempotency_key=record.create_key)
             except wire.CloudUnconfirmed:
                 self.registry.update(client_job_id, state=LocalState.UNCONFIRMED)
@@ -157,7 +204,8 @@ class CloudJobs:
                 raise
             record = self.registry.update(client_job_id, job_id=info.job_id,
                                           state=LocalState.UPLOADING,
-                                          server_state=info.state)
+                                          server_state=info.state,
+                                          server_manifest_sha256=info.manifest_sha256)
         else:
             record = self.registry.update(client_job_id, state=LocalState.UPLOADING)
         try:
@@ -168,31 +216,47 @@ class CloudJobs:
         return self._submit(record)
 
     def _upload_files(self, record, manifest, cancelled, progress) -> JobRecord:
-        sizes = {item["sha256"]: item["size"] for item in manifest["files"]}
-        sizes[record.manifest_sha256] = None
-        done = sum(sizes[sha] or 0 for sha in record.uploaded if sha in sizes)
+        """One session per ``(role, name)``; resume at the server's offset."""
+        files = list(manifest["files"])
+        done = sum(item["size_bytes"] for item in files
+                   if _file_key(item) in record.uploaded)
         total = record.upload_bytes_total
         flushed = done
-        for sha in sorted(sizes):
-            if sha == record.manifest_sha256 or sha in record.uploaded:
+        for item in files:
+            key = _file_key(item)
+            if key in record.uploaded:
                 continue
             if cancelled():
                 raise UploadPaused("paused")
-            state = self._retry(lambda: self.backend.upload_state(record.job_id, sha),
-                                cancelled=cancelled)
+            sha, size = item["sha256"], item["size_bytes"]
+            state = self._retry(lambda: self.backend.open_upload(
+                record.job_id, item["role"], item["name"]), cancelled=cancelled)
             if not state.confirmed:
                 # Re-hash before sending (5.5): a damaged store never uploads.
-                self.store.verify(sha, size=sizes[sha])
+                self.store.verify(sha, size=size)
                 offset = state.received
-                while offset < sizes[sha]:
+                while offset < size:
                     if cancelled():
                         raise UploadPaused("paused")
-                    length = min(self._upload_block, sizes[sha] - offset)
+                    length = min(self._upload_block, size - offset)
                     block = self.store.read_range(sha, offset, length)
-                    state = self._retry(
-                        lambda: self.backend.upload_block(record.job_id, sha,
-                                                          offset, block),
-                        cancelled=cancelled)
+                    try:
+                        state = self._retry(
+                            lambda: self.backend.upload_chunk(state.upload_id, offset, block),
+                            cancelled=cancelled)
+                    except wire.CloudError as exc:
+                        if exc.code == "offset_mismatch":
+                            state = self._retry(lambda: self.backend.upload_status(
+                                state.upload_id), cancelled=cancelled)
+                        elif exc.code == "upload_expired":
+                            state = self._retry(lambda: self.backend.open_upload(
+                                record.job_id, item["role"], item["name"]),
+                                cancelled=cancelled)
+                        else:
+                            raise
+                        done += state.received - offset
+                        offset = state.received
+                        continue
                     done += state.received - offset
                     offset = state.received
                     progress(done, total)
@@ -200,16 +264,15 @@ class CloudJobs:
                         record = self.registry.update(record.client_job_id,
                                                       upload_bytes_done=done)
                         flushed = done
-                state = self._retry(
-                    lambda: self.backend.complete_upload(record.job_id, sha),
-                    cancelled=cancelled)
+                state = self._retry(lambda: self.backend.complete_upload(state.upload_id),
+                                    cancelled=cancelled)
                 if not state.confirmed:
                     raise wire.CloudError("hash_mismatch")
             else:
-                done += sizes[sha]  # deduplicated: already on the server
+                done += size  # reused: this account already owns the content
                 progress(done, total)
             record = self.registry.update(
-                record.client_job_id, uploaded=tuple(sorted({*record.uploaded, sha})),
+                record.client_job_id, uploaded=tuple(sorted({*record.uploaded, key})),
                 upload_bytes_done=done)
             flushed = done
         return record
@@ -218,8 +281,10 @@ class CloudJobs:
         record = self.registry.update(record.client_job_id,
                                       state=LocalState.SUBMIT_REQUESTED)
         try:
-            info = self.backend.submit(record.job_id,
-                                       idempotency_key=record.submit_key)
+            info = self.backend.submit(
+                record.job_id, quote_id=record.quote_id,
+                accepted_maximum=record.quote_maximum,
+                idempotency_key=record.submit_key)
         except wire.CloudUnconfirmed:
             self.registry.update(record.client_job_id, state=LocalState.UNCONFIRMED)
             return self.reconcile(record.client_job_id)
@@ -227,6 +292,11 @@ class CloudJobs:
             if exc.code in ("upload_incomplete", "hash_mismatch"):
                 self.registry.update(record.client_job_id, uploaded=(),
                                      state=LocalState.UPLOAD_PAUSED)
+            elif exc.code in ("invalid_quote", "quote_expired"):
+                # Never re-approve silently: a new quote needs a new confirmation.
+                self.registry.update(record.client_job_id, quote_accepted=False,
+                                     state=LocalState.UPLOAD_PAUSED,
+                                     error_code="quote_expired")
             else:
                 # The server refused with a definite answer: nothing started.
                 self.registry.update(record.client_job_id,
@@ -253,7 +323,7 @@ class CloudJobs:
             return self.registry.update(client_job_id, job_id="", uploaded=(),
                                         upload_bytes_done=0,
                                         state=LocalState.UPLOAD_PAUSED)
-        if info.state == wire.AWAITING_UPLOAD:
+        if info.state == wire.UPLOADING:
             # Created but not submitted; resume re-submits with the same key.
             return self.registry.update(client_job_id, job_id=info.job_id,
                                         server_state=info.state,
@@ -293,8 +363,7 @@ class CloudJobs:
         if record.state in NOT_SUBMITTED:
             if record.job_id:
                 try:
-                    self.backend.cancel(record.job_id,
-                                        idempotency_key=record.cancel_key)
+                    self.backend.cancel(record.job_id)
                 except (wire.CloudUnconfirmed, wire.CloudError):
                     pass  # unsubmitted jobs cost nothing and expire (B6)
             self.store.release_reference(client_job_id)
@@ -303,7 +372,7 @@ class CloudJobs:
             record = self.reconcile(client_job_id)
             if not record.submitted_confirmed:
                 return record
-        info = self.backend.cancel(record.job_id, idempotency_key=record.cancel_key)
+        info = self.backend.cancel(record.job_id)
         return self._adopt(record, info)
 
     # Download --------------------------------------------------------------
@@ -314,9 +383,10 @@ class CloudJobs:
         manifest = self._retry(lambda: self.backend.result_manifest(record.job_id))
         if manifest.snapshot_digest != record.snapshot_digest:
             raise ResultCorrupt("result belongs to a different package")
-        if manifest.build_id != record.build_id:
+        expected = record.server_build_id or record.build_id
+        if manifest.build_id != expected:
             raise ResultCorrupt(
-                f"result was computed by {manifest.build_id}, expected {record.build_id}")
+                f"result was computed by {manifest.build_id}, expected {expected}")
         total = sum(item.size for item in manifest.files)
         free = self._free_bytes() if self._free_bytes else self.store.free_bytes()
         required = total + max(int(total * DOWNLOAD_RESERVE_RATIO), DOWNLOAD_RESERVE_MIN)
@@ -326,7 +396,7 @@ class CloudJobs:
         done = 0
         for item in manifest.files:
             def fetch(offset, length, _name=item.name):
-                return self._retry(lambda: self.backend.download_block(
+                return self._retry(lambda: self.backend.download_result(
                     record.job_id, _name, offset, length), cancelled=cancelled)
             def advance(count):
                 nonlocal done
@@ -357,6 +427,10 @@ class CloudJobs:
             raw = self.backend.fetch_package_file(record.job_id, record.snapshot_digest)
         snapshot = load_snapshot(raw, expected_digest=record.snapshot_digest)
         self.archive.store_snapshot(record.client_job_id, snapshot.file_bytes)
+
+
+def _file_key(item) -> str:
+    return f"{item['role']}/{item['name']}"
 
 
 def load_manifest(store: PackageStore, sha256: str, *, required: bool = True):

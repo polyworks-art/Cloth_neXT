@@ -111,7 +111,8 @@ def activate(context, client_job_id: str, *, confirmed: bool = False):
             float(item["stitch_snap_distance"])))
     runtime = cloud_runtime.jobs()
     headers = import_result(runtime.archive, client_job_id, snapshot=snapshot,
-                            job_id=record.job_id, pc2_paths=pc2_paths)
+                            job_id=record.job_id, pc2_paths=pc2_paths,
+                            expected_build_id=record.server_build_id or None)
     first = targets[0]
     frames = pc2.read_header(first.pc2_path).frame_count
     fingerprints = (first.material_meta or {}).get("fingerprints", {})

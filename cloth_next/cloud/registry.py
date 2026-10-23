@@ -34,6 +34,7 @@ REGISTRY_VERSION = 1
 
 class LocalState(str, Enum):
     PACKAGED = "PACKAGED"                  # package stored, nothing sent
+    AWAITING_APPROVAL = "AWAITING_APPROVAL"  # quote shown; the artist must confirm
     CREATE_REQUESTED = "CREATE_REQUESTED"  # intent: create_job in flight
     UPLOADING = "UPLOADING"
     UPLOAD_PAUSED = "UPLOAD_PAUSED"        # resumable; nothing submitted
@@ -54,7 +55,8 @@ class LocalState(str, Enum):
 # A submitted job may have cost money: these never read as "not sent".
 POSSIBLY_SUBMITTED = frozenset({LocalState.SUBMIT_REQUESTED,
                                 LocalState.UNCONFIRMED})
-NOT_SUBMITTED = frozenset({LocalState.PACKAGED, LocalState.CREATE_REQUESTED,
+NOT_SUBMITTED = frozenset({LocalState.PACKAGED, LocalState.AWAITING_APPROVAL,
+                           LocalState.CREATE_REQUESTED,
                            LocalState.UPLOADING, LocalState.UPLOAD_PAUSED})
 TERMINAL = frozenset({LocalState.STORED, LocalState.FAILED,
                       LocalState.CANCELLED, LocalState.EXPIRED,
@@ -91,6 +93,14 @@ class JobRecord:
     blend_identity: str = ""                # opaque per-.blend key (T10)
     object_uuids: tuple[str, ...] = ()      # export UUIDs: finds the job's .blend objects
     submitted_confirmed: bool = False
+    server_manifest_sha256: str = ""        # authoritative, computed by the server
+    server_build_id: str = ""               # server build mapped to this desktop build
+    quote_id: str = ""
+    quote_maximum: float | None = None
+    quote_unit: str = ""
+    quote_expires_at: str = ""
+    quote_billing_mode: str = ""
+    quote_accepted: bool = False            # explicit artist confirmation (E10)
 
     def to_json(self) -> dict:
         value = asdict(self)

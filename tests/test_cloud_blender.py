@@ -10,13 +10,13 @@ import pytest
 from cloth_next.cloud import service
 from cloth_next.cloud.registry import LocalState
 from tests.cloud_backend import CloudTestBackend
-from tests.test_cloud_bakes import GAIA, make_plan, no_water
+from tests.test_cloud_bakes import GAIA, OFFERED, make_plan, no_water
 
 
 @pytest.fixture
 def cloud_env(blender_env, tmp_path, monkeypatch):
     monkeypatch.setenv("CLOTH_NEXT_ACCOUNT_ROOT", str(tmp_path / "account"))
-    backend = CloudTestBackend()
+    backend = CloudTestBackend(builds=OFFERED)
     service.install_backend(lambda: backend)
     service.record_capabilities(backend.capabilities())
     runtime = __import__("sys").modules.get("cloth_next.blender.cloud_runtime")
@@ -56,6 +56,12 @@ def test_runtime_uploads_in_background_and_shuts_down(cloud_env, tmp_path):
                             blender_version="5.2.3", job_name="shot",
                             prepare_inputs=no_water, solver=GAIA)
     runtime.submit(package)
+    assert wait_for(lambda: any(job.state is LocalState.AWAITING_APPROVAL
+                                for job in runtime.view().jobs))
+    pending = runtime.view().jobs[0]
+    assert runtime.describe_state(pending).startswith("Waiting for your confirmation")
+    assert not any(name == "create_job" for _a, name in cloud_env.backend.calls)
+    runtime.approve(pending.client_job_id, pending.quote_id)
     assert wait_for(lambda: any(job.state is LocalState.QUEUED
                                 for job in runtime.view().jobs))
     assert runtime.view().message == "Job confirmed. You can close Blender."
@@ -165,7 +171,8 @@ def test_jobs_list_draws_from_snapshot_only(blender_env, monkeypatch):
                         snapshot_digest="1" * 64, package_hashes=(),
                         upload_bytes_total=100)
     paused = record.__class__(**{**record.to_json(), "state": LocalState.UPLOAD_PAUSED,
-                                 "package_hashes": (), "uploaded": ()})
+                                 "package_hashes": (), "uploaded": (),
+                                 "object_uuids": (), "quote_accepted": True})
     monkeypatch.setattr(runtime, "view", lambda: runtime.CloudView(jobs=(paused,)))
     real_open = builtins.open
     monkeypatch.setattr(builtins, "open", lambda *a, **k: (_ for _ in ()).throw(
@@ -202,3 +209,26 @@ def test_file_jobs_found_by_stored_id_or_object_uuid(blender_env):
     assert scene.cloth_next_cloud_job_ids == stored.client_job_id
     found = ui.file_jobs(scene, (stored, matched, other))
     assert [job.display_name for job in found] == ["aa", "bb"]
+
+
+def test_review_lines_show_server_quote_and_test_billing(blender_env):
+    import importlib
+    from cloth_next.cloud.registry import new_record
+    ui = importlib.import_module("cloth_next.blender.cloud_ui")
+    record = new_record(client_job_id="d" * 32, display_name="x", solver=GAIA,
+                        manifest_sha256="0" * 64, snapshot_digest="1" * 64,
+                        package_hashes=(), upload_bytes_total=1)
+    record = record.__class__(**{**record.to_json(), "state": LocalState.AWAITING_APPROVAL,
+                                 "package_hashes": (), "uploaded": (), "object_uuids": (),
+                                 "quote_maximum": 30.0, "quote_unit": "test_second",
+                                 "quote_expires_at": "2026-10-23T12:10:00Z",
+                                 "quote_billing_mode": "test"})
+    manifest = {"engine": "GAIA", "build_id": "gaia:test", "frame_start": 1,
+                "frame_end": 24, "fps": 24.0, "water_mode": "hydrodynamic",
+                "objects": [{"vertex_count": 625}],
+                "files": [{"size_bytes": 2_000_000}]}
+    lines = ui.review_lines(record, manifest, SimpleNamespace(retention_days=14))
+    assert "Cost limit: 30 test_second · quote valid until 2026-10-23T12:10:00Z" in lines
+    assert "Test billing only: no real charge is made." in lines
+    assert "1 object(s) · 625 vertices · Water Flow · Hydrodynamic Pressure" in lines
+    assert ui.actions_for(record) == ("REVIEW", "CANCEL")

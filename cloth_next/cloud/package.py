@@ -11,8 +11,13 @@ to run the solver:
 ``param``               Param payload (native fluid already encoded in)
 ``official-bindings``   Sewing / face friction rows for the official frontend
 ``hydro-model``         Hydrodynamic Pressure model (when used)
-``hydro/<name>``        Hydrodynamic Pressure volumes (when used)
+``hydro-volume``        Hydrodynamic Pressure volumes, names relative to the
+                        volume folder (when used)
 ``import-snapshot``     Import Snapshot file (opaque to the server)
+
+The manifest is the Cloud API v1 ``Create.manifest`` exactly (flat fields,
+``files`` as a list of ``{role, name, size_bytes, sha256}``); the server
+computes ``manifest_sha256`` itself and the add-on stores that value.
 
 Every file is copied into the ``PackageStore`` before the manifest exists,
 hashes are over the uncompressed bytes, and the manifest is privacy-scanned.
@@ -31,8 +36,7 @@ from . import privacy
 from .package_store import PackageStore, StoredBlob
 from .snapshot import ImportSnapshot, build_snapshot, canonical_bytes
 
-PACKAGE_SCHEMA = 1
-MANIFEST_KIND = "cloth-next.cloud.package"
+MANIFEST_SCHEMA_VERSION = 1
 HYDRO_MODEL_ENV = "PPF_EXPERIMENTAL_HYDRO_TEST_JSON"
 HYDRO_VOLUME_ENV = "PPF_EXPERIMENTAL_HYDRO_VOLUME_DIR"
 # Local preparation logs; they name local FLIP paths and are not solver input.
@@ -58,18 +62,18 @@ class PackageFile:
     size: int
 
     def record(self) -> dict[str, Any]:
-        return {"role": self.role, "name": self.name, "sha256": self.sha256,
-                "size": self.size,
-                "transport": {"compression": "none", "size": self.size}}
+        return {"role": self.role, "name": self.name,
+                "size_bytes": self.size, "sha256": self.sha256}
 
 
 @dataclass(frozen=True, slots=True)
 class CloudPackage:
     client_job_id: str
     manifest: dict[str, Any]
-    manifest_sha256: str
+    manifest_sha256: str          # local canonical hash; the server's is authoritative
     files: tuple[PackageFile, ...]
     snapshot: ImportSnapshot
+    display_name: str = ""
     timings: dict[str, float] = field(default_factory=dict)
 
     @property
@@ -78,15 +82,48 @@ class CloudPackage:
                             | {self.manifest_sha256}))
 
     @property
+    def solver(self) -> dict[str, Any]:
+        return dict(self.snapshot.document["solver"])
+
+    @property
     def total_bytes(self) -> int:
         return sum(item.size for item in self.files)
+
+
+def _file_sha256(path: Path) -> str:
+    import hashlib
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as stream:
+        while block := stream.read(1024 * 1024):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def native_hashes(resolved) -> dict[str, str]:
+    """SHA-256 of the selected raw ``ppf-cts-server`` and native worker.
+
+    The worker is resolved exactly as a local run does (beside the server,
+    else ``target/release``). Content is hashed, never names or paths.
+    """
+    from ..ppf_run.session import _native_worker_path
+    executable = getattr(resolved, "executable_path", None)
+    if executable is None or not Path(executable).is_file():
+        raise PackageError("The selected solver executable is missing.",
+                           code="build_unverifiable")
+    worker = _native_worker_path(Path(executable))
+    if not worker.is_file():
+        raise PackageError("The selected solver's native worker is missing.",
+                           code="build_unverifiable")
+    return {"solver_sha256": _file_sha256(Path(executable)),
+            "worker_sha256": _file_sha256(worker)}
 
 
 def solver_identity(resolved) -> dict[str, Any]:
     """Exact engine build a Cloud run must use (E13); never a fallback.
 
     GAIA is identified by its ``build_id``; AETHER by its verified official
-    release tag. Unverified external solvers cannot run in the Cloud.
+    release tag; both by the hashes of the two selected native binaries.
+    Unverified external solvers cannot run in the Cloud.
     """
     from ..updater import engines
     installation = getattr(resolved, "installation", None)
@@ -99,11 +136,12 @@ def solver_identity(resolved) -> dict[str, Any]:
     if build is not None:
         return {"engine": "GAIA", "build_id": build.build_id,
                 "version": build.version, "source_revision": build.source_revision,
-                "platform": build.platform, "backend": build.backend, **common}
+                "platform": build.platform, "backend": build.backend, **common,
+                **native_hashes(resolved)}
     if installation is not None and engines.verified_upstream(installation):
         tag = str(installation.official_release_tag)
-        return {"engine": "AETHER", "build_id": f"aether:{tag}",
-                "release_tag": tag, **common}
+        return {"engine": "AETHER", "build_id": tag, "version": tag,
+                "release_tag": tag, **common, **native_hashes(resolved)}
     raise PackageError(
         "Cloud Bakes need GAIA or a verified official AETHER release; the "
         "selected solver is an unverified external build.",
@@ -203,7 +241,7 @@ def build_package(plan, deformables, *, store: PackageStore,
             check_cancel()
             blob = (store.put_bytes(_sanitized_hydro_manifest(path))
                     if name == "hydrodynamics.json" else store.put_file(path))
-            files.append(PackageFile("hydro-volume", f"hydro/{name}",
+            files.append(PackageFile("hydro-volume", name,
                                      blob.sha256, blob.size))
     timings["store_inputs"] = time.monotonic() - step
 
@@ -220,34 +258,36 @@ def build_package(plan, deformables, *, store: PackageStore,
                              snapshot_file.sha256, snapshot_file.size))
     timings["snapshot"] = time.monotonic() - step
 
-    client_job_id = client_job_id or uuid.uuid4().hex
-    objects = [{
-        "uuid": item["uuid"], "deformable_type": item["deformable_type"],
-        "vertex_count": item["vertex_count"],
-        "solver_world_matrix": item["solver_world_matrix"],
-    } for item in snapshot.objects]
+    client_job_id = client_job_id or str(uuid.uuid4())
+    water_mode = ("hydrodynamic" if model_path is not None else
+                  "native-fluid" if prepared.native_fluid_seconds is not None
+                  else "none")
     manifest = {
-        "kind": MANIFEST_KIND,
-        "package_schema": PACKAGE_SCHEMA,
+        "schema_version": MANIFEST_SCHEMA_VERSION,
         "client_job_id": client_job_id,
-        "display_name": str(job_name)[:120],
         "addon_version": str(addon_version),
         "blender_version": str(blender_version),
-        "solver": solver,
-        "frames": snapshot.document["frames"],
-        "quality": {"deterministic": bool(getattr(plan.resolved,
-                                                  "solver_environment", ()))},
-        "water": ("hydrodynamic" if model_path is not None else
-                  "native-fluid" if prepared.native_fluid_seconds is not None
-                  else "none"),
-        "objects": objects,
-        "fingerprints": {
-            "settings": plan.settings_fingerprint,
-            "geometry": plan.geometry_fingerprint,
-        },
-        "payload_hashes": {"data": scene.data_hash, "param": scene.param_hash},
-        "snapshot_digest": snapshot.digest,
+        "engine": solver["engine"],
+        "solver_version": str(solver.get("version") or solver["build_id"]),
+        "build_id": solver["build_id"],
+        "solver_sha256": solver["solver_sha256"],
+        "worker_sha256": solver["worker_sha256"],
+        "protocol": str(solver.get("protocol_version", "")),
+        "payload_schema": str(solver.get("schema_version", "")),
+        "frame_start": int(plan.frame_start),
+        "frame_end": int(plan.frame_end),
+        "fps": float(plan.fps),
+        "quality": str(getattr(plan, "preset_identifier", "") or "default"),
+        "deterministic": bool(getattr(plan.resolved, "solver_environment", ())),
+        "water_flow": water_mode != "none",
+        "water_mode": water_mode,
+        "objects": [{"uuid": item["uuid"], "deformable_type": item["deformable_type"],
+                     "vertex_count": item["vertex_count"]}
+                    for item in snapshot.objects],
         "files": [item.record() for item in files],
+        "scene_fingerprint": plan.geometry_fingerprint,
+        "simulation_fingerprint": plan.settings_fingerprint,
+        "import_snapshot_digest": snapshot.digest,
     }
     privacy.require_clean(manifest, label="Cloud package manifest")
     manifest_blob = store.put_bytes(canonical_bytes(manifest))
@@ -255,7 +295,7 @@ def build_package(plan, deformables, *, store: PackageStore,
                         [item.sha256 for item in files] + [manifest_blob.sha256])
     timings["total"] = time.monotonic() - started
     return CloudPackage(client_job_id, manifest, manifest_blob.sha256,
-                        tuple(files), snapshot, timings)
+                        tuple(files), snapshot, str(job_name)[:120], timings)
 
 
 def manifest_file(manifest: Mapping[str, Any], role: str) -> Mapping[str, Any]:

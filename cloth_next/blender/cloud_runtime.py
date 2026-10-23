@@ -119,8 +119,17 @@ def submit(package) -> JobRecord:
         raise RuntimeError(service.PENDING_REASON)
     record = runtime.register(package)
     _publish(jobs=runtime.registry.all())
-    enqueue("upload", record.client_job_id)
+    # Quote first; nothing is uploaded before the artist confirms (E10).
+    enqueue("quote", record.client_job_id)
     return record
+
+
+def approve(client_job_id: str, quote_id: str) -> None:
+    """Main thread, after the confirmation dialog: start the upload."""
+    runtime = jobs()
+    runtime.accept_quote(client_job_id, quote_id)
+    _publish(jobs=runtime.registry.all(), message="", error_code="")
+    resume_upload(client_job_id)
 
 
 def pause_upload() -> None:
@@ -160,6 +169,9 @@ def _perform(runtime: CloudJobs, action: str, client_job_id: str) -> str:
         if record.submitted_confirmed:
             return "Job confirmed. You can close Blender."
         return ""
+    if action == "quote":
+        runtime.request_quote(client_job_id)
+        return "Review the Cloud cost limit to send this job."
     if action == "refresh":
         for record in runtime.registry.all():
             if record.submitted_confirmed and record.state in (
@@ -263,7 +275,13 @@ def describe_state(record: JobRecord) -> str:
     if state in (LocalState.UPLOADING, LocalState.PACKAGED, LocalState.CREATE_REQUESTED):
         total = max(record.upload_bytes_total, 1)
         return f"Uploading {100 * record.upload_bytes_done // total} % – keep Blender open"
+    if state is LocalState.AWAITING_APPROVAL:
+        limit = (f" · limit {record.quote_maximum:g} {record.quote_unit}"
+                 if record.quote_maximum is not None else "")
+        return "Waiting for your confirmation" + limit
     if state is LocalState.UPLOAD_PAUSED:
+        if not record.quote_accepted:
+            return "Not sent – confirm a new cost limit"
         return "Upload paused – not sent"
     if state in (LocalState.UNCONFIRMED, LocalState.SUBMIT_REQUESTED):
         return "Possibly started – checking with server"

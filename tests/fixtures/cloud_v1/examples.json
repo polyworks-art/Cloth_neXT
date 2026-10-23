@@ -1,0 +1,677 @@
+{
+  "warning": "Synthetic bytes/build IDs/hashes only. No supported runtime, real GPU result, commercial price, or retention decision is claimed.",
+  "hosts": {
+    "api_origin": "https://api.cloth-next.de",
+    "download_origin": "https://api.cloth-next.de",
+    "redirects_allowed": false
+  },
+  "execution": {
+    "provider": "runpod",
+    "deployment": null,
+    "enabled": false,
+    "native_execution_on_website": false
+  },
+  "authentication": {
+    "Authorization": "Bearer EXISTING-ACCOUNT-SESSION"
+  },
+  "create": {
+    "method": "POST",
+    "path": "/v1/cloud/jobs",
+    "headers": {
+      "Idempotency-Key": "00000000-0000-4000-8000-000000000001"
+    },
+    "request": {
+      "manifest": {
+        "schema_version": 1,
+        "client_job_id": "00000000-0000-4000-8000-000000000001",
+        "addon_version": "example",
+        "blender_version": "example",
+        "engine": "GAIA",
+        "solver_version": "example-release",
+        "build_id": "example-gaia-build-json-id",
+        "solver_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "worker_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "protocol": "0.26",
+        "payload_schema": "example-schema",
+        "frame_start": 1,
+        "frame_end": 2,
+        "fps": 24.0,
+        "quality": "example",
+        "deterministic": true,
+        "water_flow": true,
+        "water_mode": "native-fluid",
+        "objects": [
+          {
+            "uuid": "00000000-0000-4000-8000-000000000001",
+            "deformable_type": "SOLID",
+            "vertex_count": 3
+          }
+        ],
+        "files": [
+          {
+            "role": "data",
+            "name": "scene.data",
+            "size_bytes": 21,
+            "sha256": "b42122a9ad0de78176dadaa8f7a3d7fb888dab20f2adf813f26b4b89074ad8ce"
+          },
+          {
+            "role": "param",
+            "name": "scene.param",
+            "size_bytes": 44,
+            "sha256": "010479754657da0cdd07f04db565801e38bd6c6b9f8ba948b34c601662424704"
+          },
+          {
+            "role": "official-bindings",
+            "name": "official-bindings.json",
+            "size_bytes": 22,
+            "sha256": "7c63b630ca8d3548b54a8a7caa83debf64a00e67671e0a2d7b1e36d297817e43"
+          },
+          {
+            "role": "import-snapshot",
+            "name": "import-snapshot.json",
+            "size_bytes": 20,
+            "sha256": "77c7ac2358e7f561319c88874c93b13cca200c3a91801013c9aed79ec560ef14"
+          },
+          {
+            "role": "snapshot-arrays",
+            "name": "snapshot/vertices.bin",
+            "size_bytes": 25,
+            "sha256": "d96482036eb99bea5e294bea5c14cb1ae29cf05319c57f735fc81597bb4f79ee"
+          }
+        ],
+        "scene_fingerprint": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "simulation_fingerprint": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "import_snapshot_digest": "77c7ac2358e7f561319c88874c93b13cca200c3a91801013c9aed79ec560ef14"
+      }
+    },
+    "response_status": 201,
+    "response": {
+      "job_id": "00000000-0000-4000-8000-000000000002",
+      "client_job_id": "00000000-0000-4000-8000-000000000001",
+      "state": "uploading",
+      "created_at": "2026-10-23T12:00:00Z",
+      "submitted_at": null,
+      "finished_at": null,
+      "deleted": false,
+      "manifest_sha256": "09bea4ce51893a107805218e5213b3c29984a3a65a958bee4698b7fbafff962a",
+      "progress": {
+        "completed_frame": null,
+        "total_frames": 2,
+        "queue_position": null,
+        "eta_seconds": null
+      },
+      "error_code": null,
+      "result_available": false,
+      "result_expires_at": null,
+      "uploaded_roles": [],
+      "statistics": {
+        "elapsed_ms": null
+      }
+    }
+  },
+  "aether_create_request": {
+    "manifest": {
+      "schema_version": 1,
+      "client_job_id": "00000000-0000-4000-8000-000000000001",
+      "addon_version": "example",
+      "blender_version": "example",
+      "engine": "AETHER",
+      "solver_version": "example-release",
+      "build_id": "example-upstream-release-tag",
+      "solver_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "worker_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "protocol": "0.26",
+      "payload_schema": "example-schema",
+      "frame_start": 1,
+      "frame_end": 2,
+      "fps": 24.0,
+      "quality": "example",
+      "deterministic": true,
+      "water_flow": false,
+      "water_mode": "none",
+      "objects": [
+        {
+          "uuid": "00000000-0000-4000-8000-000000000001",
+          "deformable_type": "SOLID",
+          "vertex_count": 3
+        }
+      ],
+      "files": [
+        {
+          "role": "data",
+          "name": "scene.data",
+          "size_bytes": 21,
+          "sha256": "b42122a9ad0de78176dadaa8f7a3d7fb888dab20f2adf813f26b4b89074ad8ce"
+        },
+        {
+          "role": "param",
+          "name": "scene.param",
+          "size_bytes": 44,
+          "sha256": "010479754657da0cdd07f04db565801e38bd6c6b9f8ba948b34c601662424704"
+        },
+        {
+          "role": "official-bindings",
+          "name": "official-bindings.json",
+          "size_bytes": 22,
+          "sha256": "7c63b630ca8d3548b54a8a7caa83debf64a00e67671e0a2d7b1e36d297817e43"
+        },
+        {
+          "role": "import-snapshot",
+          "name": "import-snapshot.json",
+          "size_bytes": 20,
+          "sha256": "77c7ac2358e7f561319c88874c93b13cca200c3a91801013c9aed79ec560ef14"
+        },
+        {
+          "role": "snapshot-arrays",
+          "name": "snapshot/vertices.bin",
+          "size_bytes": 25,
+          "sha256": "d96482036eb99bea5e294bea5c14cb1ae29cf05319c57f735fc81597bb4f79ee"
+        }
+      ],
+      "scene_fingerprint": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "simulation_fingerprint": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "import_snapshot_digest": "77c7ac2358e7f561319c88874c93b13cca200c3a91801013c9aed79ec560ef14"
+    }
+  },
+  "hydrodynamic_create_request": {
+    "manifest": {
+      "schema_version": 1,
+      "client_job_id": "00000000-0000-4000-8000-000000000001",
+      "addon_version": "example",
+      "blender_version": "example",
+      "engine": "GAIA",
+      "solver_version": "example-release",
+      "build_id": "example-gaia-build-json-id",
+      "solver_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "worker_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "protocol": "0.26",
+      "payload_schema": "example-schema",
+      "frame_start": 1,
+      "frame_end": 2,
+      "fps": 24.0,
+      "quality": "example",
+      "deterministic": true,
+      "water_flow": true,
+      "water_mode": "hydrodynamic",
+      "objects": [
+        {
+          "uuid": "00000000-0000-4000-8000-000000000001",
+          "deformable_type": "SOLID",
+          "vertex_count": 3
+        }
+      ],
+      "files": [
+        {
+          "role": "data",
+          "name": "scene.data",
+          "size_bytes": 21,
+          "sha256": "b42122a9ad0de78176dadaa8f7a3d7fb888dab20f2adf813f26b4b89074ad8ce"
+        },
+        {
+          "role": "param",
+          "name": "scene.param",
+          "size_bytes": 44,
+          "sha256": "010479754657da0cdd07f04db565801e38bd6c6b9f8ba948b34c601662424704"
+        },
+        {
+          "role": "official-bindings",
+          "name": "official-bindings.json",
+          "size_bytes": 22,
+          "sha256": "7c63b630ca8d3548b54a8a7caa83debf64a00e67671e0a2d7b1e36d297817e43"
+        },
+        {
+          "role": "import-snapshot",
+          "name": "import-snapshot.json",
+          "size_bytes": 20,
+          "sha256": "77c7ac2358e7f561319c88874c93b13cca200c3a91801013c9aed79ec560ef14"
+        },
+        {
+          "role": "snapshot-arrays",
+          "name": "snapshot/vertices.bin",
+          "size_bytes": 25,
+          "sha256": "d96482036eb99bea5e294bea5c14cb1ae29cf05319c57f735fc81597bb4f79ee"
+        },
+        {
+          "role": "hydro-model",
+          "name": "hydrodynamics.json",
+          "size_bytes": 26,
+          "sha256": "78f14a1d0cefd9600c37527ff51e1e2a580b86f4b8856364d40a95b549723c78"
+        },
+        {
+          "role": "hydro-volume",
+          "name": "hydro/000001/volume.bin",
+          "size_bytes": 24,
+          "sha256": "1c77c6174c31d6d772892d3857b78b707d2339ad383c56a015f474d01301f48b"
+        },
+        {
+          "role": "hydro-volume",
+          "name": "hydro/000002/volume.bin",
+          "size_bytes": 24,
+          "sha256": "35720e6e150f77aaea68daf1a447e4415ab44da9bf64e0e31f401ae2900e3dc8"
+        }
+      ],
+      "scene_fingerprint": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "simulation_fingerprint": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "import_snapshot_digest": "77c7ac2358e7f561319c88874c93b13cca200c3a91801013c9aed79ec560ef14"
+    }
+  },
+  "quote": {
+    "method": "POST",
+    "path": "/v1/cloud/quotes",
+    "request": {
+      "manifest": {
+        "schema_version": 1,
+        "client_job_id": "00000000-0000-4000-8000-000000000001",
+        "addon_version": "example",
+        "blender_version": "example",
+        "engine": "GAIA",
+        "solver_version": "example-release",
+        "build_id": "example-gaia-build-json-id",
+        "solver_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "worker_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "protocol": "0.26",
+        "payload_schema": "example-schema",
+        "frame_start": 1,
+        "frame_end": 2,
+        "fps": 24.0,
+        "quality": "example",
+        "deterministic": true,
+        "water_flow": true,
+        "water_mode": "native-fluid",
+        "objects": [
+          {
+            "uuid": "00000000-0000-4000-8000-000000000001",
+            "deformable_type": "SOLID",
+            "vertex_count": 3
+          }
+        ],
+        "files": [
+          {
+            "role": "data",
+            "name": "scene.data",
+            "size_bytes": 21,
+            "sha256": "b42122a9ad0de78176dadaa8f7a3d7fb888dab20f2adf813f26b4b89074ad8ce"
+          },
+          {
+            "role": "param",
+            "name": "scene.param",
+            "size_bytes": 44,
+            "sha256": "010479754657da0cdd07f04db565801e38bd6c6b9f8ba948b34c601662424704"
+          },
+          {
+            "role": "official-bindings",
+            "name": "official-bindings.json",
+            "size_bytes": 22,
+            "sha256": "7c63b630ca8d3548b54a8a7caa83debf64a00e67671e0a2d7b1e36d297817e43"
+          },
+          {
+            "role": "import-snapshot",
+            "name": "import-snapshot.json",
+            "size_bytes": 20,
+            "sha256": "77c7ac2358e7f561319c88874c93b13cca200c3a91801013c9aed79ec560ef14"
+          },
+          {
+            "role": "snapshot-arrays",
+            "name": "snapshot/vertices.bin",
+            "size_bytes": 25,
+            "sha256": "d96482036eb99bea5e294bea5c14cb1ae29cf05319c57f735fc81597bb4f79ee"
+          }
+        ],
+        "scene_fingerprint": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "simulation_fingerprint": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "import_snapshot_digest": "77c7ac2358e7f561319c88874c93b13cca200c3a91801013c9aed79ec560ef14"
+      }
+    },
+    "response_status": 201,
+    "response": {
+      "quote_id": "00000000-0000-4000-8000-000000000003",
+      "manifest_sha256": "09bea4ce51893a107805218e5213b3c29984a3a65a958bee4698b7fbafff962a",
+      "maximum": 30,
+      "unit": "test_second",
+      "max_execution_seconds": 30,
+      "expires_at": "2026-10-23T12:10:00Z",
+      "billing_mode": "test",
+      "real_charge": false
+    }
+  },
+  "upload_session": {
+    "method": "POST",
+    "path": "/v1/cloud/jobs/00000000-0000-4000-8000-000000000002/uploads",
+    "request": {
+      "role": "data",
+      "name": "scene.data"
+    },
+    "response": {
+      "upload_id": "00000000-0000-4000-8000-000000000004",
+      "offset": 0,
+      "size_bytes": 21,
+      "reused": false,
+      "received": 0,
+      "confirmed": false,
+      "role": "data",
+      "name": "scene.data",
+      "completed": false,
+      "expires_at": "2026-10-23T13:00:00Z"
+    }
+  },
+  "chunk": {
+    "method": "PATCH",
+    "path": "/v1/cloud/uploads/00000000-0000-4000-8000-000000000004",
+    "headers": {
+      "Upload-Offset": "0",
+      "Chunk-SHA256": "b42122a9ad0de78176dadaa8f7a3d7fb888dab20f2adf813f26b4b89074ad8ce",
+      "Content-Type": "application/octet-stream",
+      "Content-Encoding": "zstd"
+    },
+    "body_base64": "KLUv/SAVqQAAU1lOVEhFVElDIHNjZW5lIGJ5dGVz",
+    "decoded_body_base64": "U1lOVEhFVElDIHNjZW5lIGJ5dGVz",
+    "response": {
+      "upload_id": "00000000-0000-4000-8000-000000000004",
+      "offset": 21,
+      "size_bytes": 21,
+      "reused": false,
+      "received": 21,
+      "confirmed": false,
+      "role": "data",
+      "name": "scene.data",
+      "completed": false,
+      "expires_at": "2026-10-23T13:00:00Z"
+    }
+  },
+  "complete": {
+    "method": "POST",
+    "path": "/v1/cloud/uploads/00000000-0000-4000-8000-000000000004/complete",
+    "response": {
+      "upload_id": "00000000-0000-4000-8000-000000000004",
+      "offset": 21,
+      "size_bytes": 21,
+      "reused": false,
+      "received": 21,
+      "confirmed": true,
+      "role": "data",
+      "name": "scene.data",
+      "completed": true,
+      "expires_at": "2026-10-23T13:00:00Z"
+    }
+  },
+  "submit": {
+    "method": "POST",
+    "path": "/v1/cloud/jobs/00000000-0000-4000-8000-000000000002/submit",
+    "headers": {
+      "Idempotency-Key": "00000000-0000-4000-8000-000000000001:submit"
+    },
+    "request": {
+      "quote_id": "00000000-0000-4000-8000-000000000003",
+      "accepted_maximum": 30
+    },
+    "response": {
+      "job_id": "00000000-0000-4000-8000-000000000002",
+      "client_job_id": "00000000-0000-4000-8000-000000000001",
+      "state": "queued",
+      "created_at": "2026-10-23T12:00:00Z",
+      "submitted_at": "2026-10-23T12:00:00Z",
+      "finished_at": null,
+      "deleted": false,
+      "manifest_sha256": "09bea4ce51893a107805218e5213b3c29984a3a65a958bee4698b7fbafff962a",
+      "progress": {
+        "completed_frame": null,
+        "total_frames": 2,
+        "queue_position": null,
+        "eta_seconds": null
+      },
+      "error_code": null,
+      "result_available": false,
+      "result_expires_at": null,
+      "uploaded_roles": [
+        "data",
+        "import-snapshot",
+        "official-bindings",
+        "param",
+        "snapshot-arrays"
+      ],
+      "statistics": {
+        "elapsed_ms": null
+      }
+    },
+    "note": "Success response is test-harness only; production submission stays 503 until RunPod dispatch is configured."
+  },
+  "recover": {
+    "method": "GET",
+    "path": "/v1/cloud/jobs/by-client-id/00000000-0000-4000-8000-000000000001",
+    "response": {
+      "job_id": "00000000-0000-4000-8000-000000000002",
+      "client_job_id": "00000000-0000-4000-8000-000000000001",
+      "state": "uploading",
+      "created_at": "2026-10-23T12:00:00Z",
+      "submitted_at": null,
+      "finished_at": null,
+      "deleted": false,
+      "manifest_sha256": "09bea4ce51893a107805218e5213b3c29984a3a65a958bee4698b7fbafff962a",
+      "progress": {
+        "completed_frame": null,
+        "total_frames": 2,
+        "queue_position": null,
+        "eta_seconds": null
+      },
+      "error_code": null,
+      "result_available": false,
+      "result_expires_at": null,
+      "uploaded_roles": [],
+      "statistics": {
+        "elapsed_ms": null
+      }
+    }
+  },
+  "package_session": {
+    "method": "POST",
+    "path": "/v1/cloud/jobs/00000000-0000-4000-8000-000000000002/package-session",
+    "response": {
+      "expires_at": "2026-10-23T12:05:00Z",
+      "manifest_sha256": "09bea4ce51893a107805218e5213b3c29984a3a65a958bee4698b7fbafff962a",
+      "import_snapshot_digest": "77c7ac2358e7f561319c88874c93b13cca200c3a91801013c9aed79ec560ef14",
+      "manifest": {
+        "schema_version": 1,
+        "client_job_id": "00000000-0000-4000-8000-000000000001",
+        "addon_version": "example",
+        "blender_version": "example",
+        "engine": "GAIA",
+        "solver_version": "example-release",
+        "build_id": "example-gaia-build-json-id",
+        "solver_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "worker_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "protocol": "0.26",
+        "payload_schema": "example-schema",
+        "frame_start": 1,
+        "frame_end": 2,
+        "fps": 24.0,
+        "quality": "example",
+        "deterministic": true,
+        "water_flow": true,
+        "water_mode": "native-fluid",
+        "objects": [
+          {
+            "uuid": "00000000-0000-4000-8000-000000000001",
+            "deformable_type": "SOLID",
+            "vertex_count": 3
+          }
+        ],
+        "files": [
+          {
+            "role": "data",
+            "name": "scene.data",
+            "size_bytes": 21,
+            "sha256": "b42122a9ad0de78176dadaa8f7a3d7fb888dab20f2adf813f26b4b89074ad8ce"
+          },
+          {
+            "role": "param",
+            "name": "scene.param",
+            "size_bytes": 44,
+            "sha256": "010479754657da0cdd07f04db565801e38bd6c6b9f8ba948b34c601662424704"
+          },
+          {
+            "role": "official-bindings",
+            "name": "official-bindings.json",
+            "size_bytes": 22,
+            "sha256": "7c63b630ca8d3548b54a8a7caa83debf64a00e67671e0a2d7b1e36d297817e43"
+          },
+          {
+            "role": "import-snapshot",
+            "name": "import-snapshot.json",
+            "size_bytes": 20,
+            "sha256": "77c7ac2358e7f561319c88874c93b13cca200c3a91801013c9aed79ec560ef14"
+          },
+          {
+            "role": "snapshot-arrays",
+            "name": "snapshot/vertices.bin",
+            "size_bytes": 25,
+            "sha256": "d96482036eb99bea5e294bea5c14cb1ae29cf05319c57f735fc81597bb4f79ee"
+          }
+        ],
+        "scene_fingerprint": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "simulation_fingerprint": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "import_snapshot_digest": "77c7ac2358e7f561319c88874c93b13cca200c3a91801013c9aed79ec560ef14"
+      },
+      "files": [
+        {
+          "role": "data",
+          "name": "scene.data",
+          "sha256": "b42122a9ad0de78176dadaa8f7a3d7fb888dab20f2adf813f26b4b89074ad8ce",
+          "size_bytes": 21,
+          "url": "https://api.cloth-next.de/v1/cloud/jobs/00000000-0000-4000-8000-000000000002/files/b42122a9ad0de78176dadaa8f7a3d7fb888dab20f2adf813f26b4b89074ad8ce?t=REDACTED-EXAMPLE"
+        },
+        {
+          "role": "param",
+          "name": "scene.param",
+          "sha256": "010479754657da0cdd07f04db565801e38bd6c6b9f8ba948b34c601662424704",
+          "size_bytes": 44,
+          "url": "https://api.cloth-next.de/v1/cloud/jobs/00000000-0000-4000-8000-000000000002/files/010479754657da0cdd07f04db565801e38bd6c6b9f8ba948b34c601662424704?t=REDACTED-EXAMPLE"
+        },
+        {
+          "role": "official-bindings",
+          "name": "official-bindings.json",
+          "sha256": "7c63b630ca8d3548b54a8a7caa83debf64a00e67671e0a2d7b1e36d297817e43",
+          "size_bytes": 22,
+          "url": "https://api.cloth-next.de/v1/cloud/jobs/00000000-0000-4000-8000-000000000002/files/7c63b630ca8d3548b54a8a7caa83debf64a00e67671e0a2d7b1e36d297817e43?t=REDACTED-EXAMPLE"
+        },
+        {
+          "role": "import-snapshot",
+          "name": "import-snapshot.json",
+          "sha256": "77c7ac2358e7f561319c88874c93b13cca200c3a91801013c9aed79ec560ef14",
+          "size_bytes": 20,
+          "url": "https://api.cloth-next.de/v1/cloud/jobs/00000000-0000-4000-8000-000000000002/files/77c7ac2358e7f561319c88874c93b13cca200c3a91801013c9aed79ec560ef14?t=REDACTED-EXAMPLE"
+        },
+        {
+          "role": "snapshot-arrays",
+          "name": "snapshot/vertices.bin",
+          "sha256": "d96482036eb99bea5e294bea5c14cb1ae29cf05319c57f735fc81597bb4f79ee",
+          "size_bytes": 25,
+          "url": "https://api.cloth-next.de/v1/cloud/jobs/00000000-0000-4000-8000-000000000002/files/d96482036eb99bea5e294bea5c14cb1ae29cf05319c57f735fc81597bb4f79ee?t=REDACTED-EXAMPLE"
+        }
+      ]
+    }
+  },
+  "result_session": {
+    "method": "POST",
+    "path": "/v1/cloud/jobs/00000000-0000-4000-8000-000000000002/result-session",
+    "response": {
+      "expires_at": "2026-10-23T12:05:00Z",
+      "manifest": {
+        "solver_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "worker_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "schema_version": 1,
+        "server_build": "example-linux-server-build",
+        "server_artifact_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "protocol": "0.26",
+        "build_id": "example-linux-server-build",
+        "import_snapshot_digest": "77c7ac2358e7f561319c88874c93b13cca200c3a91801013c9aed79ec560ef14",
+        "completed_frame": 2,
+        "completed_frame_count": 2,
+        "partial": false,
+        "files": [
+          {
+            "name": "vertex-map.bin",
+            "kind": "vertex_map",
+            "sha256": "9c9a4d3be20718fe7b9eb620a05f3b7def1cf42316227336474aea0529167550",
+            "size_bytes": 20,
+            "first_frame": null,
+            "last_frame": null
+          },
+          {
+            "name": "surface-map.bin",
+            "kind": "surface_map",
+            "sha256": "7293421fef43e07fb8a6453631cdf5446ff50f437c14d69e018073f957a740cf",
+            "size_bytes": 19,
+            "first_frame": null,
+            "last_frame": null
+          },
+          {
+            "name": "frames-000001-000002.bin",
+            "kind": "frame_block",
+            "sha256": "87d3de43c842244b73bf283e99dff99220f21a578f210d74dff1bc0a997e6803",
+            "size_bytes": 52,
+            "first_frame": 1,
+            "last_frame": 2
+          },
+          {
+            "name": "execution.json",
+            "kind": "execution_metadata",
+            "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+            "size_bytes": 2,
+            "first_frame": null,
+            "last_frame": null
+          }
+        ]
+      },
+      "files": [
+        {
+          "role": null,
+          "name": "vertex-map.bin",
+          "sha256": "9c9a4d3be20718fe7b9eb620a05f3b7def1cf42316227336474aea0529167550",
+          "size_bytes": 20,
+          "url": "https://api.cloth-next.de/v1/cloud/jobs/00000000-0000-4000-8000-000000000002/results/9c9a4d3be20718fe7b9eb620a05f3b7def1cf42316227336474aea0529167550?t=REDACTED-EXAMPLE"
+        },
+        {
+          "role": null,
+          "name": "surface-map.bin",
+          "sha256": "7293421fef43e07fb8a6453631cdf5446ff50f437c14d69e018073f957a740cf",
+          "size_bytes": 19,
+          "url": "https://api.cloth-next.de/v1/cloud/jobs/00000000-0000-4000-8000-000000000002/results/7293421fef43e07fb8a6453631cdf5446ff50f437c14d69e018073f957a740cf?t=REDACTED-EXAMPLE"
+        },
+        {
+          "role": null,
+          "name": "frames-000001-000002.bin",
+          "sha256": "87d3de43c842244b73bf283e99dff99220f21a578f210d74dff1bc0a997e6803",
+          "size_bytes": 52,
+          "url": "https://api.cloth-next.de/v1/cloud/jobs/00000000-0000-4000-8000-000000000002/results/87d3de43c842244b73bf283e99dff99220f21a578f210d74dff1bc0a997e6803?t=REDACTED-EXAMPLE"
+        },
+        {
+          "role": null,
+          "name": "execution.json",
+          "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "size_bytes": 2,
+          "url": "https://api.cloth-next.de/v1/cloud/jobs/00000000-0000-4000-8000-000000000002/results/44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a?t=REDACTED-EXAMPLE"
+        }
+      ]
+    }
+  },
+  "errors": [
+    {
+      "status": 503,
+      "body": {
+        "error": {
+          "code": "feature_disabled",
+          "message": "RunPod deployment is undecided; GPU execution is disabled"
+        }
+      }
+    },
+    {
+      "status": 409,
+      "body": {
+        "error": {
+          "code": "idempotency_conflict",
+          "message": "Idempotency key was used with different content"
+        }
+      }
+    }
+  ]
+}

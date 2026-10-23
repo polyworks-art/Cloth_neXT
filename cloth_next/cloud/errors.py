@@ -44,6 +44,32 @@ _BY_CODE = {
     "idempotency_conflict": "CNX-E217",
     "rate_limited": "CNX-E218",
     "service_unavailable": "CNX-E218",
+    # Cloud API v1 envelope codes
+    "not_authenticated": "CNX-E202",
+    "forbidden": "CNX-E203",
+    "insufficient_scope": "CNX-E203",
+    "account_limit": "CNX-E204",
+    "invalid_quote": "CNX-E205",
+    "engine_build_unavailable": "CNX-E206",
+    "bad_request": "CNX-E207",
+    "invalid_chunk": "CNX-E207",
+    "invalid_file_role": "CNX-E207",
+    "invalid_storage_path": "CNX-E207",
+    "invalid_content_type": "CNX-E207",
+    "idempotency_key_required": "CNX-E207",
+    "payload_too_large": "CNX-E207",
+    "validation_error": "CNX-E207",
+    "upload_expired": "CNX-E208",
+    "integrity_mismatch": "CNX-E213",
+    "content_corrupt": "CNX-E213",
+    "result_unavailable": "CNX-E212",
+    # execution error codes of a finished job
+    "worker_failed": "CNX-E210",
+    "worker_lost": "CNX-E210",
+    "native_solver_failed": "CNX-E210",
+    "native_process_terminated": "CNX-E210",
+    "result_storage_failed": "CNX-E210",
+    "test_limit_reached": "CNX-E204",
 }
 
 

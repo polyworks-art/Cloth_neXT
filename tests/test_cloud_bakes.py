@@ -39,7 +39,9 @@ from tests.cloud_backend import CloudTestBackend, RawRunOutput
 
 GAIA = {"engine": "GAIA", "build_id": "gaia:test", "version": "0.26.0-test",
         "package_version": "0.26.0", "protocol_version": "0.26",
-        "schema_version": "2"}
+        "schema_version": "2", "solver_sha256": "a" * 64, "worker_sha256": "b" * 64}
+OFFERED = [{"engine": "GAIA", "build_id": "gaia:test", "solver_sha256": "a" * 64,
+            "worker_sha256": "b" * 64, "server_build": "gaia:test-linux"}]
 IDENTITY = ((1.0, 0, 0, 0), (0, 1.0, 0, 0), (0, 0, 1.0, 0), (0, 0, 0, 1.0))
 MOVED = ((1.0, 0, 0, 2.0), (0, 1.0, 0, -1.0), (0, 0, 1.0, 0.5), (0, 0, 0, 1.0))
 
@@ -128,20 +130,20 @@ def vertex_map_blob():
 
 def synthetic_executor(*, partial_after=None, failed=""):
     def run(job, files):
-        manifest = json.loads(files["manifest.json"])
-        count = manifest["frames"]["count"]
+        manifest = job["manifest"]
+        assert ("import-snapshot", "import-snapshot") not in files  # withheld (v1)
+        count = manifest["frame_end"] - manifest["frame_start"] + 1
         frames = [frame.tobytes() for frame in synthetic_frames(count)]
         if partial_after is not None:
             frames = frames[:partial_after]
         return RawRunOutput(map_blob=vertex_map_blob(), frames=frames,
-                            build_id=manifest["solver"]["build_id"],
                             partial=partial_after is not None, failed_code=failed)
     return run
 
 
 @pytest.fixture
 def cloud(tmp_path):
-    backend = CloudTestBackend(executor=synthetic_executor())
+    backend = CloudTestBackend(executor=synthetic_executor(), builds=OFFERED)
     root = tmp_path / "account"
     store = PackageStore(root / "cloud-packages")
     jobs = CloudJobs(backend, JobRegistry(root), store,
@@ -157,7 +159,15 @@ def package_for(cloud, tmp_path, **plan_kwargs):
                             blender_version="5.2.2", job_name="Test shot",
                             prepare_inputs=no_water, solver=GAIA)
     cloud.jobs.register(package)
+    approve(cloud.jobs, package)
     return plan, deformables, package
+
+
+def approve(jobs, package):
+    """The artist confirms the quoted test maximum (E10)."""
+    record = jobs.request_quote(package.client_job_id)
+    assert record.state is LocalState.AWAITING_APPROVAL
+    return jobs.accept_quote(package.client_job_id, record.quote_id)
 
 
 def local_reference(tmp_path, deformables, frames, *, schema=2):
@@ -309,10 +319,9 @@ def test_package_manifest_has_hashes_and_no_private_data(cloud, tmp_path):
     assert roles["param"]["sha256"] == plan.scene.param_hash
     assert {"official-bindings", "import-snapshot"} <= set(roles)
     assert roles["import-snapshot"]["sha256"] == package.snapshot.digest
-    assert manifest["snapshot_digest"] == package.snapshot.digest
+    assert manifest["import_snapshot_digest"] == package.snapshot.digest
     assert manifest["objects"] == [{
-        "uuid": "uuid-shirt", "deformable_type": "SHELL", "vertex_count": 4,
-        "solver_world_matrix": [list(row) for row in solver_world_matrix(IDENTITY)]}]
+        "uuid": "uuid-shirt", "deformable_type": "SHELL", "vertex_count": 4}]
     assert privacy.findings(manifest) == []
     raw = cloud.store.verify(package.manifest_sha256).read_bytes()
     assert hashlib.sha256(raw).hexdigest() == package.manifest_sha256
@@ -356,12 +365,13 @@ def test_package_includes_hydro_volumes_without_local_paths(cloud, tmp_path):
                             blender_version="5.2.2", job_name="x",
                             prepare_inputs=hydro, solver=GAIA)
     names = {item.name for item in package.files}
-    assert {"hydro-model.json", "hydro/force_field.toml",
-            "hydro/field-0-fluid/bricks-00000.bin", "hydro/hydrodynamics.json"} <= names
-    assert "hydro/preparation-report.json" not in names
-    assert package.manifest["water"] == "hydrodynamic"
+    assert {"hydro-model.json", "force_field.toml",
+            "field-0-fluid/bricks-00000.bin", "hydrodynamics.json"} <= names
+    assert "preparation-report.json" not in names
+    assert package.manifest["water_mode"] == "hydrodynamic"
+    assert package.manifest["water_flow"] is True
     stored = next(item for item in package.files
-                  if item.name == "hydro/hydrodynamics.json")
+                  if item.name == "hydrodynamics.json")
     document = json.loads(cloud.store.verify(stored.sha256).read_bytes())
     assert document["provenance"] == {"source_fingerprint": "f" * 8, "method": "m"}
 
@@ -384,7 +394,8 @@ def test_full_cycle_matches_local_import_bytes(cloud, tmp_path):
     local_meta = json.loads(cache_metadata.sidecar_path(reference).read_text())
     assert cloud_meta.pop("execution") == {
         "kind": "cloud", "job_id": record.job_id,
-        "client_job_id": package.client_job_id, "build_id": "gaia:test",
+        "client_job_id": package.client_job_id, "build_id": "gaia:test-linux",
+        "desktop_build_id": "gaia:test",
         "snapshot_digest": snapshot.digest, "solver_frames": 4,
         "partial_of_job": False}
     for meta in (cloud_meta, local_meta):
@@ -483,13 +494,13 @@ def test_interrupted_upload_resumes_after_restart(cloud, tmp_path):
     with pytest.raises(UploadPaused):
         cloud.jobs.upload_and_submit(package.client_job_id)
     assert cloud.jobs.registry.get(package.client_job_id).state is LocalState.UPLOAD_PAUSED
-    sent_before = sum(1 for _a, name in cloud.backend.calls if name == "upload_block")
+    sent_before = sum(1 for _a, name in cloud.backend.calls if name == "upload_chunk")
     restarted = CloudJobs(cloud.backend, JobRegistry(cloud.root), cloud.store,
                           ResultArchive(cloud.root / "cloud-results"),
                           sleep=lambda s: None, upload_block=7)
     record = restarted.upload_and_submit(package.client_job_id)
     assert record.state is LocalState.QUEUED
-    sent_total = sum(1 for _a, name in cloud.backend.calls if name == "upload_block")
+    sent_total = sum(1 for _a, name in cloud.backend.calls if name == "upload_chunk")
     full = sum(-(-item.size // 7) for item in package.files)
     # Resumed from the server offset: no file was sent twice from zero.
     assert sent_total <= full + 2
@@ -510,12 +521,12 @@ def test_upload_reverifies_store_before_sending(cloud, tmp_path):
 def test_deduplication_only_sends_changed_files(cloud, tmp_path):
     _plan, _deformables, first = package_for(cloud, tmp_path)
     cloud.jobs.upload_and_submit(first.client_job_id)
-    before = sum(1 for _a, name in cloud.backend.calls if name == "upload_block")
+    before = sum(1 for _a, name in cloud.backend.calls if name == "upload_chunk")
     _plan, _deformables, second = package_for(cloud, tmp_path / "b",
                                               param_marker=b"other")
     record = cloud.jobs.upload_and_submit(second.client_job_id)
     assert record.state is LocalState.QUEUED
-    sent = sum(1 for _a, name in cloud.backend.calls if name == "upload_block") - before
+    sent = sum(1 for _a, name in cloud.backend.calls if name == "upload_chunk") - before
     changed = {item.sha256 for item in second.files} - {item.sha256 for item in first.files}
     expected = sum(-(-item.size // 7) for item in second.files if item.sha256 in changed)
     assert sent == expected
@@ -536,9 +547,10 @@ def test_deduplication_is_isolated_per_account(cloud, tmp_path):
                               blender_version="5.2.2", job_name="x",
                               prepare_inputs=no_water, solver=GAIA)
     other.register(package_b)
-    before = sum(1 for _a, name in cloud.backend.calls if name == "upload_block")
+    approve(other, package_b)
+    before = sum(1 for _a, name in cloud.backend.calls if name == "upload_chunk")
     other.upload_and_submit(package_b.client_job_id)
-    sent = sum(1 for _a, name in cloud.backend.calls if name == "upload_block") - before
+    sent = sum(1 for _a, name in cloud.backend.calls if name == "upload_chunk") - before
     assert sent == sum(-(-item.size // 7) for item in package_b.files)
     assert cloud.backend.find_job(package.client_job_id) is None
 
@@ -590,7 +602,21 @@ def test_snapshot_is_recovered_from_server_when_local_package_is_gone(cloud, tmp
     assert snapshot.digest == package.snapshot.digest
 
 
+def test_v1_offers_no_partial_result(cloud, tmp_path):
+    cloud.backend.executor = synthetic_executor(partial_after=2)
+    _plan, _deformables, package = package_for(cloud, tmp_path, frames=6)
+    cloud.jobs.upload_and_submit(package.client_job_id)
+    cloud.backend.run_pending()
+    record = cloud.jobs.refresh(package.client_job_id)
+    assert record.state is LocalState.STOPPED_AT_LIMIT
+    with pytest.raises(wire.CloudError) as error:
+        cloud.jobs.download(package.client_job_id)
+    assert error.value.code == "result_unavailable"
+
+
 def test_partial_result_writes_shorter_complete_cache(cloud, tmp_path):
+    # Ready for E18 once the server offers partial results.
+    cloud.backend.partial_results = True
     cloud.backend.executor = synthetic_executor(partial_after=2)
     _plan, _deformables, package = package_for(cloud, tmp_path, frames=6)
     cloud.jobs.upload_and_submit(package.client_job_id)
@@ -730,3 +756,60 @@ def test_activation_grades_changes(current, settings, geometry, expected):
     assert decision.verdict is Verdict(expected)
     assert decision.may_auto_activate == (expected == "READY")
     assert decision.may_activate == (expected != "INCOMPATIBLE")
+
+
+# Quote and approval (E10, Cloud API v1) ---------------------------------------------
+
+def test_nothing_is_created_before_approval(cloud, tmp_path):
+    from cloth_next.cloud.jobs import ApprovalRequired
+    plan, deformables = make_plan(tmp_path)
+    package = build_package(plan, deformables, store=cloud.store,
+                            work_directory=tmp_path, addon_version="2.9.39",
+                            blender_version="5.2.2", job_name="x",
+                            prepare_inputs=no_water, solver=GAIA)
+    cloud.jobs.register(package)
+    with pytest.raises(ApprovalRequired):
+        cloud.jobs.upload_and_submit(package.client_job_id)
+    record = cloud.jobs.request_quote(package.client_job_id)
+    assert (record.quote_maximum, record.quote_unit) == (30.0, "test_second")
+    assert record.server_build_id == "gaia:test-linux"
+    assert not any(name == "create_job" for _a, name in cloud.backend.calls)
+    with pytest.raises(ApprovalRequired):
+        cloud.jobs.accept_quote(package.client_job_id, "another-quote")
+
+
+def test_expired_quote_needs_a_new_confirmation(cloud, tmp_path):
+    _plan, _deformables, package = package_for(cloud, tmp_path)
+    cloud.backend.expire_quotes = True
+    with pytest.raises(wire.CloudError):
+        cloud.jobs.upload_and_submit(package.client_job_id)
+    record = cloud.jobs.registry.get(package.client_job_id)
+    assert record.state is LocalState.UPLOAD_PAUSED and not record.quote_accepted
+    assert all(job["submits"] == 0 for job in cloud.backend.jobs.values())
+
+
+def test_unmapped_build_is_never_quoted(cloud, tmp_path):
+    from cloth_next.cloud.jobs import BuildNotOffered
+    cloud.backend.desktop_builds = [dict(OFFERED[0], worker_sha256="c" * 64)]
+    plan, deformables = make_plan(tmp_path)
+    package = build_package(plan, deformables, store=cloud.store,
+                            work_directory=tmp_path, addon_version="2.9.39",
+                            blender_version="5.2.2", job_name="x",
+                            prepare_inputs=no_water, solver=GAIA)
+    cloud.jobs.register(package)
+    with pytest.raises(BuildNotOffered):
+        cloud.jobs.request_quote(package.client_job_id)
+    assert not any(name == "quote" for _a, name in cloud.backend.calls)
+
+
+def test_manifest_matches_v1_example_shape(cloud, tmp_path):
+    examples = json.loads((Path(__file__).parent / "fixtures" / "cloud_v1" /
+                           "examples.json").read_text(encoding="utf-8"))
+    example = examples["create"]["request"]["manifest"]
+    _plan, _deformables, package = package_for(cloud, tmp_path)
+    assert set(package.manifest) == set(example)
+    for item in package.manifest["files"]:
+        assert set(item) == set(example["files"][0])
+    assert set(package.manifest["objects"][0]) == set(example["objects"][0])
+    import uuid
+    uuid.UUID(package.manifest["client_job_id"])

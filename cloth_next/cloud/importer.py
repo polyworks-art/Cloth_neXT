@@ -45,7 +45,8 @@ def _with_actual_range(target: result_import.ImportTarget, frame_count: int,
 
 def import_result(archive: ResultArchive, client_job_id: str, *,
                   snapshot: ImportSnapshot, job_id: str,
-                  pc2_paths: Mapping[str, Path]) -> dict:
+                  pc2_paths: Mapping[str, Path],
+                  expected_build_id: str | None = None) -> dict:
     """Write one PC2 (+ sidecar) per snapshot object; return PC2 headers.
 
     ``pc2_paths`` maps object UUID -> destination. The archive must already
@@ -55,9 +56,12 @@ def import_result(archive: ResultArchive, client_job_id: str, *,
     if manifest.snapshot_digest != snapshot.digest:
         raise ResultCorrupt("result belongs to a different Import Snapshot")
     solver = snapshot.document["solver"]
-    if manifest.build_id != solver["build_id"]:
+    # The result names the server build that ran (it differs from the
+    # desktop build id); the download already checked it against the
+    # mapping offered for this job.
+    if expected_build_id is not None and manifest.build_id != expected_build_id:
         raise ResultCorrupt(
-            f"result was computed by {manifest.build_id}, expected {solver['build_id']}")
+            f"result was computed by {manifest.build_id}, expected {expected_build_id}")
     expected_frames = snapshot.document["frames"]["count"] - 1
     if not 1 <= manifest.frame_count <= expected_frames:
         raise ResultCorrupt("result has no usable frame range")
@@ -86,6 +90,7 @@ def import_result(archive: ResultArchive, client_job_id: str, *,
         execution = {"kind": "cloud", "job_id": job_id,
                      "client_job_id": client_job_id,
                      "build_id": manifest.build_id,
+                     "desktop_build_id": solver["build_id"],
                      "snapshot_digest": snapshot.digest,
                      "solver_frames": manifest.frame_count,
                      "partial_of_job": partial}

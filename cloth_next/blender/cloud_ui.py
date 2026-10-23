@@ -14,6 +14,8 @@ from ..cloud.registry import LocalState
 from . import cloud_runtime
 
 _ACTIONS = (
+    ("REVIEW", "Review & Send", "Check the quoted cost limit and send the job"),
+    ("REQUOTE", "Get New Quote", "Request a new binding cost limit; nothing is sent yet"),
     ("RESUME", "Resume Upload", "Continue the paused upload; nothing is submitted twice"),
     ("PAUSE", "Pause Upload", "Pause the upload; it can be resumed later, also after a restart"),
     ("CANCEL", "Cancel", "Cancel the job; an unsent upload is discarded and costs nothing"),
@@ -31,14 +33,18 @@ _PAUSED_STATES = frozenset({LocalState.UPLOAD_PAUSED})
 
 def actions_for(record) -> tuple[str, ...]:
     state = record.state
+    if state is LocalState.AWAITING_APPROVAL:
+        return ("REVIEW", "CANCEL")
     if state in _UPLOAD_STATES:
         return ("PAUSE", "CANCEL")
     if state in _PAUSED_STATES:
+        if not getattr(record, "quote_accepted", True):
+            return ("REQUOTE", "CANCEL")
         return ("RESUME", "CANCEL")
     if state in (LocalState.QUEUED, LocalState.RUNNING):
         return ("CANCEL",)
-    if state in (LocalState.SUCCEEDED, LocalState.STOPPED_AT_LIMIT,
-                 LocalState.CANCELLED, LocalState.FAILED):
+    if state is LocalState.SUCCEEDED:
+        # Cloud API v1 publishes results only for complete success.
         return ("DOWNLOAD",)
     if state is LocalState.STORED:
         return ("ACTIVATE", "DELETE_RESULT")
@@ -63,6 +69,9 @@ class CLOTHNEXT_OT_cloud_job_action(bpy.types.Operator):
         return ""
 
     def invoke(self, context, event):
+        if self.action == "REVIEW":
+            return bpy.ops.clothnext.cloud_review("INVOKE_DEFAULT",
+                                                  client_job_id=self.client_job_id)
         if self.action in {"DELETE_RESULT", "CANCEL", "ACTIVATE_ANYWAY"}:
             return context.window_manager.invoke_confirm(self, event)
         return self.execute(context)
@@ -70,6 +79,9 @@ class CLOTHNEXT_OT_cloud_job_action(bpy.types.Operator):
     def execute(self, context):
         if self.action in {"ACTIVATE", "ACTIVATE_ANYWAY"}:
             return self._activate(context, self.action == "ACTIVATE_ANYWAY")
+        if self.action == "REQUOTE":
+            cloud_runtime.enqueue("quote", self.client_job_id)
+            return {"FINISHED"}
         if self.action == "PAUSE":
             cloud_runtime.pause_upload()
         elif self.action == "RESUME":
@@ -105,6 +117,71 @@ class CLOTHNEXT_OT_cloud_job_action(bpy.types.Operator):
             return {"CANCELLED"}
         _PENDING_DECISIONS.pop(self.client_job_id, None)
         self.report({"INFO"}, "Cloud result activated")
+        return {"FINISHED"}
+
+
+def review_lines(record, manifest, capabilities=None) -> list[str]:
+    """Confirmation content (concept 12.3) from the stored package + quote."""
+    objects = manifest.get("objects", ())
+    vertices = sum(int(item.get("vertex_count", 0)) for item in objects)
+    total = sum(int(item.get("size_bytes", 0)) for item in manifest.get("files", ()))
+    water = {"hydrodynamic": "Water Flow · Hydrodynamic Pressure",
+             "native-fluid": "Water Flow · Native Flow"}.get(
+                 manifest.get("water_mode"), "No Water Flow")
+    lines = [
+        f"{manifest.get('engine', '')} · build {manifest.get('build_id', '')}",
+        f"Frames {manifest.get('frame_start')}–{manifest.get('frame_end')} · "
+        f"{manifest.get('fps', 0):g} fps",
+        f"{len(objects)} object(s) · {vertices:,} vertices · {water}",
+        f"Upload up to {total / 1e6:.1f} MB (data you already sent is not sent again)",
+        f"Cost limit: {record.quote_maximum:g} {record.quote_unit} · "
+        f"quote valid until {record.quote_expires_at}",
+    ]
+    if record.quote_billing_mode == "test":
+        lines.append("Test billing only: no real charge is made.")
+    retention = getattr(capabilities, "retention_days", None)
+    if retention:
+        lines.append(f"Results stay available for {retention} days.")
+    lines.append("Scene geometry and simulation settings are sent to the "
+                 "PolyWorks Cloud and deleted after the retention period.")
+    return lines
+
+
+class CLOTHNEXT_OT_cloud_review(bpy.types.Operator):
+    """Review the binding cost limit and send the Cloud job."""
+
+    bl_idname = "clothnext.cloud_review"
+    bl_label = "Send to Cloud"
+    bl_options = {"INTERNAL"}
+
+    client_job_id: bpy.props.StringProperty(options={"HIDDEN"})
+    quote_id: bpy.props.StringProperty(options={"HIDDEN"})
+
+    def invoke(self, context, _event):
+        from ..cloud.jobs import load_manifest
+        from ..cloud import service
+        runtime = cloud_runtime.jobs()
+        record = runtime.registry.get(self.client_job_id) if runtime else None
+        if record is None or record.state is not LocalState.AWAITING_APPROVAL:
+            self.report({"ERROR"}, "This Cloud job has no quote to confirm.")
+            return {"CANCELLED"}
+        self.quote_id = record.quote_id
+        self._lines = review_lines(record, load_manifest(runtime.store,
+                                                         record.manifest_sha256),
+                                   service.availability().capabilities)
+        return context.window_manager.invoke_props_dialog(self, width=520)
+
+    def draw(self, _context):
+        for line in getattr(self, "_lines", ()):
+            self.layout.label(text=line)
+
+    def execute(self, _context):
+        try:
+            cloud_runtime.approve(self.client_job_id, self.quote_id)
+        except Exception as exc:  # noqa: BLE001 - trusted text only
+            from ..cloud import errors
+            self.report({"ERROR"}, errors.describe(errors.code_of(exc))[2])
+            return {"CANCELLED"}
         return {"FINISHED"}
 
 
@@ -236,7 +313,7 @@ def _auto_step() -> None:
                 _PENDING_DECISIONS[record.client_job_id] = decision.verdict.value
 
 
-CLASSES = (CLOTHNEXT_OT_cloud_job_action,)
+CLASSES = (CLOTHNEXT_OT_cloud_job_action, CLOTHNEXT_OT_cloud_review)
 
 
 def register() -> None:
