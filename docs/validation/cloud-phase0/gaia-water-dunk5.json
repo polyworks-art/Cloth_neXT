@@ -1,0 +1,162 @@
+{
+  "scene": "water",
+  "engine": "GAIA",
+  "reproducible": false,
+  "blender": "5.2.3 LTS",
+  "addon_version": "2.9.39",
+  "steps": {
+    "1_local_bake": {
+      "state": "FINISHED",
+      "error": "",
+      "seconds": 196.86,
+      "export_timings": {
+        "validation": 0.010150100000828388,
+        "animated_collider_cache_hits": 0.0,
+        "animated_collider_cache_misses": 0.0,
+        "collider_sample_count": 0.0,
+        "scene_source_key_safe": 1.0,
+        "force_capture": 0.2046360000003915,
+        "scene_early_cache_hit": 0.0,
+        "mesh_export_cache_misses": 2.0,
+        "mesh_export_cache_invalidations": 0.0,
+        "pin_capture": 0.00028760000168404076,
+        "mesh_extraction": 0.0007779999996273546,
+        "static_collider_cache_misses": 1,
+        "scene_cache_hit": 0.0,
+        "scene_cache_miss": 1.0,
+        "scene_encoding": 0.04576629999974102,
+        "param_cache_hit": 0.0,
+        "param_cache_miss": 1.0,
+        "parameter_encoding": 0.002209700000094017,
+        "scene_cache_store": 1.0,
+        "export_preparation": 1.6648048999995808
+      }
+    },
+    "2_package": {
+      "seconds": 25.44,
+      "timings": {
+        "water_preparation": 23.76425200000085,
+        "store_inputs": 1.6405813000001217,
+        "snapshot": 0.013077999999950407,
+        "total": 25.44143079999958
+      },
+      "files": [
+        {
+          "role": "data",
+          "name": "data",
+          "bytes": 399435
+        },
+        {
+          "role": "param",
+          "name": "param",
+          "bytes": 30582
+        },
+        {
+          "role": "official-bindings",
+          "name": "official-bindings.json",
+          "bytes": 308
+        },
+        {
+          "role": "hydro-model",
+          "name": "hydro-model.json",
+          "bytes": 160
+        },
+        {
+          "role": "snapshot",
+          "name": "import-snapshot.json",
+          "bytes": 4389
+        },
+        {
+          "role": "snapshot-arrays",
+          "name": "import-snapshot.bin",
+          "bytes": 32256
+        }
+      ],
+      "hydro_volume_files": 56,
+      "hydro_volume_bytes": 141285749,
+      "total_bytes": 141752879,
+      "snapshot_digest": "9a4d168ce836265f77fd436ca53c0d35d32eea3c7439cfbfb2f0c14e59e13f9d",
+      "payload_hashes_match_local": true
+    },
+    "3_transfer": {
+      "seconds": 2.76,
+      "state": "QUEUED",
+      "uploaded_bytes": 141656075
+    },
+    "4_execute": {
+      "seconds": 155.3,
+      "executed_build_id": "gaia-0.26.0-dev.20261022+cuda12.8.windows-x64.cc9b0c13ec2f",
+      "solver_timings": {
+        "start_solver": 7.780590000000302,
+        "upload": 0.06188019999899552,
+        "build": 1.8147017999999662,
+        "simulation_wait": 139.9544856000157,
+        "frame_transfer": 0.06733820000044943,
+        "frame_decode": 0.0006323999950836878,
+        "frame_extract": 0.0010800000000017462,
+        "simulation_and_import": 145.49484459999985,
+        "total": 155.30436809999992
+      },
+      "state": "SUCCEEDED"
+    },
+    "5_download": {
+      "seconds": 0.05,
+      "state": "STORED",
+      "build_id": "gaia-0.26.0-dev.20261022+cuda12.8.windows-x64.cc9b0c13ec2f",
+      "bytes": 330419,
+      "files": 2,
+      "frames": 10,
+      "surface_map": false
+    },
+    "6_import": {
+      "seconds": 0.03,
+      "scene_objects_at_import": 0
+    },
+    "7_compare": {
+      "554a72d2-f2b9-40d3-ff68-309d40ae9d7b": {
+        "header_identical": true,
+        "frames": 11,
+        "vertices": 2688,
+        "frame0_identical": true,
+        "bit_identical": false,
+        "max_m": 1.9199706733309015e-07,
+        "mean_m": 5.4216487551192907e-08,
+        "max_relative_to_extent": 4.1133332822443585e-07,
+        "per_frame_max_m": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "local_sha256": "f17aca2b5eb8d51c0e206e11b70a5f3282686e790351b48ec2488dc7468037e5",
+        "cloud_sha256": "fd4451b2655ff3ac9ad3483166c0c02f2361dbcd0d7ab5e8d6039ecc14c08f9b"
+      }
+    }
+  },
+  "solver": {
+    "engine": "GAIA",
+    "build_id": "gaia-0.26.0-dev.20261022+cuda12.8.windows-x64.cc9b0c13ec2f",
+    "version": "0.26.0-dev.20261022",
+    "source_revision": "cc9b0c13ec2f71b382c8e0706f03d433a7041086",
+    "platform": "windows-x64",
+    "backend": "cuda12.8",
+    "package_version": "0.1.0",
+    "protocol_version": "0.26",
+    "schema_version": "2"
+  },
+  "objects": [
+    {
+      "name": "Sleeve",
+      "uuid": "554a72d2-f2b9-40d3-ff68-309d40ae9d7b",
+      "vertices": 2688
+    }
+  ],
+  "result": "PASS"
+}

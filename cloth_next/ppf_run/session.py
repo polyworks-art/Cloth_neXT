@@ -542,8 +542,9 @@ class SolverSession:
         # surface map, vert_<N>.bin) by its solver-relative path. The Cloud
         # test executor archives exactly these bytes; local Bakes ignore it.
         self._raw_output_sink = raw_output_sink or (lambda path, blob: None)
-        # Already prepared hydrodynamic volumes (a Cloud package); a local
-        # Bake prepares them in run() from its water descriptor instead.
+        # Already prepared hydrodynamic volumes (a Cloud package) belong to the
+        # caller; a local Bake prepares its own in run() and deletes them.
+        self._owns_hydrodynamic_volumes = False
         if hydrodynamic_environment:
             self._hydrodynamic_environment = dict(hydrodynamic_environment)
         self._poll_interval = poll_interval
@@ -2519,6 +2520,7 @@ class SolverSession:
                 self.diagnostics.param_hash = prepared.scene.param_hash
             if prepared.environment:
                 self._hydrodynamic_environment = dict(prepared.environment)
+                self._owns_hydrodynamic_volumes = True
             if prepared.native_fluid_seconds is not None:
                 self.diagnostics.timings['native_fluid_encoding'] = (
                     prepared.native_fluid_seconds)
@@ -2721,7 +2723,7 @@ class SolverSession:
                         pass
                 hydro = getattr(self, '_hydrodynamic_environment', {}).get(
                     'PPF_EXPERIMENTAL_HYDRO_VOLUME_DIR')
-                if hydro:
+                if hydro and self._owns_hydrodynamic_volumes:
                     # Prepared FLIP volumes are large and rebuilt by every run, resumes included.
                     try:
                         outcome = delete_owned(Path(hydro).parent, root=self.work_directory,

@@ -236,7 +236,17 @@ def scene_water():
             bpy.ops.clothnext.add_physics()
             if role != "CLOTH":
                 bpy.ops.clothnext.set_object_type(role=role)
-        objects = [bpy.data.objects["Sleeve"]]
+        sleeve = bpy.data.objects["Sleeve"]
+        # Hold the top rim in place so the sleeve stays inside the prepared
+        # water volume instead of dropping out of it.
+        heights = [(sleeve.matrix_world @ v.co).z for v in sleeve.data.vertices]
+        top = max(heights) - 0.05 * (max(heights) - min(heights))
+        group = sleeve.vertex_groups.new(name="Rim")
+        group.add([i for i, z in enumerate(heights) if z >= top], 1.0, "REPLACE")
+        sleeve.cloth_next.pinning_enabled = True
+        sleeve.cloth_next.pin_group = group.name
+        sleeve.cloth_next.pin_mode = "STATIC"
+        objects = [sleeve]
     domains = [o for o in bpy.context.scene.objects
                if getattr(getattr(o, "flip_fluid", None), "object_type", "") == "TYPE_DOMAIN"]
     domains[0].flip_fluid.domain.cache.cache_directory = str(ARGS.flip_cache)

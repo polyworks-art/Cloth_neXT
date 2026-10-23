@@ -171,6 +171,7 @@ def build_package(plan, deformables, *, store: PackageStore,
     if prepare_inputs is None:
         from ..ppf_run.session import prepare_solver_inputs as prepare_inputs
     step = time.monotonic()
+    Path(work_directory).mkdir(parents=True, exist_ok=True)
     prepared = prepare_inputs(plan.scene, plan.resolved, Path(work_directory),
                               check_cancel=check_cancel, event=event)
     timings["water_preparation"] = time.monotonic() - step

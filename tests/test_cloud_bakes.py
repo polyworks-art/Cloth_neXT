@@ -351,7 +351,8 @@ def test_package_includes_hydro_volumes_without_local_paths(cloud, tmp_path):
             "PPF_EXPERIMENTAL_HYDRO_TEST_JSON": str(model),
             "PPF_EXPERIMENTAL_HYDRO_VOLUME_DIR": str(volume)})
     package = build_package(plan, deformables, store=cloud.store,
-                            work_directory=tmp_path, addon_version="2.9.39",
+                            work_directory=tmp_path / "not" / "yet" / "there",
+                            addon_version="2.9.39",
                             blender_version="5.2.2", job_name="x",
                             prepare_inputs=hydro, solver=GAIA)
     names = {item.name for item in package.files}

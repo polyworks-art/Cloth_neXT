@@ -1,0 +1,167 @@
+{
+  "scene": "cloth",
+  "engine": "AETHER",
+  "reproducible": false,
+  "blender": "5.2.3 LTS",
+  "addon_version": "2.9.39",
+  "steps": {
+    "1_local_bake": {
+      "state": "FINISHED",
+      "error": "",
+      "seconds": 393.74,
+      "export_timings": {
+        "validation": 0.003412699999898905,
+        "animated_collider_cache_hits": 0.0,
+        "animated_collider_cache_misses": 0.0,
+        "collider_sample_count": 0.0,
+        "scene_source_key_safe": 1.0,
+        "force_capture": 0.0029966000001877546,
+        "scene_early_cache_hit": 0.0,
+        "mesh_export_cache_misses": 2.0,
+        "mesh_export_cache_invalidations": 0.0,
+        "pin_capture": 0.00018899999986388138,
+        "mesh_extraction": 0.0036391999997249513,
+        "static_collider_cache_misses": 1,
+        "scene_cache_hit": 0.0,
+        "scene_cache_miss": 1.0,
+        "scene_encoding": 0.017969300000004296,
+        "param_cache_hit": 0.0,
+        "param_cache_miss": 1.0,
+        "parameter_encoding": 0.00027460000001156004,
+        "scene_cache_store": 1.0,
+        "export_preparation": 0.3421647000000121
+      }
+    },
+    "2_package": {
+      "seconds": 0.13,
+      "timings": {
+        "water_preparation": 1.9600000086938962e-05,
+        "store_inputs": 0.06313709999994899,
+        "snapshot": 0.03392789999998058,
+        "total": 0.1317615999996633
+      },
+      "files": [
+        {
+          "role": "data",
+          "name": "data",
+          "bytes": 116259
+        },
+        {
+          "role": "param",
+          "name": "param",
+          "bytes": 1121
+        },
+        {
+          "role": "official-bindings",
+          "name": "official-bindings.json",
+          "bytes": 308
+        },
+        {
+          "role": "snapshot",
+          "name": "import-snapshot.json",
+          "bytes": 4257
+        },
+        {
+          "role": "snapshot-arrays",
+          "name": "import-snapshot.bin",
+          "bytes": 7500
+        }
+      ],
+      "hydro_volume_files": 0,
+      "hydro_volume_bytes": 0,
+      "total_bytes": 129445,
+      "snapshot_digest": "118d3d41c6ec6431c974de643266e01874901df8f819ce3a50d55876d9fc40ab",
+      "payload_hashes_match_local": true
+    },
+    "3_transfer": {
+      "seconds": 0.25,
+      "state": "QUEUED",
+      "uploaded_bytes": 129445
+    },
+    "4_execute": {
+      "seconds": 251.16,
+      "executed_build_id": "aether:2026-10-13-12-32",
+      "solver_timings": {
+        "start_solver": 9.455589099999997,
+        "upload": 0.11657599999989543,
+        "build": 2.0111861999998837,
+        "simulation_wait": 232.41626819999146,
+        "frame_transfer": 0.18045249999977386,
+        "frame_decode": 0.0014703000024383073,
+        "frame_extract": 0.0027657000009639887,
+        "simulation_and_import": 239.36103839999987,
+        "total": 251.16462090000005
+      },
+      "state": "SUCCEEDED"
+    },
+    "5_download": {
+      "seconds": 0.22,
+      "state": "STORED",
+      "build_id": "aether:2026-10-13-12-32",
+      "bytes": 174170,
+      "files": 2,
+      "frames": 23,
+      "surface_map": false
+    },
+    "6_import": {
+      "seconds": 0.15,
+      "scene_objects_at_import": 0
+    },
+    "7_compare": {
+      "51fc832a-5430-f732-334b-7b3e7d42fdfe": {
+        "header_identical": true,
+        "frames": 24,
+        "vertices": 625,
+        "frame0_identical": true,
+        "bit_identical": false,
+        "max_m": 0.13002532631367444,
+        "mean_m": 0.008940821158052285,
+        "max_relative_to_extent": 0.09194178996239283,
+        "per_frame_max_m": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          1e-06,
+          2.9e-05,
+          0.020155,
+          0.032377,
+          0.048431,
+          0.049612,
+          0.082986,
+          0.087295,
+          0.130025,
+          0.110279,
+          0.095509,
+          0.105282,
+          0.11128,
+          0.109202,
+          0.117616,
+          0.113112,
+          0.127022,
+          0.12134
+        ],
+        "local_sha256": "84e6c5d54e10e33d2fe155212803f46022c4d095ea27324915f4cb933db369d9",
+        "cloud_sha256": "d0241a1301d6dba4b310650c748d88bc6a28f73bd2f7f9c099a8289895afdea5"
+      }
+    }
+  },
+  "solver": {
+    "engine": "AETHER",
+    "build_id": "aether:2026-10-13-12-32",
+    "release_tag": "2026-10-13-12-32",
+    "package_version": "0.1.0",
+    "protocol_version": "0.26",
+    "schema_version": "2"
+  },
+  "objects": [
+    {
+      "name": "DrapeSheet",
+      "uuid": "51fc832a-5430-f732-334b-7b3e7d42fdfe",
+      "vertices": 625
+    }
+  ],
+  "result": "PASS"
+}

@@ -1,0 +1,3197 @@
+{
+  "zstandard": "0.25.0",
+  "runs": {
+    "gaia-cloth": {
+      "data": {
+        "zlib-1": {
+          "raw_bytes": 116259,
+          "compressed_bytes": 25313,
+          "ratio": 4.593,
+          "compress_mb_s": 156.5,
+          "decompress_mb_s": 406.2,
+          "peak_python_mib": 4.4,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.05,
+              "compressed": 0.01,
+              "saving_percent": 76.0
+            },
+            "50mbit": {
+              "uncompressed": 0.02,
+              "compressed": 0.01,
+              "saving_percent": 72.7
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 56.1
+            }
+          }
+        },
+        "zlib-6": {
+          "raw_bytes": 116259,
+          "compressed_bytes": 22119,
+          "ratio": 5.256,
+          "compress_mb_s": 34.2,
+          "decompress_mb_s": 416.7,
+          "peak_python_mib": 4.4,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.05,
+              "compressed": 0.01,
+              "saving_percent": 73.1
+            },
+            "50mbit": {
+              "uncompressed": 0.02,
+              "compressed": 0.01,
+              "saving_percent": 61.2
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 1.9
+            }
+          }
+        },
+        "zlib-9": {
+          "raw_bytes": 116259,
+          "compressed_bytes": 23055,
+          "ratio": 5.043,
+          "compress_mb_s": 4.3,
+          "decompress_mb_s": 367.6,
+          "peak_python_mib": 4.4,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.05,
+              "compressed": 0.04,
+              "saving_percent": 21.9
+            },
+            "50mbit": {
+              "uncompressed": 0.02,
+              "compressed": 0.03,
+              "saving_percent": -65.6
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.03,
+              "saving_percent": -502.9
+            }
+          }
+        },
+        "zstd-1": {
+          "raw_bytes": 116259,
+          "compressed_bytes": 21964,
+          "ratio": 5.293,
+          "compress_mb_s": 183.9,
+          "decompress_mb_s": 516.5,
+          "peak_python_mib": 4.2,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.05,
+              "compressed": 0.01,
+              "saving_percent": 79.3
+            },
+            "50mbit": {
+              "uncompressed": 0.02,
+              "compressed": 0.0,
+              "saving_percent": 76.5
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 62.7
+            }
+          }
+        },
+        "zstd-3": {
+          "raw_bytes": 116259,
+          "compressed_bytes": 20061,
+          "ratio": 5.795,
+          "compress_mb_s": 133.3,
+          "decompress_mb_s": 393.7,
+          "peak_python_mib": 4.2,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.05,
+              "compressed": 0.01,
+              "saving_percent": 80.2
+            },
+            "50mbit": {
+              "uncompressed": 0.02,
+              "compressed": 0.0,
+              "saving_percent": 76.5
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 57.6
+            }
+          }
+        },
+        "zstd-9": {
+          "raw_bytes": 116259,
+          "compressed_bytes": 21321,
+          "ratio": 5.453,
+          "compress_mb_s": 32.3,
+          "decompress_mb_s": 425.4,
+          "peak_python_mib": 4.2,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.05,
+              "compressed": 0.01,
+              "saving_percent": 73.3
+            },
+            "50mbit": {
+              "uncompressed": 0.02,
+              "compressed": 0.01,
+              "saving_percent": 60.9
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -1.5
+            }
+          }
+        },
+        "zstd-19": {
+          "raw_bytes": 116259,
+          "compressed_bytes": 14723,
+          "ratio": 7.896,
+          "compress_mb_s": 1.9,
+          "decompress_mb_s": 221.2,
+          "peak_python_mib": 4.2,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.05,
+              "compressed": 0.07,
+              "saving_percent": -48.8
+            },
+            "50mbit": {
+              "uncompressed": 0.02,
+              "compressed": 0.07,
+              "saving_percent": -253.1
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.06,
+              "saving_percent": -1274.3
+            }
+          }
+        }
+      },
+      "param": {
+        "zlib-1": {
+          "raw_bytes": 1121,
+          "compressed_bytes": 638,
+          "ratio": 1.757,
+          "compress_mb_s": 7.6,
+          "decompress_mb_s": 34.2,
+          "peak_python_mib": 4.3,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 3.0
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -57.1
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -357.7
+            }
+          }
+        },
+        "zlib-6": {
+          "raw_bytes": 1121,
+          "compressed_bytes": 621,
+          "ratio": 1.805,
+          "compress_mb_s": 10.6,
+          "decompress_mb_s": 52.4,
+          "peak_python_mib": 4.3,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 16.3
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -26.0
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -238.0
+            }
+          }
+        },
+        "zlib-9": {
+          "raw_bytes": 1121,
+          "compressed_bytes": 621,
+          "ratio": 1.805,
+          "compress_mb_s": 8.3,
+          "decompress_mb_s": 20.8,
+          "peak_python_mib": 4.3,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 2.4
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -60.9
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -377.6
+            }
+          }
+        },
+        "zstd-1": {
+          "raw_bytes": 1121,
+          "compressed_bytes": 661,
+          "ratio": 1.696,
+          "compress_mb_s": 10.8,
+          "decompress_mb_s": 33.2,
+          "peak_python_mib": 4.1,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 10.4
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -35.5
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -264.9
+            }
+          }
+        },
+        "zstd-3": {
+          "raw_bytes": 1121,
+          "compressed_bytes": 648,
+          "ratio": 1.73,
+          "compress_mb_s": 4.5,
+          "decompress_mb_s": 37.6,
+          "peak_python_mib": 4.1,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -20.6
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -114.7
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -585.4
+            }
+          }
+        },
+        "zstd-9": {
+          "raw_bytes": 1121,
+          "compressed_bytes": 644,
+          "ratio": 1.741,
+          "compress_mb_s": 0.8,
+          "decompress_mb_s": 34.1,
+          "peak_python_mib": 4.1,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -292.3
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -794.6
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -3306.2
+            }
+          }
+        },
+        "zstd-19": {
+          "raw_bytes": 1121,
+          "compressed_bytes": 631,
+          "ratio": 1.777,
+          "compress_mb_s": 0.0,
+          "decompress_mb_s": 38.1,
+          "peak_python_mib": 4.1,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.02,
+              "saving_percent": -5427.5
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.02,
+              "saving_percent": -13634.3
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.02,
+              "saving_percent": -54668.2
+            }
+          }
+        }
+      },
+      "official-bindings": {
+        "zlib-1": {
+          "raw_bytes": 308,
+          "compressed_bytes": 177,
+          "ratio": 1.74,
+          "compress_mb_s": 4.3,
+          "decompress_mb_s": 19.4,
+          "peak_python_mib": 4.3,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -27.9
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -133.6
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -662.0
+            }
+          }
+        },
+        "zlib-6": {
+          "raw_bytes": 308,
+          "compressed_bytes": 177,
+          "ratio": 1.74,
+          "compress_mb_s": 6.4,
+          "decompress_mb_s": 24.8,
+          "peak_python_mib": 4.3,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -6.4
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -79.8
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -446.9
+            }
+          }
+        },
+        "zlib-9": {
+          "raw_bytes": 308,
+          "compressed_bytes": 177,
+          "ratio": 1.74,
+          "compress_mb_s": 3.4,
+          "decompress_mb_s": 2.7,
+          "peak_python_mib": 4.3,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -123.9
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -373.5
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -1621.4
+            }
+          }
+        },
+        "zstd-1": {
+          "raw_bytes": 308,
+          "compressed_bytes": 178,
+          "ratio": 1.73,
+          "compress_mb_s": 5.2,
+          "decompress_mb_s": 14.1,
+          "peak_python_mib": 4.1,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -23.2
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -121.3
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -612.0
+            }
+          }
+        },
+        "zstd-3": {
+          "raw_bytes": 308,
+          "compressed_bytes": 176,
+          "ratio": 1.75,
+          "compress_mb_s": 1.2,
+          "decompress_mb_s": 12.7,
+          "peak_python_mib": 4.1,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -190.3
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -539.9
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -2288.3
+            }
+          }
+        },
+        "zstd-9": {
+          "raw_bytes": 308,
+          "compressed_bytes": 176,
+          "ratio": 1.75,
+          "compress_mb_s": 0.1,
+          "decompress_mb_s": 11.8,
+          "peak_python_mib": 4.1,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -1740.7
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -4415.9
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -17792.4
+            }
+          }
+        },
+        "zstd-19": {
+          "raw_bytes": 308,
+          "compressed_bytes": 175,
+          "ratio": 1.76,
+          "compress_mb_s": 0.0,
+          "decompress_mb_s": 9.7,
+          "peak_python_mib": 4.1,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.01,
+              "saving_percent": -10272.2
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.01,
+              "saving_percent": -25745.4
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.01,
+              "saving_percent": -103111.0
+            }
+          }
+        }
+      },
+      "snapshot": {
+        "zlib-1": {
+          "raw_bytes": 4396,
+          "compressed_bytes": 2011,
+          "ratio": 2.186,
+          "compress_mb_s": 19.7,
+          "decompress_mb_s": 102.7,
+          "peak_python_mib": 4.3,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 39.1
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 16.4
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -97.1
+            }
+          }
+        },
+        "zlib-6": {
+          "raw_bytes": 4396,
+          "compressed_bytes": 1921,
+          "ratio": 2.288,
+          "compress_mb_s": 11.0,
+          "decompress_mb_s": 133.2,
+          "peak_python_mib": 4.3,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 31.6
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -5.5
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -190.7
+            }
+          }
+        },
+        "zlib-9": {
+          "raw_bytes": 4396,
+          "compressed_bytes": 1917,
+          "ratio": 2.293,
+          "compress_mb_s": 21.7,
+          "decompress_mb_s": 147.5,
+          "peak_python_mib": 4.3,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 43.2
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 23.4
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -75.7
+            }
+          }
+        },
+        "zstd-1": {
+          "raw_bytes": 4396,
+          "compressed_bytes": 2060,
+          "ratio": 2.134,
+          "compress_mb_s": 33.4,
+          "decompress_mb_s": 72.4,
+          "peak_python_mib": 4.1,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 42.2
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 25.8
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -56.3
+            }
+          }
+        },
+        "zstd-3": {
+          "raw_bytes": 4396,
+          "compressed_bytes": 1990,
+          "ratio": 2.209,
+          "compress_mb_s": 12.5,
+          "decompress_mb_s": 108.8,
+          "peak_python_mib": 4.1,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 32.5
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -0.9
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -167.7
+            }
+          }
+        },
+        "zstd-9": {
+          "raw_bytes": 4396,
+          "compressed_bytes": 1961,
+          "ratio": 2.242,
+          "compress_mb_s": 1.7,
+          "decompress_mb_s": 103.7,
+          "peak_python_mib": 4.1,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -98.2
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -328.5
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -1480.3
+            }
+          }
+        },
+        "zstd-19": {
+          "raw_bytes": 4396,
+          "compressed_bytes": 1916,
+          "ratio": 2.294,
+          "compress_mb_s": 0.2,
+          "decompress_mb_s": 106.2,
+          "peak_python_mib": 4.1,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.02,
+              "saving_percent": -947.0
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.02,
+              "saving_percent": -2452.1
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.02,
+              "saving_percent": -9977.5
+            }
+          }
+        }
+      },
+      "snapshot-arrays": {
+        "zlib-1": {
+          "raw_bytes": 7500,
+          "compressed_bytes": 1789,
+          "ratio": 4.192,
+          "compress_mb_s": 47.4,
+          "decompress_mb_s": 190.4,
+          "peak_python_mib": 4.3,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 69.6
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 59.7
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 10.2
+            }
+          }
+        },
+        "zlib-6": {
+          "raw_bytes": 7500,
+          "compressed_bytes": 1533,
+          "ratio": 4.892,
+          "compress_mb_s": 25.0,
+          "decompress_mb_s": 79.4,
+          "peak_python_mib": 4.3,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 66.4
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 46.7
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -52.1
+            }
+          }
+        },
+        "zlib-9": {
+          "raw_bytes": 7500,
+          "compressed_bytes": 1545,
+          "ratio": 4.854,
+          "compress_mb_s": 4.7,
+          "decompress_mb_s": 93.2,
+          "peak_python_mib": 4.3,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 24.1
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -59.0
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -474.0
+            }
+          }
+        },
+        "zstd-1": {
+          "raw_bytes": 7500,
+          "compressed_bytes": 978,
+          "ratio": 7.669,
+          "compress_mb_s": 72.8,
+          "decompress_mb_s": 184.3,
+          "peak_python_mib": 4.1,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 82.2
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 75.0
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 39.1
+            }
+          }
+        },
+        "zstd-3": {
+          "raw_bytes": 7500,
+          "compressed_bytes": 692,
+          "ratio": 10.838,
+          "compress_mb_s": 26.5,
+          "decompress_mb_s": 164.5,
+          "peak_python_mib": 4.1,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 79.8
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 63.4
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -18.7
+            }
+          }
+        },
+        "zstd-9": {
+          "raw_bytes": 7500,
+          "compressed_bytes": 909,
+          "ratio": 8.251,
+          "compress_mb_s": 2.6,
+          "decompress_mb_s": 188.4,
+          "peak_python_mib": 4.1,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -10.9
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -159.1
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -899.9
+            }
+          }
+        },
+        "zstd-19": {
+          "raw_bytes": 7500,
+          "compressed_bytes": 402,
+          "ratio": 18.657,
+          "compress_mb_s": 0.6,
+          "decompress_mb_s": 105.2,
+          "peak_python_mib": 4.1,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.01,
+              "saving_percent": -360.3
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.01,
+              "saving_percent": -1042.7
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.01,
+              "saving_percent": -4454.7
+            }
+          }
+        }
+      },
+      "raw-frames": {
+        "zlib-1": {
+          "raw_bytes": 172500,
+          "compressed_bytes": 134299,
+          "ratio": 1.284,
+          "compress_mb_s": 24.1,
+          "decompress_mb_s": 191.9,
+          "peak_python_mib": 4.6,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.07,
+              "compressed": 0.06,
+              "saving_percent": 10.5
+            },
+            "50mbit": {
+              "uncompressed": 0.03,
+              "compressed": 0.03,
+              "saving_percent": -7.0
+            },
+            "200mbit": {
+              "uncompressed": 0.01,
+              "compressed": 0.01,
+              "saving_percent": -94.5
+            }
+          }
+        },
+        "zlib-6": {
+          "raw_bytes": 172500,
+          "compressed_bytes": 132525,
+          "ratio": 1.302,
+          "compress_mb_s": 18.0,
+          "decompress_mb_s": 112.9,
+          "peak_python_mib": 4.6,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.07,
+              "compressed": 0.06,
+              "saving_percent": 7.0
+            },
+            "50mbit": {
+              "uncompressed": 0.03,
+              "compressed": 0.03,
+              "saving_percent": -17.1
+            },
+            "200mbit": {
+              "uncompressed": 0.01,
+              "compressed": 0.02,
+              "saving_percent": -138.1
+            }
+          }
+        },
+        "zlib-9": {
+          "raw_bytes": 172500,
+          "compressed_bytes": 132516,
+          "ratio": 1.302,
+          "compress_mb_s": 14.8,
+          "decompress_mb_s": 294.7,
+          "peak_python_mib": 4.6,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.07,
+              "compressed": 0.07,
+              "saving_percent": 5.4
+            },
+            "50mbit": {
+              "uncompressed": 0.03,
+              "compressed": 0.03,
+              "saving_percent": -21.2
+            },
+            "200mbit": {
+              "uncompressed": 0.01,
+              "compressed": 0.02,
+              "saving_percent": -154.2
+            }
+          }
+        },
+        "zstd-1": {
+          "raw_bytes": 172500,
+          "compressed_bytes": 130246,
+          "ratio": 1.324,
+          "compress_mb_s": 366.2,
+          "decompress_mb_s": 578.1,
+          "peak_python_mib": 4.4,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.07,
+              "compressed": 0.05,
+              "saving_percent": 23.4
+            },
+            "50mbit": {
+              "uncompressed": 0.03,
+              "compressed": 0.02,
+              "saving_percent": 21.7
+            },
+            "200mbit": {
+              "uncompressed": 0.01,
+              "compressed": 0.01,
+              "saving_percent": 13.3
+            }
+          }
+        },
+        "zstd-3": {
+          "raw_bytes": 172500,
+          "compressed_bytes": 129602,
+          "ratio": 1.331,
+          "compress_mb_s": 92.4,
+          "decompress_mb_s": 273.5,
+          "peak_python_mib": 4.4,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.07,
+              "compressed": 0.05,
+              "saving_percent": 21.2
+            },
+            "50mbit": {
+              "uncompressed": 0.03,
+              "compressed": 0.02,
+              "saving_percent": 15.8
+            },
+            "200mbit": {
+              "uncompressed": 0.01,
+              "compressed": 0.01,
+              "saving_percent": -11.3
+            }
+          }
+        },
+        "zstd-9": {
+          "raw_bytes": 172500,
+          "compressed_bytes": 130006,
+          "ratio": 1.327,
+          "compress_mb_s": 48.2,
+          "decompress_mb_s": 494.3,
+          "peak_python_mib": 4.4,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.07,
+              "compressed": 0.06,
+              "saving_percent": 18.9
+            },
+            "50mbit": {
+              "uncompressed": 0.03,
+              "compressed": 0.02,
+              "saving_percent": 10.4
+            },
+            "200mbit": {
+              "uncompressed": 0.01,
+              "compressed": 0.01,
+              "saving_percent": -32.3
+            }
+          }
+        },
+        "zstd-19": {
+          "raw_bytes": 172500,
+          "compressed_bytes": 125551,
+          "ratio": 1.374,
+          "compress_mb_s": 3.0,
+          "decompress_mb_s": 194.0,
+          "peak_python_mib": 4.4,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.07,
+              "compressed": 0.11,
+              "saving_percent": -56.2
+            },
+            "50mbit": {
+              "uncompressed": 0.03,
+              "compressed": 0.08,
+              "saving_percent": -181.4
+            },
+            "200mbit": {
+              "uncompressed": 0.01,
+              "compressed": 0.06,
+              "saving_percent": -807.2
+            }
+          }
+        }
+      }
+    },
+    "gaia-contact-repro": {
+      "data": {
+        "zlib-1": {
+          "raw_bytes": 189680,
+          "compressed_bytes": 32710,
+          "ratio": 5.799,
+          "compress_mb_s": 151.2,
+          "decompress_mb_s": 354.3,
+          "peak_python_mib": 4.5,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.08,
+              "compressed": 0.01,
+              "saving_percent": 80.4
+            },
+            "50mbit": {
+              "uncompressed": 0.03,
+              "compressed": 0.01,
+              "saving_percent": 76.9
+            },
+            "200mbit": {
+              "uncompressed": 0.01,
+              "compressed": 0.0,
+              "saving_percent": 59.2
+            }
+          }
+        },
+        "zlib-6": {
+          "raw_bytes": 189680,
+          "compressed_bytes": 27319,
+          "ratio": 6.943,
+          "compress_mb_s": 48.8,
+          "decompress_mb_s": 504.1,
+          "peak_python_mib": 4.5,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.08,
+              "compressed": 0.02,
+              "saving_percent": 80.0
+            },
+            "50mbit": {
+              "uncompressed": 0.03,
+              "compressed": 0.01,
+              "saving_percent": 71.6
+            },
+            "200mbit": {
+              "uncompressed": 0.01,
+              "compressed": 0.01,
+              "saving_percent": 29.4
+            }
+          }
+        },
+        "zlib-9": {
+          "raw_bytes": 189680,
+          "compressed_bytes": 29094,
+          "ratio": 6.52,
+          "compress_mb_s": 4.1,
+          "decompress_mb_s": 512.1,
+          "peak_python_mib": 4.5,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.08,
+              "compressed": 0.06,
+              "saving_percent": 23.9
+            },
+            "50mbit": {
+              "uncompressed": 0.03,
+              "compressed": 0.05,
+              "saving_percent": -67.2
+            },
+            "200mbit": {
+              "uncompressed": 0.01,
+              "compressed": 0.05,
+              "saving_percent": -522.9
+            }
+          }
+        },
+        "zstd-1": {
+          "raw_bytes": 189680,
+          "compressed_bytes": 13304,
+          "ratio": 14.257,
+          "compress_mb_s": 512.9,
+          "decompress_mb_s": 683.3,
+          "peak_python_mib": 4.3,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.08,
+              "compressed": 0.01,
+              "saving_percent": 92.1
+            },
+            "50mbit": {
+              "uncompressed": 0.03,
+              "compressed": 0.0,
+              "saving_percent": 90.9
+            },
+            "200mbit": {
+              "uncompressed": 0.01,
+              "compressed": 0.0,
+              "saving_percent": 84.5
+            }
+          }
+        },
+        "zstd-3": {
+          "raw_bytes": 189680,
+          "compressed_bytes": 11374,
+          "ratio": 16.677,
+          "compress_mb_s": 178.5,
+          "decompress_mb_s": 369.9,
+          "peak_python_mib": 4.3,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.08,
+              "compressed": 0.01,
+              "saving_percent": 91.9
+            },
+            "50mbit": {
+              "uncompressed": 0.03,
+              "compressed": 0.0,
+              "saving_percent": 88.8
+            },
+            "200mbit": {
+              "uncompressed": 0.01,
+              "compressed": 0.0,
+              "saving_percent": 73.2
+            }
+          }
+        },
+        "zstd-9": {
+          "raw_bytes": 189680,
+          "compressed_bytes": 13417,
+          "ratio": 14.137,
+          "compress_mb_s": 67.4,
+          "decompress_mb_s": 732.4,
+          "peak_python_mib": 4.3,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.08,
+              "compressed": 0.01,
+              "saving_percent": 88.9
+            },
+            "50mbit": {
+              "uncompressed": 0.03,
+              "compressed": 0.01,
+              "saving_percent": 82.8
+            },
+            "200mbit": {
+              "uncompressed": 0.01,
+              "compressed": 0.0,
+              "saving_percent": 52.4
+            }
+          }
+        },
+        "zstd-19": {
+          "raw_bytes": 189680,
+          "compressed_bytes": 8777,
+          "ratio": 21.611,
+          "compress_mb_s": 3.2,
+          "decompress_mb_s": 559.0,
+          "peak_python_mib": 4.3,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.08,
+              "compressed": 0.06,
+              "saving_percent": 16.5
+            },
+            "50mbit": {
+              "uncompressed": 0.03,
+              "compressed": 0.06,
+              "saving_percent": -101.9
+            },
+            "200mbit": {
+              "uncompressed": 0.01,
+              "compressed": 0.06,
+              "saving_percent": -693.6
+            }
+          }
+        }
+      },
+      "param": {
+        "zlib-1": {
+          "raw_bytes": 2039,
+          "compressed_bytes": 772,
+          "ratio": 2.641,
+          "compress_mb_s": 19.6,
+          "decompress_mb_s": 91.4,
+          "peak_python_mib": 4.3,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 46.6
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 23.4
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -92.8
+            }
+          }
+        },
+        "zlib-6": {
+          "raw_bytes": 2039,
+          "compressed_bytes": 749,
+          "ratio": 2.722,
+          "compress_mb_s": 11.8,
+          "decompress_mb_s": 70.1,
+          "peak_python_mib": 4.3,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 38.5
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 1.4
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -184.0
+            }
+          }
+        },
+        "zlib-9": {
+          "raw_bytes": 2039,
+          "compressed_bytes": 749,
+          "ratio": 2.722,
+          "compress_mb_s": 18.3,
+          "decompress_mb_s": 85.7,
+          "peak_python_mib": 4.3,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 46.7
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 21.9
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -102.4
+            }
+          }
+        },
+        "zstd-1": {
+          "raw_bytes": 2039,
+          "compressed_bytes": 789,
+          "ratio": 2.584,
+          "compress_mb_s": 24.4,
+          "decompress_mb_s": 6.4,
+          "peak_python_mib": 4.1,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 12.0
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -62.1
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -432.2
+            }
+          }
+        },
+        "zstd-3": {
+          "raw_bytes": 2039,
+          "compressed_bytes": 771,
+          "ratio": 2.645,
+          "compress_mb_s": 7.9,
+          "decompress_mb_s": 42.6,
+          "peak_python_mib": 4.1,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 24.8
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -31.4
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -312.0
+            }
+          }
+        },
+        "zstd-9": {
+          "raw_bytes": 2039,
+          "compressed_bytes": 766,
+          "ratio": 2.662,
+          "compress_mb_s": 0.9,
+          "decompress_mb_s": 63.3,
+          "peak_python_mib": 4.1,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -204.8
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -605.7
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -2610.0
+            }
+          }
+        },
+        "zstd-19": {
+          "raw_bytes": 2039,
+          "compressed_bytes": 757,
+          "ratio": 2.694,
+          "compress_mb_s": 0.1,
+          "decompress_mb_s": 35.6,
+          "peak_python_mib": 4.1,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.01,
+              "saving_percent": -1675.7
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.01,
+              "saving_percent": -4283.7
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.01,
+              "saving_percent": -17323.2
+            }
+          }
+        }
+      },
+      "official-bindings": {
+        "zlib-1": {
+          "raw_bytes": 308,
+          "compressed_bytes": 177,
+          "ratio": 1.74,
+          "compress_mb_s": 4.5,
+          "decompress_mb_s": 21.4,
+          "peak_python_mib": 4.3,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -24.6
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -125.3
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -628.7
+            }
+          }
+        },
+        "zlib-6": {
+          "raw_bytes": 308,
+          "compressed_bytes": 177,
+          "ratio": 1.74,
+          "compress_mb_s": 0.5,
+          "decompress_mb_s": 16.3,
+          "peak_python_mib": 4.3,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -494.3
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -1299.6
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -5326.0
+            }
+          }
+        },
+        "zlib-9": {
+          "raw_bytes": 308,
+          "compressed_bytes": 177,
+          "ratio": 1.74,
+          "compress_mb_s": 3.9,
+          "decompress_mb_s": 15.1,
+          "peak_python_mib": 4.3,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -38.3
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -159.6
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -765.9
+            }
+          }
+        },
+        "zstd-1": {
+          "raw_bytes": 308,
+          "compressed_bytes": 179,
+          "ratio": 1.721,
+          "compress_mb_s": 3.8,
+          "decompress_mb_s": 10.7,
+          "peak_python_mib": 4.1,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -47.0
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -180.3
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -846.9
+            }
+          }
+        },
+        "zstd-3": {
+          "raw_bytes": 308,
+          "compressed_bytes": 177,
+          "ratio": 1.74,
+          "compress_mb_s": 1.4,
+          "decompress_mb_s": 10.4,
+          "peak_python_mib": 4.1,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -161.7
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -468.0
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -1999.7
+            }
+          }
+        },
+        "zstd-9": {
+          "raw_bytes": 308,
+          "compressed_bytes": 177,
+          "ratio": 1.74,
+          "compress_mb_s": 0.1,
+          "decompress_mb_s": 11.8,
+          "peak_python_mib": 4.1,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -1660.6
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -4215.4
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -16989.1
+            }
+          }
+        },
+        "zstd-19": {
+          "raw_bytes": 308,
+          "compressed_bytes": 174,
+          "ratio": 1.77,
+          "compress_mb_s": 0.0,
+          "decompress_mb_s": 7.1,
+          "peak_python_mib": 4.1,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.01,
+              "saving_percent": -8791.6
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.01,
+              "saving_percent": -22044.4
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.01,
+              "saving_percent": -88308.0
+            }
+          }
+        }
+      },
+      "snapshot": {
+        "zlib-1": {
+          "raw_bytes": 6077,
+          "compressed_bytes": 1858,
+          "ratio": 3.271,
+          "compress_mb_s": 29.5,
+          "decompress_mb_s": 167.0,
+          "peak_python_mib": 4.3,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 59.5
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 44.5
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -30.3
+            }
+          }
+        },
+        "zlib-6": {
+          "raw_bytes": 6077,
+          "compressed_bytes": 1738,
+          "ratio": 3.497,
+          "compress_mb_s": 27.5,
+          "decompress_mb_s": 167.0,
+          "peak_python_mib": 4.3,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 60.8
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 44.9
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -34.4
+            }
+          }
+        },
+        "zlib-9": {
+          "raw_bytes": 6077,
+          "compressed_bytes": 1737,
+          "ratio": 3.499,
+          "compress_mb_s": 42.3,
+          "decompress_mb_s": 187.0,
+          "peak_python_mib": 4.3,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 64.2
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 53.3
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -1.1
+            }
+          }
+        },
+        "zstd-1": {
+          "raw_bytes": 6077,
+          "compressed_bytes": 1863,
+          "ratio": 3.262,
+          "compress_mb_s": 58.4,
+          "decompress_mb_s": 142.3,
+          "peak_python_mib": 4.1,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 63.3
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 54.2
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 9.0
+            }
+          }
+        },
+        "zstd-3": {
+          "raw_bytes": 6077,
+          "compressed_bytes": 1806,
+          "ratio": 3.365,
+          "compress_mb_s": 24.2,
+          "decompress_mb_s": 259.7,
+          "peak_python_mib": 4.1,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 59.0
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 42.1
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -42.5
+            }
+          }
+        },
+        "zstd-9": {
+          "raw_bytes": 6077,
+          "compressed_bytes": 1766,
+          "ratio": 3.441,
+          "compress_mb_s": 2.6,
+          "decompress_mb_s": 114.7,
+          "peak_python_mib": 4.1,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -26.3
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -172.1
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -901.1
+            }
+          }
+        },
+        "zstd-19": {
+          "raw_bytes": 6077,
+          "compressed_bytes": 1722,
+          "ratio": 3.529,
+          "compress_mb_s": 0.4,
+          "decompress_mb_s": 77.9,
+          "peak_python_mib": 4.1,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.01,
+              "saving_percent": -503.1
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.01,
+              "saving_percent": -1365.2
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.01,
+              "saving_percent": -5675.8
+            }
+          }
+        }
+      },
+      "snapshot-arrays": {
+        "zlib-1": {
+          "raw_bytes": 15000,
+          "compressed_bytes": 2566,
+          "ratio": 5.846,
+          "compress_mb_s": 46.8,
+          "decompress_mb_s": 285.2,
+          "peak_python_mib": 4.3,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.01,
+              "compressed": 0.0,
+              "saving_percent": 76.7
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 67.3
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 20.7
+            }
+          }
+        },
+        "zlib-6": {
+          "raw_bytes": 15000,
+          "compressed_bytes": 1653,
+          "ratio": 9.074,
+          "compress_mb_s": 38.8,
+          "decompress_mb_s": 261.8,
+          "peak_python_mib": 4.3,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.01,
+              "compressed": 0.0,
+              "saving_percent": 81.6
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 70.5
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 14.9
+            }
+          }
+        },
+        "zlib-9": {
+          "raw_bytes": 15000,
+          "compressed_bytes": 1636,
+          "ratio": 9.169,
+          "compress_mb_s": 11.1,
+          "decompress_mb_s": 318.5,
+          "peak_python_mib": 4.3,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.01,
+              "compressed": 0.0,
+              "saving_percent": 65.7
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 30.6
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -144.8
+            }
+          }
+        },
+        "zstd-1": {
+          "raw_bytes": 15000,
+          "compressed_bytes": 1015,
+          "ratio": 14.778,
+          "compress_mb_s": 104.2,
+          "decompress_mb_s": 248.3,
+          "peak_python_mib": 4.1,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.01,
+              "compressed": 0.0,
+              "saving_percent": 89.8
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 84.7
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 59.2
+            }
+          }
+        },
+        "zstd-3": {
+          "raw_bytes": 15000,
+          "compressed_bytes": 715,
+          "ratio": 20.979,
+          "compress_mb_s": 47.5,
+          "decompress_mb_s": 279.9,
+          "peak_python_mib": 4.1,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.01,
+              "compressed": 0.0,
+              "saving_percent": 89.1
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 79.9
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 33.7
+            }
+          }
+        },
+        "zstd-9": {
+          "raw_bytes": 15000,
+          "compressed_bytes": 917,
+          "ratio": 16.358,
+          "compress_mb_s": 4.5,
+          "decompress_mb_s": 220.9,
+          "peak_python_mib": 4.1,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.01,
+              "compressed": 0.0,
+              "saving_percent": 36.8
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -48.8
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -476.8
+            }
+          }
+        },
+        "zstd-19": {
+          "raw_bytes": 15000,
+          "compressed_bytes": 413,
+          "ratio": 36.32,
+          "compress_mb_s": 1.0,
+          "decompress_mb_s": 130.8,
+          "peak_python_mib": 4.1,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.01,
+              "compressed": 0.01,
+              "saving_percent": -145.1
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.01,
+              "saving_percent": -508.7
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.01,
+              "saving_percent": -2326.5
+            }
+          }
+        }
+      },
+      "raw-frames": {
+        "zlib-1": {
+          "raw_bytes": 345000,
+          "compressed_bytes": 256785,
+          "ratio": 1.344,
+          "compress_mb_s": 29.3,
+          "decompress_mb_s": 275.3,
+          "peak_python_mib": 4.9,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.14,
+              "compressed": 0.12,
+              "saving_percent": 16.1
+            },
+            "50mbit": {
+              "uncompressed": 0.06,
+              "compressed": 0.05,
+              "saving_percent": 2.0
+            },
+            "200mbit": {
+              "uncompressed": 0.01,
+              "compressed": 0.02,
+              "saving_percent": -68.9
+            }
+          }
+        },
+        "zlib-6": {
+          "raw_bytes": 345000,
+          "compressed_bytes": 253053,
+          "ratio": 1.363,
+          "compress_mb_s": 18.0,
+          "decompress_mb_s": 233.9,
+          "peak_python_mib": 4.9,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.14,
+              "compressed": 0.12,
+              "saving_percent": 11.7
+            },
+            "50mbit": {
+              "uncompressed": 0.06,
+              "compressed": 0.06,
+              "saving_percent": -10.7
+            },
+            "200mbit": {
+              "uncompressed": 0.01,
+              "compressed": 0.03,
+              "saving_percent": -122.9
+            }
+          }
+        },
+        "zlib-9": {
+          "raw_bytes": 345000,
+          "compressed_bytes": 253168,
+          "ratio": 1.363,
+          "compress_mb_s": 13.9,
+          "decompress_mb_s": 100.5,
+          "peak_python_mib": 4.9,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.14,
+              "compressed": 0.13,
+              "saving_percent": 6.1
+            },
+            "50mbit": {
+              "uncompressed": 0.06,
+              "compressed": 0.07,
+              "saving_percent": -24.6
+            },
+            "200mbit": {
+              "uncompressed": 0.01,
+              "compressed": 0.04,
+              "saving_percent": -178.1
+            }
+          }
+        },
+        "zstd-1": {
+          "raw_bytes": 345000,
+          "compressed_bytes": 255311,
+          "ratio": 1.351,
+          "compress_mb_s": 216.4,
+          "decompress_mb_s": 288.2,
+          "peak_python_mib": 4.6,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.14,
+              "compressed": 0.1,
+              "saving_percent": 24.0
+            },
+            "50mbit": {
+              "uncompressed": 0.06,
+              "compressed": 0.04,
+              "saving_percent": 20.9
+            },
+            "200mbit": {
+              "uncompressed": 0.01,
+              "compressed": 0.01,
+              "saving_percent": 5.8
+            }
+          }
+        },
+        "zstd-3": {
+          "raw_bytes": 345000,
+          "compressed_bytes": 254738,
+          "ratio": 1.354,
+          "compress_mb_s": 153.2,
+          "decompress_mb_s": 398.4,
+          "peak_python_mib": 4.6,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.14,
+              "compressed": 0.11,
+              "saving_percent": 23.9
+            },
+            "50mbit": {
+              "uncompressed": 0.06,
+              "compressed": 0.04,
+              "saving_percent": 20.5
+            },
+            "200mbit": {
+              "uncompressed": 0.01,
+              "compressed": 0.01,
+              "saving_percent": 3.6
+            }
+          }
+        },
+        "zstd-9": {
+          "raw_bytes": 345000,
+          "compressed_bytes": 254865,
+          "ratio": 1.354,
+          "compress_mb_s": 45.2,
+          "decompress_mb_s": 558.9,
+          "peak_python_mib": 4.6,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.14,
+              "compressed": 0.11,
+              "saving_percent": 20.2
+            },
+            "50mbit": {
+              "uncompressed": 0.06,
+              "compressed": 0.05,
+              "saving_percent": 11.2
+            },
+            "200mbit": {
+              "uncompressed": 0.01,
+              "compressed": 0.02,
+              "saving_percent": -33.6
+            }
+          }
+        },
+        "zstd-19": {
+          "raw_bytes": 345000,
+          "compressed_bytes": 240280,
+          "ratio": 1.436,
+          "compress_mb_s": 3.3,
+          "decompress_mb_s": 362.6,
+          "peak_python_mib": 4.6,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.14,
+              "compressed": 0.2,
+              "saving_percent": -45.9
+            },
+            "50mbit": {
+              "uncompressed": 0.06,
+              "compressed": 0.14,
+              "saving_percent": -160.3
+            },
+            "200mbit": {
+              "uncompressed": 0.01,
+              "compressed": 0.11,
+              "saving_percent": -732.3
+            }
+          }
+        }
+      }
+    },
+    "aether-cloth": {
+      "data": {
+        "zlib-1": {
+          "raw_bytes": 116259,
+          "compressed_bytes": 25318,
+          "ratio": 4.592,
+          "compress_mb_s": 85.2,
+          "decompress_mb_s": 197.6,
+          "peak_python_mib": 4.4,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.05,
+              "compressed": 0.01,
+              "saving_percent": 74.0
+            },
+            "50mbit": {
+              "uncompressed": 0.02,
+              "compressed": 0.01,
+              "saving_percent": 67.7
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 36.2
+            }
+          }
+        },
+        "zlib-6": {
+          "raw_bytes": 116259,
+          "compressed_bytes": 22122,
+          "ratio": 5.255,
+          "compress_mb_s": 40.4,
+          "decompress_mb_s": 363.0,
+          "peak_python_mib": 4.4,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.05,
+              "compressed": 0.01,
+              "saving_percent": 74.1
+            },
+            "50mbit": {
+              "uncompressed": 0.02,
+              "compressed": 0.01,
+              "saving_percent": 63.8
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 12.2
+            }
+          }
+        },
+        "zlib-9": {
+          "raw_bytes": 116259,
+          "compressed_bytes": 23051,
+          "ratio": 5.044,
+          "compress_mb_s": 4.2,
+          "decompress_mb_s": 354.4,
+          "peak_python_mib": 4.4,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.05,
+              "compressed": 0.04,
+              "saving_percent": 20.1
+            },
+            "50mbit": {
+              "uncompressed": 0.02,
+              "compressed": 0.03,
+              "saving_percent": -70.1
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.03,
+              "saving_percent": -520.8
+            }
+          }
+        },
+        "zstd-1": {
+          "raw_bytes": 116259,
+          "compressed_bytes": 21964,
+          "ratio": 5.293,
+          "compress_mb_s": 98.5,
+          "decompress_mb_s": 196.7,
+          "peak_python_mib": 4.2,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.05,
+              "compressed": 0.01,
+              "saving_percent": 77.3
+            },
+            "50mbit": {
+              "uncompressed": 0.02,
+              "compressed": 0.01,
+              "saving_percent": 71.6
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 43.0
+            }
+          }
+        },
+        "zstd-3": {
+          "raw_bytes": 116259,
+          "compressed_bytes": 20050,
+          "ratio": 5.798,
+          "compress_mb_s": 79.6,
+          "decompress_mb_s": 271.9,
+          "peak_python_mib": 4.2,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.05,
+              "compressed": 0.01,
+              "saving_percent": 78.7
+            },
+            "50mbit": {
+              "uncompressed": 0.02,
+              "compressed": 0.01,
+              "saving_percent": 72.6
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 42.2
+            }
+          }
+        },
+        "zstd-9": {
+          "raw_bytes": 116259,
+          "compressed_bytes": 21316,
+          "ratio": 5.454,
+          "compress_mb_s": 31.6,
+          "decompress_mb_s": 306.0,
+          "peak_python_mib": 4.2,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.05,
+              "compressed": 0.01,
+              "saving_percent": 72.9
+            },
+            "50mbit": {
+              "uncompressed": 0.02,
+              "compressed": 0.01,
+              "saving_percent": 59.9
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -5.5
+            }
+          }
+        },
+        "zstd-19": {
+          "raw_bytes": 116259,
+          "compressed_bytes": 14737,
+          "ratio": 7.889,
+          "compress_mb_s": 1.6,
+          "decompress_mb_s": 331.7,
+          "peak_python_mib": 4.2,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.05,
+              "compressed": 0.08,
+              "saving_percent": -71.9
+            },
+            "50mbit": {
+              "uncompressed": 0.02,
+              "compressed": 0.08,
+              "saving_percent": -310.8
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.07,
+              "saving_percent": -1505.2
+            }
+          }
+        }
+      },
+      "param": {
+        "zlib-1": {
+          "raw_bytes": 1121,
+          "compressed_bytes": 638,
+          "ratio": 1.757,
+          "compress_mb_s": 8.3,
+          "decompress_mb_s": 38.8,
+          "peak_python_mib": 4.3,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 6.6
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -48.0
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -321.3
+            }
+          }
+        },
+        "zlib-6": {
+          "raw_bytes": 1121,
+          "compressed_bytes": 620,
+          "ratio": 1.808,
+          "compress_mb_s": 10.9,
+          "decompress_mb_s": 52.9,
+          "peak_python_mib": 4.3,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 16.9
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -24.7
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -232.7
+            }
+          }
+        },
+        "zlib-9": {
+          "raw_bytes": 1121,
+          "compressed_bytes": 620,
+          "ratio": 1.808,
+          "compress_mb_s": 12.2,
+          "decompress_mb_s": 59.9,
+          "peak_python_mib": 4.3,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 20.0
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -17.1
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -202.6
+            }
+          }
+        },
+        "zstd-1": {
+          "raw_bytes": 1121,
+          "compressed_bytes": 662,
+          "ratio": 1.693,
+          "compress_mb_s": 10.9,
+          "decompress_mb_s": 43.1,
+          "peak_python_mib": 4.1,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 12.2
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -30.9
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -246.5
+            }
+          }
+        },
+        "zstd-3": {
+          "raw_bytes": 1121,
+          "compressed_bytes": 649,
+          "ratio": 1.727,
+          "compress_mb_s": 4.2,
+          "decompress_mb_s": 44.5,
+          "peak_python_mib": 4.1,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -23.3
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -121.5
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -612.2
+            }
+          }
+        },
+        "zstd-9": {
+          "raw_bytes": 1121,
+          "compressed_bytes": 642,
+          "ratio": 1.746,
+          "compress_mb_s": 0.6,
+          "decompress_mb_s": 39.2,
+          "peak_python_mib": 4.1,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -410.7
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -1090.8
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -4491.4
+            }
+          }
+        },
+        "zstd-19": {
+          "raw_bytes": 1121,
+          "compressed_bytes": 630,
+          "ratio": 1.779,
+          "compress_mb_s": 0.1,
+          "decompress_mb_s": 30.7,
+          "peak_python_mib": 4.1,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.01,
+              "saving_percent": -2537.7
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.01,
+              "saving_percent": -6410.0
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.01,
+              "saving_percent": -25771.5
+            }
+          }
+        }
+      },
+      "official-bindings": {
+        "zlib-1": {
+          "raw_bytes": 308,
+          "compressed_bytes": 175,
+          "ratio": 1.76,
+          "compress_mb_s": 4.2,
+          "decompress_mb_s": 15.4,
+          "peak_python_mib": 4.3,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -31.9
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -144.5
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -707.6
+            }
+          }
+        },
+        "zlib-6": {
+          "raw_bytes": 308,
+          "compressed_bytes": 175,
+          "ratio": 1.76,
+          "compress_mb_s": 2.6,
+          "decompress_mb_s": 8.9,
+          "peak_python_mib": 4.3,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -81.5
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -268.5
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -1203.6
+            }
+          }
+        },
+        "zlib-9": {
+          "raw_bytes": 308,
+          "compressed_bytes": 175,
+          "ratio": 1.76,
+          "compress_mb_s": 4.8,
+          "decompress_mb_s": 18.6,
+          "peak_python_mib": 4.3,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -22.8
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -121.8
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -616.7
+            }
+          }
+        },
+        "zstd-1": {
+          "raw_bytes": 308,
+          "compressed_bytes": 178,
+          "ratio": 1.73,
+          "compress_mb_s": 4.7,
+          "decompress_mb_s": 6.5,
+          "peak_python_mib": 4.1,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -49.7
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -187.5
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -876.6
+            }
+          }
+        },
+        "zstd-3": {
+          "raw_bytes": 308,
+          "compressed_bytes": 179,
+          "ratio": 1.721,
+          "compress_mb_s": 1.2,
+          "decompress_mb_s": 4.7,
+          "peak_python_mib": 4.1,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -226.5
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -629.2
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -2642.4
+            }
+          }
+        },
+        "zstd-9": {
+          "raw_bytes": 308,
+          "compressed_bytes": 179,
+          "ratio": 1.721,
+          "compress_mb_s": 0.2,
+          "decompress_mb_s": 8.5,
+          "peak_python_mib": 4.1,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -1404.6
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -3574.4
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -14423.2
+            }
+          }
+        },
+        "zstd-19": {
+          "raw_bytes": 308,
+          "compressed_bytes": 174,
+          "ratio": 1.77,
+          "compress_mb_s": 0.0,
+          "decompress_mb_s": 9.9,
+          "peak_python_mib": 4.1,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.01,
+              "saving_percent": -9225.2
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.01,
+              "saving_percent": -23128.2
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.01,
+              "saving_percent": -92643.2
+            }
+          }
+        }
+      },
+      "snapshot": {
+        "zlib-1": {
+          "raw_bytes": 4257,
+          "compressed_bytes": 1930,
+          "ratio": 2.206,
+          "compress_mb_s": 23.8,
+          "decompress_mb_s": 66.7,
+          "peak_python_mib": 4.3,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 40.4
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 19.1
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -87.7
+            }
+          }
+        },
+        "zlib-6": {
+          "raw_bytes": 4257,
+          "compressed_bytes": 1842,
+          "ratio": 2.311,
+          "compress_mb_s": 17.4,
+          "decompress_mb_s": 10.4,
+          "peak_python_mib": 4.3,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 18.4
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -39.0
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -326.3
+            }
+          }
+        },
+        "zlib-9": {
+          "raw_bytes": 4257,
+          "compressed_bytes": 1839,
+          "ratio": 2.315,
+          "compress_mb_s": 28.9,
+          "decompress_mb_s": 151.5,
+          "peak_python_mib": 4.3,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 46.5
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 31.0
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -46.2
+            }
+          }
+        },
+        "zstd-1": {
+          "raw_bytes": 4257,
+          "compressed_bytes": 1982,
+          "ratio": 2.148,
+          "compress_mb_s": 43.9,
+          "decompress_mb_s": 117.3,
+          "peak_python_mib": 4.1,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 45.6
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 33.9
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -24.8
+            }
+          }
+        },
+        "zstd-3": {
+          "raw_bytes": 4257,
+          "compressed_bytes": 1912,
+          "ratio": 2.226,
+          "compress_mb_s": 10.0,
+          "decompress_mb_s": 122.3,
+          "peak_python_mib": 4.1,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 28.1
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -12.4
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -214.9
+            }
+          }
+        },
+        "zstd-9": {
+          "raw_bytes": 4257,
+          "compressed_bytes": 1882,
+          "ratio": 2.262,
+          "compress_mb_s": 1.8,
+          "decompress_mb_s": 95.2,
+          "peak_python_mib": 4.1,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -84.6
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -295.2
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -1348.0
+            }
+          }
+        },
+        "zstd-19": {
+          "raw_bytes": 4257,
+          "compressed_bytes": 1842,
+          "ratio": 2.311,
+          "compress_mb_s": 0.3,
+          "decompress_mb_s": 80.6,
+          "peak_python_mib": 4.1,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.01,
+              "saving_percent": -746.1
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.01,
+              "saving_percent": -1950.3
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.01,
+              "saving_percent": -7971.5
+            }
+          }
+        }
+      },
+      "snapshot-arrays": {
+        "zlib-1": {
+          "raw_bytes": 7500,
+          "compressed_bytes": 1789,
+          "ratio": 4.192,
+          "compress_mb_s": 47.1,
+          "decompress_mb_s": 195.3,
+          "peak_python_mib": 4.3,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 69.6
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 59.7
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 10.2
+            }
+          }
+        },
+        "zlib-6": {
+          "raw_bytes": 7500,
+          "compressed_bytes": 1533,
+          "ratio": 4.892,
+          "compress_mb_s": 22.3,
+          "decompress_mb_s": 197.4,
+          "peak_python_mib": 4.3,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 67.1
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 48.3
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -45.4
+            }
+          }
+        },
+        "zlib-9": {
+          "raw_bytes": 7500,
+          "compressed_bytes": 1545,
+          "ratio": 4.854,
+          "compress_mb_s": 3.5,
+          "decompress_mb_s": 92.1,
+          "peak_python_mib": 4.3,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 6.0
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -104.0
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -654.3
+            }
+          }
+        },
+        "zstd-1": {
+          "raw_bytes": 7500,
+          "compressed_bytes": 978,
+          "ratio": 7.669,
+          "compress_mb_s": 55.8,
+          "decompress_mb_s": 141.5,
+          "peak_python_mib": 4.1,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 80.7
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 71.3
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 24.5
+            }
+          }
+        },
+        "zstd-3": {
+          "raw_bytes": 7500,
+          "compressed_bytes": 692,
+          "ratio": 10.838,
+          "compress_mb_s": 24.8,
+          "decompress_mb_s": 157.6,
+          "peak_python_mib": 4.1,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 79.1
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 61.6
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -25.7
+            }
+          }
+        },
+        "zstd-9": {
+          "raw_bytes": 7500,
+          "compressed_bytes": 909,
+          "ratio": 8.251,
+          "compress_mb_s": 3.6,
+          "decompress_mb_s": 130.9,
+          "peak_python_mib": 4.1,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": 17.1
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -89.0
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.0,
+              "saving_percent": -619.6
+            }
+          }
+        },
+        "zstd-19": {
+          "raw_bytes": 7500,
+          "compressed_bytes": 402,
+          "ratio": 18.657,
+          "compress_mb_s": 0.5,
+          "decompress_mb_s": 120.2,
+          "peak_python_mib": 4.1,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.01,
+              "saving_percent": -395.6
+            },
+            "50mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.01,
+              "saving_percent": -1131.0
+            },
+            "200mbit": {
+              "uncompressed": 0.0,
+              "compressed": 0.01,
+              "saving_percent": -4808.0
+            }
+          }
+        }
+      },
+      "raw-frames": {
+        "zlib-1": {
+          "raw_bytes": 172500,
+          "compressed_bytes": 134297,
+          "ratio": 1.284,
+          "compress_mb_s": 34.4,
+          "decompress_mb_s": 161.9,
+          "peak_python_mib": 4.6,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.07,
+              "compressed": 0.06,
+              "saving_percent": 13.3
+            },
+            "50mbit": {
+              "uncompressed": 0.03,
+              "compressed": 0.03,
+              "saving_percent": 0.1
+            },
+            "200mbit": {
+              "uncompressed": 0.01,
+              "compressed": 0.01,
+              "saving_percent": -65.9
+            }
+          }
+        },
+        "zlib-6": {
+          "raw_bytes": 172500,
+          "compressed_bytes": 132510,
+          "ratio": 1.302,
+          "compress_mb_s": 17.9,
+          "decompress_mb_s": 265.1,
+          "peak_python_mib": 4.6,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.07,
+              "compressed": 0.06,
+              "saving_percent": 8.3
+            },
+            "50mbit": {
+              "uncompressed": 0.03,
+              "compressed": 0.03,
+              "saving_percent": -14.1
+            },
+            "200mbit": {
+              "uncompressed": 0.01,
+              "compressed": 0.02,
+              "saving_percent": -126.0
+            }
+          }
+        },
+        "zlib-9": {
+          "raw_bytes": 172500,
+          "compressed_bytes": 132492,
+          "ratio": 1.302,
+          "compress_mb_s": 19.4,
+          "decompress_mb_s": 276.1,
+          "peak_python_mib": 4.6,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.07,
+              "compressed": 0.06,
+              "saving_percent": 9.4
+            },
+            "50mbit": {
+              "uncompressed": 0.03,
+              "compressed": 0.03,
+              "saving_percent": -11.3
+            },
+            "200mbit": {
+              "uncompressed": 0.01,
+              "compressed": 0.01,
+              "saving_percent": -115.0
+            }
+          }
+        },
+        "zstd-1": {
+          "raw_bytes": 172500,
+          "compressed_bytes": 130553,
+          "ratio": 1.321,
+          "compress_mb_s": 302.6,
+          "decompress_mb_s": 451.5,
+          "peak_python_mib": 4.4,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.07,
+              "compressed": 0.05,
+              "saving_percent": 22.9
+            },
+            "50mbit": {
+              "uncompressed": 0.03,
+              "compressed": 0.02,
+              "saving_percent": 20.9
+            },
+            "200mbit": {
+              "uncompressed": 0.01,
+              "compressed": 0.01,
+              "saving_percent": 10.5
+            }
+          }
+        },
+        "zstd-3": {
+          "raw_bytes": 172500,
+          "compressed_bytes": 129649,
+          "ratio": 1.331,
+          "compress_mb_s": 151.0,
+          "decompress_mb_s": 411.5,
+          "peak_python_mib": 4.4,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.07,
+              "compressed": 0.05,
+              "saving_percent": 22.6
+            },
+            "50mbit": {
+              "uncompressed": 0.03,
+              "compressed": 0.02,
+              "saving_percent": 19.2
+            },
+            "200mbit": {
+              "uncompressed": 0.01,
+              "compressed": 0.01,
+              "saving_percent": 2.2
+            }
+          }
+        },
+        "zstd-9": {
+          "raw_bytes": 172500,
+          "compressed_bytes": 129954,
+          "ratio": 1.327,
+          "compress_mb_s": 54.0,
+          "decompress_mb_s": 477.7,
+          "peak_python_mib": 4.4,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.07,
+              "compressed": 0.06,
+              "saving_percent": 19.5
+            },
+            "50mbit": {
+              "uncompressed": 0.03,
+              "compressed": 0.02,
+              "saving_percent": 11.8
+            },
+            "200mbit": {
+              "uncompressed": 0.01,
+              "compressed": 0.01,
+              "saving_percent": -26.9
+            }
+          }
+        },
+        "zstd-19": {
+          "raw_bytes": 172500,
+          "compressed_bytes": 125631,
+          "ratio": 1.373,
+          "compress_mb_s": 2.7,
+          "decompress_mb_s": 381.3,
+          "peak_python_mib": 4.4,
+          "net_seconds": {
+            "20mbit": {
+              "uncompressed": 0.07,
+              "compressed": 0.11,
+              "saving_percent": -65.2
+            },
+            "50mbit": {
+              "uncompressed": 0.03,
+              "compressed": 0.08,
+              "saving_percent": -203.8
+            },
+            "200mbit": {
+              "uncompressed": 0.01,
+              "compressed": 0.07,
+              "saving_percent": -896.5
+            }
+          }
+        }
+      }
+    }
+  }
+}
