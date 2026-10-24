@@ -58,6 +58,18 @@ class ApprovalRequired(Exception):
     code = "quote_expired"
 
 
+class AccessDenied(Exception):
+    """The PolyWorks account may not submit Cloud jobs (``/account``)."""
+
+    code = "cloud_access_required"
+
+
+class PackageTooLarge(Exception):
+    """The package exceeds the server's declared package or file limit."""
+
+    code = "package_too_large"
+
+
 class BuildNotOffered(Exception):
     """The Cloud has no configured mapping for this exact desktop build."""
 
@@ -117,11 +129,23 @@ class CloudJobs:
         capabilities = self.backend.capabilities()
         if capabilities.raw_chunk_bytes:
             self._upload_block = min(self._upload_block, capabilities.raw_chunk_bytes)
+        account = self.backend.account()
+        if not (account.get("cloud_enabled") and account.get("can_submit")):
+            self.registry.update(client_job_id, state=LocalState.UPLOAD_PAUSED,
+                                 error_code="cloud_access_required")
+            raise AccessDenied("this account may not submit Cloud jobs")
         mapping = capabilities.mapping_for(manifest)
         if mapping is None:
             self.registry.update(client_job_id, state=LocalState.UPLOAD_PAUSED,
                                  error_code="build_unavailable")
             raise BuildNotOffered(manifest["build_id"])
+        sizes = [int(item["size_bytes"]) for item in manifest["files"]]
+        if ((capabilities.max_package_bytes and sum(sizes) > capabilities.max_package_bytes)
+                or (capabilities.max_file_bytes
+                    and max(sizes, default=0) > capabilities.max_file_bytes)):
+            self.registry.update(client_job_id, state=LocalState.UPLOAD_PAUSED,
+                                 error_code="package_too_large")
+            raise PackageTooLarge(f"{sum(sizes)} bytes")
         quote = self.backend.quote(manifest)
         return self.registry.update(
             client_job_id, state=LocalState.AWAITING_APPROVAL,
@@ -129,6 +153,7 @@ class CloudJobs:
             quote_id=quote.quote_id, quote_maximum=quote.maximum,
             quote_unit=quote.unit, quote_expires_at=quote.expires_at,
             quote_billing_mode=quote.billing_mode, quote_accepted=False,
+            quote_max_seconds=quote.max_execution_seconds,
             error_code="")
 
     def accept_quote(self, client_job_id: str, quote_id: str) -> JobRecord:

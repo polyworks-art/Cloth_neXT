@@ -144,7 +144,8 @@ def _capabilities(value: Any) -> wire.Capabilities:
         billing_mode=_str(value.get("billing")),
         partial_results=bool(value.get("partial_results")),
         execution_enabled=bool(execution.get("enabled")),
-        upload_encodings=tuple(transport_info.get("upload_encodings") or ("identity",)))
+        upload_encodings=tuple(transport_info.get("upload_encodings") or ("identity",)),
+        max_file_bytes=_int(limits.get("max_file_bytes"), optional=True) or 0)
 
 
 class HttpCloudBackend:

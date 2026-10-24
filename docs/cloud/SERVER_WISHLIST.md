@@ -46,3 +46,17 @@ Stand 23.10.2026. Grundlage: echte Phase-0-Läufe (GAIA/AETHER, Nähte, Soft Bod
 Bereits passend im Vertrag: Idempotenz, Suche per `client_job_id`, Upload mit Offset und
 Chunk-SHA, Dedup über `reused`, Angebot mit `accepted_maximum`, Zustände, Fehler-Envelope,
 Abruf ohne Entitlement.
+
+## Open for the go-live (2026-10-24, add-on 2.9.40+)
+
+1. **GPU in the quote.** `QuoteOut` has `maximum`, `unit`, `max_execution_seconds`
+   only. The add-on shows the GPU once the quote names it (field name from Codex).
+2. **Final credits.** `JobOut.statistics` only has `elapsed_ms`. The add-on shows a
+   final cost once `JobOut` carries it (field name and unit from Codex).
+3. **Unlock.** `execution.enabled` is `const false` in the pilot OpenAPI; the add-on
+   unlocks Cloud only on `enabled: true` and `execution.enabled: true`.
+4. **Endpoint live.** `GET https://api.cloth-next.de/v1/cloud/capabilities`
+   currently answers 404.
+5. **Contract files.** `CLOUD_BAKES_API_V1.md`, `CLOUD_BAKES_OPENAPI_V1.json`,
+   `CLOUD_BAKES_EXAMPLES_V1.json` are not in the add-on checkout; the add-on
+   follows the OpenAPI attached on 2026-10-23 (`tests/fixtures/cloud_v1/`).

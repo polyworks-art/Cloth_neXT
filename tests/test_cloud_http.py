@@ -216,3 +216,40 @@ def test_default_origin_is_the_polyworks_cloud_and_can_be_switched_off():
     factory = service.default_factory({})
     assert factory is not None and factory().origin == service.DEFAULT_ORIGIN
     assert service.default_factory({"CLOTH_NEXT_CLOUD_API": "off"}) is None
+
+
+def test_account_without_submit_right_stops_before_quote(http, tmp_path):
+    from cloth_next.cloud.jobs import AccessDenied
+    from cloth_next.cloud.registry import LocalState
+    http.backend.can_submit = False
+    _deformables, built = package(http, tmp_path)
+    with pytest.raises(AccessDenied):
+        http.jobs.request_quote(built.client_job_id)
+    assert any(path.endswith("/account") for _m, path, _h in http.server.requests)
+    assert not any(path.endswith("/quotes") for _m, path, _h in http.server.requests)
+    record = http.jobs.registry.get(built.client_job_id)
+    assert record.state is LocalState.UPLOAD_PAUSED
+    assert record.error_code == "cloud_access_required"
+
+
+def test_package_over_server_limit_stops_before_quote(http, tmp_path, monkeypatch):
+    from dataclasses import replace
+    from cloth_next.cloud.jobs import PackageTooLarge
+    original = http.client.capabilities
+    monkeypatch.setattr(http.client, "capabilities",
+                        lambda: replace(original(), max_file_bytes=16))
+    _deformables, built = package(http, tmp_path)
+    with pytest.raises(PackageTooLarge):
+        http.jobs.request_quote(built.client_job_id)
+    assert not any(path.endswith("/quotes") for _m, path, _h in http.server.requests)
+
+
+def test_quote_keeps_maximum_runtime_for_review(http, tmp_path, blender_env):
+    from cloth_next.blender.cloud_ui import review_lines
+    from cloth_next.cloud.jobs import load_manifest
+    _deformables, built = package(http, tmp_path)
+    record = http.jobs.request_quote(built.client_job_id)
+    assert record.quote_max_seconds
+    if record.quote_max_seconds:
+        lines = review_lines(record, load_manifest(http.jobs.store, record.manifest_sha256))
+        assert any(line.startswith("Maximum server runtime") for line in lines)

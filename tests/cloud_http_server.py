@@ -138,6 +138,8 @@ class CloudHttpServer:
                 if not path.startswith(base):
                     raise wire.CloudError("not_found")
                 path = path[len(base):]
+                if method == "GET" and path == "/account":
+                    return 200, backend.account()
                 if method == "GET" and path == "/capabilities":
                     caps = backend.capabilities()
                     runtimes = []

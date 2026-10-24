@@ -26,6 +26,8 @@ _ACTIONS = (
     ("DELETE_RESULT", "Delete Downloaded Result", "Delete the downloaded raw result from this computer"),
     ("REFRESH", "Refresh", "Ask the Cloud service for the current state of your jobs"),
 )
+# PolyWorks account dashboard listing the artist's Cloud Bakes.
+CLOUD_BAKES_PAGE = "https://account.cloth-next.de/dashboard/cloud-bakes"
 _UPLOAD_STATES = frozenset({LocalState.PACKAGED, LocalState.CREATE_REQUESTED,
                             LocalState.UPLOADING})
 _PAUSED_STATES = frozenset({LocalState.UPLOAD_PAUSED})
@@ -137,6 +139,11 @@ def review_lines(record, manifest, capabilities=None) -> list[str]:
         f"Cost limit: {record.quote_maximum:g} {record.quote_unit} · "
         f"quote valid until {record.quote_expires_at}",
     ]
+    seconds = getattr(record, "quote_max_seconds", None)
+    if seconds:
+        from ..bake.status import format_duration
+        lines.append(f"Maximum server runtime: {format_duration(float(seconds))} "
+                     "(the job stops there; start-up counts too)")
     if record.quote_billing_mode == "test":
         lines.append("Test billing only: no real charge is made.")
     retention = getattr(capabilities, "retention_days", None)
@@ -225,6 +232,7 @@ def draw_jobs(layout, *, scene=None) -> None:
     header.label(text="Cloud Jobs")
     header.operator(CLOTHNEXT_OT_cloud_job_action.bl_idname, text="",
                     icon="FILE_REFRESH").action = "REFRESH"
+    header.operator("wm.url_open", text="", icon="URL").url = CLOUD_BAKES_PAGE
     if view.message:
         row = layout.row()
         row.alert = bool(view.error_code)

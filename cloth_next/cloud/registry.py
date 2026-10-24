@@ -100,6 +100,7 @@ class JobRecord:
     quote_unit: str = ""
     quote_expires_at: str = ""
     quote_billing_mode: str = ""
+    quote_max_seconds: float | None = None  # server's maximum execution time
     quote_accepted: bool = False            # explicit artist confirmation (E10)
     final_cost: str | None = None           # server's final cost, once known
 

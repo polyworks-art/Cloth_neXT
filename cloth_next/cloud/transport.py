@@ -110,6 +110,7 @@ class Capabilities:
     partial_results: bool = False
     execution_enabled: bool = False          # RunPod execution configured
     upload_encodings: tuple[str, ...] = ("identity",)
+    max_file_bytes: int = 0                  # 0: no per-file limit declared
 
     def mapping_for(self, solver: Mapping[str, Any]) -> DesktopBuild | None:
         """The configured mapping for exactly this desktop build, if any.
@@ -202,6 +203,8 @@ class ResultManifest:
 
 class CloudBackend(Protocol):
     def capabilities(self) -> Capabilities: ...
+
+    def account(self) -> Mapping[str, Any]: ...
 
     def quote(self, manifest: Mapping[str, Any]) -> Quote: ...
 

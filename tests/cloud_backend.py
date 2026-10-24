@@ -61,7 +61,7 @@ class CloudTestBackend:
     def __init__(self, *, executor=None, account: str = "account-a",
                  builds=None, quote_maximum: int = 30) -> None:
         self.lock = threading.Lock()
-        self.account = account
+        self.account_name = account
         self.executor = executor
         # Offered desktop identities: dicts with engine, build_id,
         # solver_sha256, worker_sha256, server_build. None offers whatever a
@@ -70,6 +70,7 @@ class CloudTestBackend:
         self.quote_maximum = quote_maximum
         # The server switch that unlocks Cloud Bakes in the add-on.
         self.execution_enabled = True
+        self.can_submit = True
         self.blobs: dict[str, dict[str, bytes]] = {}       # account -> sha -> bytes
         self.uploads: dict[str, dict] = {}                 # upload_id -> session
         self.jobs: dict[str, dict] = {}                    # job_id -> job
@@ -90,7 +91,7 @@ class CloudTestBackend:
 
     # Injection helpers ------------------------------------------------------
     def _enter(self, name: str) -> None:
-        self.calls.append((self.account, name))
+        self.calls.append((self.account_name, name))
         if self.offline:
             raise wire.CloudError("network_unavailable")
         if name in self.fail_before:
@@ -104,11 +105,11 @@ class CloudTestBackend:
         return value
 
     def _account_blobs(self) -> dict[str, bytes]:
-        return self.blobs.setdefault(self.account, {})
+        return self.blobs.setdefault(self.account_name, {})
 
     def _job(self, job_id: str) -> dict:
         job = self.jobs.get(job_id)
-        if job is None or job["account"] != self.account:
+        if job is None or job["account"] != self.account_name:
             raise wire.CloudError("not_found", status=404)
         return job
 
@@ -122,7 +123,7 @@ class CloudTestBackend:
             manifest_sha256=job["manifest_sha256"])
 
     def _claim_key(self, key: str, fingerprint: str, create):
-        slot = (self.account, key)
+        slot = (self.account_name, key)
         if slot in self.idempotency:
             previous, job_id = self.idempotency[slot]
             if previous != fingerprint:
@@ -157,6 +158,12 @@ class CloudTestBackend:
                 item["worker_sha256"], item.get("server_build", item["build_id"]))
                 for item in offered))
 
+    def account(self):
+        self._enter("account")
+        return {"cloud_enabled": True, "execution_entitled": self.can_submit,
+                "can_submit": self.can_submit, "billing": "test",
+                "retained_results_require_execution_entitlement": False}
+
     def quote(self, manifest):
         self._enter("quote")
         if self._offered(manifest) is None:
@@ -181,7 +188,7 @@ class CloudTestBackend:
                 job_id = self._new_id()
                 self.jobs[job_id] = {
                     "job_id": job_id, "client_job_id": client_job_id,
-                    "account": self.account, "state": wire.UPLOADING,
+                    "account": self.account_name, "state": wire.UPLOADING,
                     "manifest": manifest, "manifest_sha256": digest,
                     "files": {(item["role"], item["name"]): item
                               for item in manifest["files"]},
@@ -211,12 +218,12 @@ class CloudTestBackend:
         self.uploads[upload_id] = {"job_id": job_id, "key": (role, name),
                                    "item": item, "buffer": bytearray(),
                                    "completed": False, "confirmed": False,
-                                   "account": self.account}
+                                   "account": self.account_name}
         return self._session_state(upload_id)
 
     def _session(self, upload_id):
         session = self.uploads.get(upload_id)
-        if session is None or session["account"] != self.account:
+        if session is None or session["account"] != self.account_name:
             raise wire.CloudError("not_found", status=404)
         return session
 
@@ -290,14 +297,14 @@ class CloudTestBackend:
     def find_job(self, client_job_id):
         self._enter("find_job")
         for job in self.jobs.values():
-            if job["account"] == self.account and job["client_job_id"] == client_job_id:
+            if job["account"] == self.account_name and job["client_job_id"] == client_job_id:
                 return self._info(job)
         return None
 
     def list_jobs(self):
         self._enter("list_jobs")
         return tuple(self._info(job) for job in self.jobs.values()
-                     if job["account"] == self.account)
+                     if job["account"] == self.account_name)
 
     def cancel(self, job_id):
         self._enter("cancel")

@@ -478,7 +478,7 @@ def test_lost_create_response_reuses_the_created_job(cloud, tmp_path):
 
 def test_idempotency_conflict_is_reported_not_replaced(cloud, tmp_path):
     _plan, _deformables, package = package_for(cloud, tmp_path)
-    cloud.backend.idempotency[(cloud.backend.account, package.client_job_id)] = (
+    cloud.backend.idempotency[(cloud.backend.account_name, package.client_job_id)] = (
         "different-manifest", "job-9999")
     with pytest.raises(wire.CloudError) as error:
         cloud.jobs.upload_and_submit(package.client_job_id)
@@ -536,7 +536,7 @@ def test_deduplication_only_sends_changed_files(cloud, tmp_path):
 def test_deduplication_is_isolated_per_account(cloud, tmp_path):
     _plan, _deformables, package = package_for(cloud, tmp_path)
     cloud.jobs.upload_and_submit(package.client_job_id)
-    cloud.backend.account = "account-b"
+    cloud.backend.account_name = "account-b"
     other = CloudJobs(cloud.backend, JobRegistry(tmp_path / "b-root"),
                       PackageStore(tmp_path / "b-root" / "cloud-packages"),
                       ResultArchive(tmp_path / "b-root" / "cloud-results"),
