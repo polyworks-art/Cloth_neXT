@@ -1,0 +1,377 @@
+{
+  "blender": "5.2.3 LTS",
+  "checks": {
+    "server_unlocked": {
+      "ok": true,
+      "detail": {
+        "enabled": true,
+        "execution": true,
+        "billing": "test"
+      }
+    },
+    "account_may_submit": {
+      "ok": true,
+      "detail": {
+        "cloud_enabled": true,
+        "execution_entitled": true,
+        "can_submit": true,
+        "retained_results_require_execution_entitlement": false,
+        "billing": "test"
+      }
+    },
+    "desktop_build_mapped": {
+      "ok": true,
+      "detail": {
+        "server_build": "gaia-0.26.0-dev.20261022+cuda12.8.linux-x64.cc9b0c13ec2f"
+      }
+    },
+    "package_built": {
+      "ok": true,
+      "detail": {
+        "result": [
+          "FINISHED"
+        ],
+        "state": "FINISHED",
+        "message": "Package ready \u00b7 uploading to Cloud \u2013 keep Blender open until the job is confirmed",
+        "error": ""
+      }
+    },
+    "quote_received": {
+      "ok": true,
+      "detail": {
+        "maximum": 311,
+        "unit": "credit",
+        "gpu": "NVIDIA RTX A5000",
+        "usage_percent": 290,
+        "max_seconds": 900,
+        "expires": "2026-10-24T13:48:38.919883Z",
+        "billing_mode": "test",
+        "message": "Review the Cloud cost limit to send this job."
+      }
+    },
+    "quote_within_limit": {
+      "ok": true,
+      "detail": {
+        "maximum": 311,
+        "limit": 1500
+      }
+    },
+    "submitted": {
+      "ok": true,
+      "detail": {
+        "state": "QUEUED",
+        "job_id": "0ae97307-c962-4bb0-bbc9-333fb32c0158",
+        "message": "Job confirmed. You can close Blender."
+      }
+    },
+    "pod_started_automatically": {
+      "ok": true,
+      "detail": {
+        "server_states_seen": [
+          "queued",
+          "running",
+          "starting",
+          "succeeded"
+        ],
+        "gpu": "NVIDIA RTX A5000"
+      }
+    },
+    "result_stored": {
+      "ok": true,
+      "detail": {
+        "state": "STORED",
+        "error": "",
+        "message": "Cloud result downloaded"
+      }
+    },
+    "auto_activated": {
+      "ok": true,
+      "detail": {
+        "modifier_cache": "C:\\Users\\timch\\Documents\\GitHub\\Cloth_neXT\\.hydro-test-tmp\\cloud0\\live-dry-2\\cache\\cn_test_cloth_cloud_122eb734-2be_e3b61416.pc2"
+      }
+    },
+    "pc2_imported": {
+      "ok": true,
+      "detail": {
+        "samples": 11,
+        "expected": 11,
+        "vertices": 2688,
+        "max_diff_m_vs_local_reference": 6.556510925292969e-07,
+        "frame0_identical": true
+      }
+    },
+    "billing_finalized": {
+      "ok": true,
+      "detail": {
+        "final_cost": "32 credits",
+        "elapsed_ms": 90325,
+        "gpu": "NVIDIA RTX A5000",
+        "quote_maximum": 311
+      }
+    }
+  },
+  "timeline": [
+    {
+      "state": "PACKAGED",
+      "server_state": "",
+      "frames": null,
+      "total": null,
+      "queue": null,
+      "gpu": "",
+      "reserved": null,
+      "finalized": false,
+      "final_cost": null,
+      "elapsed_ms": null,
+      "error": "",
+      "t": 1.0
+    },
+    {
+      "state": "AWAITING_APPROVAL",
+      "server_state": "",
+      "frames": null,
+      "total": null,
+      "queue": null,
+      "gpu": "",
+      "reserved": null,
+      "finalized": false,
+      "final_cost": null,
+      "elapsed_ms": null,
+      "error": "",
+      "t": 1.6
+    },
+    {
+      "state": "UPLOAD_PAUSED",
+      "server_state": "",
+      "frames": null,
+      "total": null,
+      "queue": null,
+      "gpu": "",
+      "reserved": null,
+      "finalized": false,
+      "final_cost": null,
+      "elapsed_ms": null,
+      "error": "",
+      "t": 1.6
+    },
+    {
+      "state": "UPLOADING",
+      "server_state": "uploading",
+      "frames": null,
+      "total": null,
+      "queue": null,
+      "gpu": "",
+      "reserved": null,
+      "finalized": false,
+      "final_cost": null,
+      "elapsed_ms": null,
+      "error": "",
+      "t": 2.5
+    },
+    {
+      "state": "QUEUED",
+      "server_state": "queued",
+      "frames": null,
+      "total": 10,
+      "queue": null,
+      "gpu": "NVIDIA RTX A5000",
+      "reserved": 0,
+      "finalized": false,
+      "final_cost": null,
+      "elapsed_ms": null,
+      "error": "",
+      "t": 4.5
+    },
+    {
+      "state": "RUNNING",
+      "server_state": "starting",
+      "frames": null,
+      "total": 10,
+      "queue": null,
+      "gpu": "NVIDIA RTX A5000",
+      "reserved": 311,
+      "finalized": false,
+      "final_cost": null,
+      "elapsed_ms": null,
+      "error": "",
+      "t": 14.8
+    },
+    {
+      "state": "RUNNING",
+      "server_state": "running",
+      "frames": 0,
+      "total": 10,
+      "queue": null,
+      "gpu": "NVIDIA RTX A5000",
+      "reserved": 311,
+      "finalized": false,
+      "final_cost": null,
+      "elapsed_ms": null,
+      "error": "",
+      "t": 75.1
+    },
+    {
+      "state": "RUNNING",
+      "server_state": "running",
+      "frames": 2,
+      "total": 10,
+      "queue": null,
+      "gpu": "NVIDIA RTX A5000",
+      "reserved": 311,
+      "finalized": false,
+      "final_cost": null,
+      "elapsed_ms": null,
+      "error": "",
+      "t": 85.2
+    },
+    {
+      "state": "RUNNING",
+      "server_state": "running",
+      "frames": 4,
+      "total": 10,
+      "queue": null,
+      "gpu": "NVIDIA RTX A5000",
+      "reserved": 311,
+      "finalized": false,
+      "final_cost": null,
+      "elapsed_ms": null,
+      "error": "",
+      "t": 91.5
+    },
+    {
+      "state": "RUNNING",
+      "server_state": "running",
+      "frames": 7,
+      "total": 10,
+      "queue": null,
+      "gpu": "NVIDIA RTX A5000",
+      "reserved": 311,
+      "finalized": false,
+      "final_cost": null,
+      "elapsed_ms": null,
+      "error": "",
+      "t": 95.2
+    },
+    {
+      "state": "SUCCEEDED",
+      "server_state": "succeeded",
+      "frames": 10,
+      "total": 10,
+      "queue": null,
+      "gpu": "NVIDIA RTX A5000",
+      "reserved": 0,
+      "finalized": true,
+      "final_cost": "32 credits",
+      "elapsed_ms": 90325,
+      "error": "",
+      "t": 105.2
+    },
+    {
+      "state": "DOWNLOADING",
+      "server_state": "succeeded",
+      "frames": 10,
+      "total": 10,
+      "queue": null,
+      "gpu": "NVIDIA RTX A5000",
+      "reserved": 0,
+      "finalized": true,
+      "final_cost": "32 credits",
+      "elapsed_ms": 90325,
+      "error": "",
+      "t": 105.6
+    },
+    {
+      "state": "STORED",
+      "server_state": "succeeded",
+      "frames": 10,
+      "total": 10,
+      "queue": null,
+      "gpu": "NVIDIA RTX A5000",
+      "reserved": 0,
+      "finalized": true,
+      "final_cost": "32 credits",
+      "elapsed_ms": 90325,
+      "error": "",
+      "t": 106.2
+    }
+  ],
+  "solver": {
+    "engine": "GAIA",
+    "build_id": "gaia-0.26.0-dev.20261022+cuda12.8.windows-x64.cc9b0c13ec2f",
+    "version": "0.26.0-dev.20261022",
+    "package_version": "0.1.0",
+    "protocol_version": "0.26",
+    "schema_version": "2",
+    "solver_sha256": "0d5fa78fb44e222d09b8760d4a602cf65f815edaa5096aa51998e61c3149c270",
+    "worker_sha256": "1aa38d09b5aee4845dc72e38c2807e4182f4cda4ad38f5d4a689c9827e854e8e"
+  },
+  "client_job_id": "122eb734-2be9-4ee9-94f8-435b1ed2e54b",
+  "quote": {
+    "maximum": 311,
+    "unit": "credit",
+    "gpu": "NVIDIA RTX A5000",
+    "usage_percent": 290,
+    "max_seconds": 900,
+    "expires": "2026-10-24T13:48:38.919883Z",
+    "billing_mode": "test"
+  },
+  "server_job_id": "0ae97307-c962-4bb0-bbc9-333fb32c0158",
+  "job_record": {
+    "client_job_id": "122eb734-2be9-4ee9-94f8-435b1ed2e54b",
+    "state": "STORED",
+    "display_name": "Sleeve \u00b7 50\u201360",
+    "engine": "GAIA",
+    "build_id": "gaia-0.26.0-dev.20261022+cuda12.8.windows-x64.cc9b0c13ec2f",
+    "manifest_sha256": "bdef5835b93920f0a847ae29464d7329beb16677549b8d0454f95a714940d3e6",
+    "snapshot_digest": "a8a925413888cf7b2221ae9cf1f529203aab6c80b42f1da0fd11d0f923780181",
+    "package_hashes": [
+      "a8a925413888cf7b2221ae9cf1f529203aab6c80b42f1da0fd11d0f923780181",
+      "bdef5835b93920f0a847ae29464d7329beb16677549b8d0454f95a714940d3e6",
+      "c16d18b736a678f0e33250d7a2b425617be7517e9e3fdca38ea1d2ba24e2c34c",
+      "d0a4cddbbf641825e8d9f8b01ffdbc0fa516ad3cf9d90e02022f572cfab15daa",
+      "eb5199a395188f096a4510cbaa35b746919c7295f83569ea5537cfa6a7dc798c"
+    ],
+    "created_at": 1792849122.2375402,
+    "updated_at": 1792849227.3131447,
+    "job_id": "0ae97307-c962-4bb0-bbc9-333fb32c0158",
+    "create_key": "122eb734-2be9-4ee9-94f8-435b1ed2e54b",
+    "submit_key": "122eb734-2be9-4ee9-94f8-435b1ed2e54b:submit",
+    "cancel_key": "122eb734-2be9-4ee9-94f8-435b1ed2e54b:cancel",
+    "uploaded": [
+      "data/data",
+      "import-snapshot/import-snapshot",
+      "official-bindings/official-bindings.json",
+      "param/param"
+    ],
+    "upload_bytes_done": 467045,
+    "upload_bytes_total": 467045,
+    "server_state": "succeeded",
+    "progress_frames": 10,
+    "total_frames": 10,
+    "queue_position": null,
+    "eta_seconds": null,
+    "expires_at": "2026-10-31T13:40:14.575078Z",
+    "error_code": "",
+    "result_folder": "122eb734-2be9-4ee9-94f8-435b1ed2e54b",
+    "blend_identity": "",
+    "object_uuids": [
+      "e3b61416-03fe-7d4f-590a-ad86bd9c298f"
+    ],
+    "submitted_confirmed": true,
+    "server_manifest_sha256": "bdef5835b93920f0a847ae29464d7329beb16677549b8d0454f95a714940d3e6",
+    "server_build_id": "gaia-0.26.0-dev.20261022+cuda12.8.linux-x64.cc9b0c13ec2f",
+    "quote_id": "c6eabc75-eb4d-442d-8612-28eaaf6d3752",
+    "quote_maximum": 311,
+    "quote_unit": "credit",
+    "quote_expires_at": "2026-10-24T13:48:38.919883Z",
+    "quote_billing_mode": "test",
+    "quote_max_seconds": 900,
+    "quote_accepted": true,
+    "final_cost": "32 credits",
+    "quote_gpu": "NVIDIA RTX A5000",
+    "quote_usage_percent": 290,
+    "gpu_type_id": "NVIDIA RTX A5000",
+    "billing_reserved": 0,
+    "billing_finalized": true,
+    "elapsed_ms": 90325
+  }
+}

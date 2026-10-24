@@ -1,4 +1,10 @@
-# Cloth NeXt 2.9.40
+# Cloth NeXt 2.9.41
+
+Cloud Bakes are live. Choose Cloud as Bake Location: Review & Send shows the GPU the server selected, how long one credit lasts and the maximum runtime next to the credit ceiling, and nothing is sent before you confirm. The Bake window follows the job with server data and shows the settled cost once billing is final; the result is downloaded and attached automatically.
+
+The add-on checks your PolyWorks account and the server's size limits before asking for a quote, and the Cloud Jobs list links to your Cloud Bakes dashboard.
+
+## 2.9.40
 
 Cloud Bakes: choose Cloud as Bake Location to simulate on PolyWorks GPUs. Review & Send shows the binding cost limit before anything is sent, the upload resumes after interruptions, and the result is downloaded and attached automatically. Cloud stays locked until the PolyWorks Cloud service reports that it is ready; a Cloud Bake never falls back to this computer.
 

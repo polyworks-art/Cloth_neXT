@@ -60,3 +60,10 @@ Abruf ohne Entitlement.
 5. **Contract files.** `CLOUD_BAKES_API_V1.md`, `CLOUD_BAKES_OPENAPI_V1.json`,
    `CLOUD_BAKES_EXAMPLES_V1.json` are not in the add-on checkout; the add-on
    follows the OpenAPI attached on 2026-10-23 (`tests/fixtures/cloud_v1/`).
+
+## After the first live GAIA dry Bake (2026-10-24)
+
+6. **Job name on the dashboard.** The dashboard shows "Bake 122eb734" (client_job_id
+   prefix) because the contract has no name field. Wish: an optional
+   `display_name` (short, privacy-scanned text such as "Sleeve · 50–60") in
+   `POST /jobs` and `JobOut`. The add-on sends it once the contract has it.

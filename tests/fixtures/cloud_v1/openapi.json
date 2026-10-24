@@ -305,7 +305,6 @@
             "type": "string"
           },
           "enabled": {
-            "const": false,
             "title": "Enabled",
             "type": "boolean"
           },
@@ -1492,7 +1491,7 @@
     }
   },
   "info": {
-    "description": "Prepared owner pilot contract. GAIA GPU bakes have run; dispatch remains operator-triggered. Credit ledger billing is active for the pilot; external payment charging is disabled. Deploy the matching backend before relying on newly added fields.",
+    "description": "Prepared owner pilot contract. GAIA GPU bakes have run; owner-only automatic GAIA dry dispatch is available after explicit operator activation. Credit ledger billing is active for the pilot; external payment charging is disabled. Deploy the matching backend before relying on newly added fields.",
     "title": "PolyWorks Cloud Bakes API",
     "version": "v1-owner-pilot-20261024"
   },

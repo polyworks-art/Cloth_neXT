@@ -1,0 +1,35 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.41",
+  "title": "What's New in Cloth NeXt 2.9.41",
+  "subtitle": "Cloud Bakes are live.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/rocket.png",
+      "title": "Cloud Bakes",
+      "description": "Choose Cloud as Bake Location to simulate on PolyWorks GPUs. Review & Send shows the GPU, the credit rate and the cost ceiling before anything is sent."
+    },
+    {
+      "icon": "icons/refresh.png",
+      "title": "Live Cloud status",
+      "description": "The Bake window follows the job with server data: upload, queue, frames, GPU, server runtime and the settled cost."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Fair billing",
+      "description": "The final cost follows the measured server runtime, start-up included, and never exceeds the confirmed ceiling."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}

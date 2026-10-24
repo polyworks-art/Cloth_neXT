@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.9.41 - 2026-10-24
+
+- Cloud Bakes go live with the PolyWorks Cloud owner pilot. Review & Send shows the server-selected GPU, how long one credit lasts and the maximum runtime next to the credit ceiling; the final cost follows the measured server runtime including start-up.
+- The Bake window and the Cloud Jobs list show GPU, server runtime and the settled cost (only once the server finalized billing; a settled zero is shown as zero).
+- Before a quote the add-on checks the PolyWorks account (Cloud enabled, may submit) and the package against the server's size limits. The Cloud Jobs list links to the Cloud Bakes dashboard.
+- Verified with a real GAIA dry Bake from Blender: automatic GPU start, 10/10 server frames, download and automatic import (0.7 µm from the local reference), 32 credits for 90 s on an RTX A5000.
+
 ## 2.9.40 - 2026-10-24
 
 - Cloud Bakes: Bake Location "Cloud" packages the scene with the existing export, shows the binding cost limit in Review & Send, uploads resumably, and downloads and attaches the result automatically. Cloud stays locked until the PolyWorks Cloud service reports that it is ready; nothing is sent before that, and a Cloud Bake never falls back to this computer.
