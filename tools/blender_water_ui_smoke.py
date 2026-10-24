@@ -6,7 +6,10 @@ import bpy
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import cloth_next
-from cloth_next.blender.water_flow import CLOTHNEXT_PT_water_flow, CLOTHNEXT_PT_water_flow_display
+from cloth_next.blender.water_flow import (CLOTHNEXT_PT_water_cache, CLOTHNEXT_PT_water_flow,
+                                          CLOTHNEXT_PT_water_flow_display,
+                                          CLOTHNEXT_PT_water_pressure,
+                                          CLOTHNEXT_PT_wet_fabric)
 
 controls = set()
 operators = set()
@@ -20,6 +23,9 @@ class Layout:
         return self
 
     def row(self, **kwargs):
+        return Layout()
+
+    def split(self, **kwargs):
         return Layout()
 
     def box(self):
@@ -41,8 +47,10 @@ class Layout:
         assert hasattr(bpy.types,identifier)
 
     def operator(self, identifier, **kwargs):
-        assert identifier in {'cloth_next.prepare_water_flow','cloth_next.enable_flip_velocity_export'}
-        assert getattr(bpy.ops.cloth_next,identifier.split('.')[1]).get_rna_type()
+        assert identifier in {'cloth_next.prepare_water_flow','cloth_next.enable_flip_velocity_export',
+                              'clothnext.open_preferences'}, identifier
+        namespace, name = identifier.split('.')
+        assert getattr(getattr(bpy.ops, namespace), name).get_rna_type()
         operators.add(identifier)
 
 
@@ -61,29 +69,49 @@ try:
     context = SimpleNamespace(object=obj)
     assert CLOTHNEXT_PT_water_flow.poll(context)
     assert bpy.types.CLOTHNEXT_PT_water_flow.bl_context == 'physics'
-    CLOTHNEXT_PT_water_flow.draw(SimpleNamespace(layout=Layout()), context)
+    from cloth_next.blender.water_flow import _WaterFlowSubpanel
+
+    def panel_self():
+        value = SimpleNamespace(layout=Layout())
+        value._body = lambda ctx: _WaterFlowSubpanel._body(value, ctx)
+        return value
+
+    def draw_all():
+        # Water Flow is a header checkbox; Fluid Cache, Hydrodynamic Pressure
+        # and Wet Fabric are sub-panels (2.9.40 GAIA UI cleanup).
+        CLOTHNEXT_PT_water_flow.draw_header(SimpleNamespace(layout=Layout()), context)
+        CLOTHNEXT_PT_water_flow.draw(SimpleNamespace(layout=Layout()), context)
+        CLOTHNEXT_PT_water_cache.draw(panel_self(), context)
+        for panel in (CLOTHNEXT_PT_water_pressure, CLOTHNEXT_PT_wet_fabric):
+            if panel.poll(context):
+                panel.draw_header(panel_self(), context)
+                panel.draw(panel_self(), context)
+        CLOTHNEXT_PT_water_flow_display.draw(SimpleNamespace(layout=Layout()), context)
+    draw_all()
     obj.cloth_next.water_flow_resolution='CUSTOM'
-    CLOTHNEXT_PT_water_flow.draw(SimpleNamespace(layout=Layout()), context)
-    CLOTHNEXT_PT_water_flow_display.draw(SimpleNamespace(layout=Layout()), context)
+    draw_all()
     assert not getattr(bpy.types.CLOTHNEXT_PT_water_flow, 'bl_parent_id', '')
     assert obj.cloth_next.bl_rna.properties['water_flow_container'].name == 'GAIA Path'
-    assert obj.cloth_next.bl_rna.properties['water_flow_container'].description == 'Where should the File be placed?'
+    assert obj.cloth_next.bl_rna.properties['water_flow_container'].description.startswith('Prepared .gaia fluid cache')
     enum=obj.cloth_next.bl_rna.properties['water_flow_resolution'].enum_items
     assert {item.identifier:item.value for item in enum} == {'AUTO':0,'100':2,'150':3,'200':4,'CUSTOM':5}
     assert controls == {
-        'water_flow_enabled', 'water_flow_domain', 'water_flow_influence',
+        'water_flow_enabled', 'water_flow_domain',
         'water_flow_velocity_scale', 'water_flow_resolution', 'water_flow_container',
         'water_flow_custom_resolution',
         'water_flow_debug_mode', 'water_flow_show_bounds',
         'water_flow_show_vectors', 'water_flow_vector_stride', 'water_flow_vector_scale',
     }, controls
-    assert operators == {'cloth_next.prepare_water_flow','cloth_next.enable_flip_velocity_export'}
+    # The Preferences button appears only without GAIA access.
+    assert operators - {'clothnext.open_preferences'} == {
+        'cloth_next.prepare_water_flow','cloth_next.enable_flip_velocity_export'}
     from cloth_next.blender import preferences
     try:
         preferences._read_registry = lambda: (SimpleNamespace(
             selected=SimpleNamespace(protocol_version='0.26',executable=None)), None)
-        CLOTHNEXT_PT_water_flow.draw(SimpleNamespace(layout=Layout()), context)
-        assert {'water_flow_coupling_strength', 'water_flow_native_flow'} <= controls
+        draw_all()
+        # Legacy velocity-relaxation controls are no longer shown (GAIA lock).
+        assert not {'water_flow_coupling_strength', 'water_flow_native_flow'} & controls
         assert 'water_hydrodynamic_pressure' in controls
         assert control_enabled['water_hydrodynamic_pressure'] is False
     finally:

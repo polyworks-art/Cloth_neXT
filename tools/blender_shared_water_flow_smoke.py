@@ -9,6 +9,17 @@ import cloth_next
 from cloth_next.blender import water_settings
 
 cloth_next.register()
+# Water Flow needs GAIA access (2.9.40). The smoke checks the refusal once,
+# then simulates granted access; it never touches the real account.
+from cloth_next.blender import gaia_account
+_probe=bpy.data.objects.new('AccessProbe',bpy.data.meshes.new('AccessProbe'))
+bpy.context.scene.collection.objects.link(_probe)
+_probe.cloth_next.role='CLOTH'; _probe.cloth_next.enabled=True
+gaia_account.access_granted=lambda: False
+_probe.cloth_next.water_flow_enabled=True
+assert not _probe.cloth_next.water_flow_enabled
+bpy.data.objects.remove(_probe)
+gaia_account.access_granted=lambda: True
 scene=bpy.context.scene
 scene_name=scene.name
 
