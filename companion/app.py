@@ -603,8 +603,6 @@ class BakeWindow:
     def _set_window_title(self,mode):
         title=("Cloth NeXt Veyra" if mode is CompanionMode.VEYRA
                else "GAIA Flow" if getattr(self, '_water_display', False)
-               else "Cloth NeXt Bake · Cloud" if cloud_display(
-                   getattr(self,"_last_snapshot",None) or BakeSnapshot())
                else "Cloth NeXt Bake")
         self.root.title(title)
         if self._custom_titlebar:
@@ -1039,7 +1037,6 @@ class BakeWindow:
             wanted.pack_forget()
             if not self.diagnostics_section.winfo_manager():
                 self.diagnostics_section.pack(fill="both",expand=True)
-            if cloud:wanted.pack(fill="x",pady=(5,0))
         elif not wanted.winfo_manager():
             self.diagnostics_section.pack_forget()
             wanted.pack(fill="x")

@@ -154,7 +154,7 @@ def test_real_window_shows_cloud_section_and_hides_solver(monkeypatch):
         window.show(snap(LocalState.RUNNING, rec={
             "server_state": "running", "progress_frames": 3, "total_frames": 6}))
         window.root.update_idletasks()
-        assert window.root.title() == "Cloth NeXt Bake · Cloud"
+        assert window.root.title() == "Cloth NeXt Bake"
         assert window.cloud_stats_section.winfo_manager()
         assert not window.solver_stats_section.winfo_manager()
         assert window.cloud_stat_vars["FRAMES"].get() == "3 / 6"
