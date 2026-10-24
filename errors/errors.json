@@ -465,6 +465,120 @@
       "action": "Close programs using the cache folder and clear the partial result."
     },
     {
+      "code": "CNX-E200",
+      "stage": "Cloud Bake",
+      "cause": "Unclassified Cloud Bake failure",
+      "action": "Open the Cloud job details and retry; local Bakes are unaffected."
+    },
+    {
+      "code": "CNX-E201",
+      "stage": "Cloud Bake",
+      "cause": "Cloud service unreachable; nothing was sent",
+      "action": "Check the internet connection and retry, or Bake on This Computer."
+    },
+    {
+      "code": "CNX-E202",
+      "stage": "Cloud Bake",
+      "cause": "PolyWorks sign-in expired",
+      "action": "Sign in again in Preferences; your Cloud jobs and downloaded results are kept."
+    },
+    {
+      "code": "CNX-E203",
+      "stage": "Cloud Bake",
+      "cause": "Cloud Bakes are not available for this account",
+      "action": "Check Cloud access in Preferences, or Bake on This Computer."
+    },
+    {
+      "code": "CNX-E204",
+      "stage": "Cloud Bake",
+      "cause": "Not enough Cloud credit or quota for this job",
+      "action": "Add credit or shorten the Bake, then request a new quote."
+    },
+    {
+      "code": "CNX-E205",
+      "stage": "Cloud Bake",
+      "cause": "The cost quote expired before confirmation",
+      "action": "Request a new quote and confirm its cost limit."
+    },
+    {
+      "code": "CNX-E206",
+      "stage": "Cloud Bake",
+      "cause": "The selected solver build is not available in the Cloud",
+      "action": "Select a GAIA build or verified AETHER release the Cloud offers; Cloth NeXt never switches builds by itself."
+    },
+    {
+      "code": "CNX-E207",
+      "stage": "Cloud Bake",
+      "cause": "The Cloud package is invalid, too large, or uses an unsupported feature",
+      "action": "Check the reported feature or size limit, adjust the scene, and package again."
+    },
+    {
+      "code": "CNX-E208",
+      "stage": "Cloud Bake",
+      "cause": "Upload paused after a network interruption",
+      "action": "Resume the upload; already transferred data is kept and nothing has been submitted yet."
+    },
+    {
+      "code": "CNX-E209",
+      "stage": "Cloud Bake",
+      "cause": "Submission could not be confirmed yet",
+      "action": "Wait while Cloth NeXt checks the job with the server; it never submits twice."
+    },
+    {
+      "code": "CNX-E210",
+      "stage": "Cloud Bake",
+      "cause": "The solver failed on the Cloud server",
+      "action": "Open the job details; download a partial result if offered, adjust the scene, and retry."
+    },
+    {
+      "code": "CNX-E211",
+      "stage": "Cloud Bake",
+      "cause": "The Cloud job was cancelled",
+      "action": "Download the partial result if offered, or start a new Cloud Bake."
+    },
+    {
+      "code": "CNX-E212",
+      "stage": "Cloud Bake",
+      "cause": "The Cloud result expired on the server",
+      "action": "Use a downloaded copy if one exists; otherwise Bake again."
+    },
+    {
+      "code": "CNX-E213",
+      "stage": "Cloud Bake",
+      "cause": "A downloaded result failed its integrity check",
+      "action": "Retry the download; damaged blocks are fetched again and never imported."
+    },
+    {
+      "code": "CNX-E214",
+      "stage": "Cloud Bake",
+      "cause": "Local Cloud package files are missing or damaged",
+      "action": "Discard the unsent upload and package the Bake again."
+    },
+    {
+      "code": "CNX-E215",
+      "stage": "Cloud Bake",
+      "cause": "The Cloud result does not fit the current mesh",
+      "action": "Restore the mesh topology used when the job was sent, then activate the stored result."
+    },
+    {
+      "code": "CNX-E216",
+      "stage": "Cloud Bake",
+      "cause": "Not enough disk space for the Cloud package or result",
+      "action": "Free the reported amount of disk space; the job stays available on the server until it expires."
+    },
+    {
+      "code": "CNX-E217",
+      "stage": "Cloud Bake",
+      "cause": "The server reports a different job for this submission",
+      "action": "Open the job details and contact support with the job ID; no second job was created."
+    },
+    {
+      "code": "CNX-E218",
+      "stage": "Cloud Bake",
+      "cause": "The Cloud service is busy or rate limited",
+      "action": "Wait for the automatic retry, or retry later."
+    },
+    {
       "code": "CNX-E198",
       "stage": "Internal",
       "cause": "Bake worker stopped without a terminal result",
