@@ -46,6 +46,14 @@ _last_error_key: tuple[str, str, float] | None = None
 _session_artifacts: SessionArtifacts | None = None
 _veyra_events: dict[str, list[dict]] = {}
 _veyra_metrics: dict[str, dict] = {}
+# Cloud job the window follows after packaging (server data only).
+_cloud_follow = ""
+_cloud_finished = False
+_cloud_closing = False
+_cloud_last: dict | None = None
+_cloud_last_sent = 0.0
+CLOUD_PUBLISH_SECONDS = 0.25
+CLOUD_SUCCESS_GRACE = 4.0
 
 
 def _log_path() -> Path:
@@ -140,6 +148,11 @@ def running() -> bool:
 
 def _publish(snapshot) -> None:
     global _terminal_deadline
+    if _cloud_follow and not snapshot.active:
+        # The packaging run ended; the window now shows the Cloud job and
+        # Blender is free again. Its local terminal state is not shown.
+        modal_lock.release(snapshot.job_id)
+        return
     if snapshot.state is BakeState.ERROR:
         _persist_bake_error(snapshot)
     if _server is not None:
@@ -227,6 +240,107 @@ def _launch() -> tuple[bool, str, bool]:
     return True, "Bake window process created", True
 
 
+def _auto_download() -> bool:
+    from .addon_identity import addon_preferences
+    try:
+        prefs = addon_preferences(bpy.context, __package__)
+    except (KeyError, AttributeError):
+        return False
+    return bool(getattr(prefs, "cloud_auto_download", False))
+
+
+def following_cloud_job() -> str:
+    return _cloud_follow
+
+
+def follow_cloud_job(client_job_id: str) -> bool:
+    """Keep the Bake window open on ``client_job_id`` with live server data.
+
+    Called once packaging finished. Blender's own Bake state ends normally
+    (modal lock released); the window keeps showing the job until it is
+    stored locally (then closes) or ends otherwise (stays for the artist).
+    """
+    global _cloud_follow, _cloud_finished, _cloud_last, _cloud_last_sent
+    global _cloud_closing
+    if _server is None or not running():
+        return False
+    from . import cloud_runtime
+    _cloud_follow = str(client_job_id)
+    _cloud_finished = False
+    _cloud_closing = False
+    _cloud_last = None
+    _cloud_last_sent = 0.0
+    cloud_runtime.set_live(True)
+    _log("cloud", "Bake window follows Cloud job", job_id=_cloud_follow)
+    return True
+
+
+def _stop_cloud_follow() -> None:
+    global _cloud_follow, _cloud_finished, _cloud_last, _terminal_deadline
+    global _cloud_closing
+    if not _cloud_follow:
+        return
+    from . import cloud_runtime
+    cloud_runtime.set_live(False)
+    if _cloud_closing:
+        _terminal_deadline = None
+    _cloud_follow = ""; _cloud_finished = False; _cloud_last = None
+    _cloud_closing = False
+
+
+def _cloud_cancel() -> None:
+    from . import cloud_runtime
+    from ..cloud import monitor
+    record = next((item for item in cloud_runtime.view().jobs
+                   if item.client_job_id == _cloud_follow), None)
+    if record is None:
+        return
+    if record.state in monitor.UPLOAD_STATES:
+        cloud_runtime.pause_upload()  # stop the transfer before cancelling
+    cloud_runtime.enqueue("cancel", _cloud_follow)
+    _log("cloud", "Cloud job cancel requested from Bake window",
+         job_id=_cloud_follow, state=record.state.value)
+
+
+def _cloud_pulse(now: float) -> None:
+    """Publish the followed job's server status to the window."""
+    global _cloud_last, _cloud_last_sent, _cloud_finished, _terminal_deadline
+    global _cloud_closing
+    from . import cloud_runtime
+    from ..cloud import monitor
+    from ..cloud.registry import LocalState
+    current = cloud_runtime.view()
+    record = next((item for item in current.jobs
+                   if item.client_job_id == _cloud_follow), None)
+    if record is None or _server is None:
+        return
+    auto = _auto_download()
+    snapshot = monitor.snapshot_for(
+        record, job_id=_production_job_id, upload_done=current.upload_done,
+        upload_total=current.upload_total if current.uploading else 0,
+        download_done=current.download_done,
+        download_total=current.download_total, auto_download=auto)
+    key = snapshot.to_dict()
+    for volatile in ("updated_at", "elapsed_seconds"):
+        key.pop(volatile, None)
+    if key != _cloud_last or now - _cloud_last_sent >= 1.0:
+        if now - _cloud_last_sent >= CLOUD_PUBLISH_SECONDS:
+            try:
+                _server.publish(snapshot)
+            except (OSError, TypeError, ValueError) as exc:
+                _log("transport", "Cloud status publication failed",
+                     error_type=type(exc).__name__)
+            _cloud_last, _cloud_last_sent = key, now
+    if not _cloud_finished and monitor.window_finished(record, auto_download=auto):
+        _cloud_finished = True
+        cloud_runtime.set_live(False)
+        _log("cloud", "followed Cloud job reached its end", job_id=_cloud_follow,
+             state=record.state.value)
+        if record.state in (LocalState.STORED, LocalState.SUCCEEDED):
+            _cloud_closing = True
+            _terminal_deadline = now + CLOUD_SUCCESS_GRACE
+
+
 def begin_bake_mode(request: EnterBakeMode) -> tuple[bool, str]:
     """Reserve one readiness attempt. No worker, PPF, or modal lock starts."""
     global _pending_request, _pending_deadline, _ready, _startup_error
@@ -234,6 +348,7 @@ def begin_bake_mode(request: EnterBakeMode) -> tuple[bool, str]:
     global _pending_sent
     if _pending_request is not None:
         return False, "A Bake window startup is already pending."
+    _stop_cloud_follow()
     ok, message, owned = _launch()
     if not ok:
         _startup_error = message
@@ -422,6 +537,8 @@ def _pulse():
             cancel_startup(_pending_request.job_id,
                            str(message["payload"].get("message",
                                "Bake window startup failed.")))
+        elif kind == "cancel_request" and _cloud_follow:
+            _cloud_cancel()
         elif kind == "cancel_request":
             snapshot = shared_controller.snapshot()
             if _pending_request is not None or snapshot.can_cancel:
@@ -478,6 +595,13 @@ def _pulse():
                 _log("shutdown", "Companion acknowledged close",
                      job_id=snapshot.job_id, state=snapshot.state.value)
     now = time.monotonic()
+    if _cloud_follow:
+        if running():
+            _cloud_pulse(now)
+        else:
+            _log("cloud", "Bake window closed; the Cloud job continues",
+                 job_id=_cloud_follow)
+            _stop_cloud_follow()
     if _pending_request is not None:
         if not running():
             cancel_startup(_pending_request.job_id,
@@ -523,6 +647,7 @@ def _dispose_transport() -> None:
     global _force_deadline, _kill_deadline, _production_session
     global _production_job_id, _owned_for_attempt, _transport_ready
     global _session_artifacts
+    _stop_cloud_follow()
     if bpy.app.timers.is_registered(_pulse): bpy.app.timers.unregister(_pulse)
     if _unsubscribe: _unsubscribe(); _unsubscribe = None
     if _server: _server.close(join=False)
@@ -552,6 +677,7 @@ def shutdown() -> bool:
     global _pending_deadline, _startup_error, _transport_ready, _session_artifacts
     global _pending_sent
     modal_lock.release()
+    _stop_cloud_follow()
     _pending_request = None; _ready = None
     _pending_sent = False
     if bpy.app.timers.is_registered(_pulse): bpy.app.timers.unregister(_pulse)

@@ -19,8 +19,9 @@ import webbrowser
 from dataclasses import replace
 from tkinter import font as tkfont, ttk
 
-from cloth_next.bake.status import (ACTIVITY_LABELS, BakeActivity, BakeJobKind,
-                                    BakeSnapshot, BakeState, format_duration)
+from cloth_next.bake.status import (ACTIVITY_LABELS, CLOUD_DETAIL_ROWS,
+                                    BakeActivity, BakeJobKind, BakeSnapshot,
+                                    BakeState, format_duration)
 from cloth_next.bake.transport import DemoTransport, LocalSocketClient
 from cloth_next.veyra.artifacts import SessionArtifacts
 from cloth_next.veyra.model import (CompanionMode, RepairArtifact, VeyraStep,
@@ -247,8 +248,31 @@ def solver_details(snapshot: BakeSnapshot) -> tuple[tuple[str, str], ...]:
     return tuple((key, str(values[key])) for key, _label in _SOLVER_DETAIL_ROWS
                  if key in values and str(values[key]).strip())
 
+def cloud_display(snapshot: BakeSnapshot) -> bool:
+    """The window follows a Cloud job: every value comes from the server."""
+    return snapshot.execution == "CLOUD"
+
+
+def cloud_progress_text(snapshot: BakeSnapshot) -> str:
+    if snapshot.state is BakeState.SIMULATING and snapshot.progress_total:
+        return (f"Cloud · Frame {snapshot.progress_current} / "
+                f"{snapshot.progress_total}")
+    if (snapshot.state in {BakeState.UPLOADING, BakeState.FETCHING}
+            and snapshot.progress_total):
+        return f"Cloud · {snapshot.status_title} · {snapshot.progress_fraction:.0%}"
+    return f"Cloud · {snapshot.status_title or 'Ready'}"
+
+
+def cloud_details(snapshot: BakeSnapshot) -> tuple[tuple[str, str], ...]:
+    values = dict(snapshot.cloud_details or {})
+    return tuple((key, values[key]) for key, _label in CLOUD_DETAIL_ROWS
+                 if str(values.get(key, "")).strip())
+
+
 def progress_display_text(snapshot: BakeSnapshot) -> str:
     """Render frame text only when the snapshot carries a real frame."""
+    if cloud_display(snapshot):
+        return cloud_progress_text(snapshot)
     if water_preparation_display(snapshot):
         if snapshot.state is BakeState.FINISHED: return 'Water Flow ready'
         if snapshot.state is BakeState.CANCELLED: return 'Water Flow cancelled'
@@ -579,6 +603,8 @@ class BakeWindow:
     def _set_window_title(self,mode):
         title=("Cloth NeXt Veyra" if mode is CompanionMode.VEYRA
                else "GAIA Flow" if getattr(self, '_water_display', False)
+               else "Cloth NeXt Bake · Cloud" if cloud_display(
+                   getattr(self,"_last_snapshot",None) or BakeSnapshot())
                else "Cloth NeXt Bake")
         self.root.title(title)
         if self._custom_titlebar:
@@ -617,8 +643,10 @@ class BakeWindow:
         self.root.after_idle(lambda:self.root.overrideredirect(True))
 
     def _request_window_close(self):
-        """Keep an active job attached; Cancel is its controlled exit path."""
-        if self._last_snapshot.active:
+        """Keep an active job attached; Cancel is its controlled exit path.
+
+        A Cloud job runs on the server: closing the window never stops it."""
+        if self._last_snapshot.active and not cloud_display(self._last_snapshot):
             self.root.bell()
             return
         self.close()
@@ -861,6 +889,17 @@ class BakeWindow:
             return group
 
         stat_group("Solver",_SOLVER_DETAIL_ROWS)
+        # Second group for a followed Cloud job; only one group is visible.
+        solver_section=self.solver_stats_section
+        solver_vars,solver_rows=self.solver_stat_vars,self.solver_stat_rows
+        self.solver_stats_section=tk.Frame(self.details_panel,bg=PANEL)
+        self.solver_stat_vars={}; self.solver_stat_rows={}
+        stat_group("Cloud · live from server",CLOUD_DETAIL_ROWS)
+        self.cloud_stats_section=self.solver_stats_section
+        self.cloud_stat_vars,self.cloud_stat_rows=(
+            self.solver_stat_vars,self.solver_stat_rows)
+        self.solver_stats_section=solver_section
+        self.solver_stat_vars,self.solver_stat_rows=solver_vars,solver_rows
         bottom=ttk.Frame(outer,style="CN.TFrame",height=30); bottom.grid(row=2,column=0,sticky="ew",pady=(5,0))
         self.details_button=ttk.Button(bottom,text="Details",width=8,
             style="CN.TButton",command=self._toggle_details)
@@ -990,13 +1029,31 @@ class BakeWindow:
                            fill=GRAPH,font=(UI_SEMIBOLD,7),anchor="ne")
 
     def _show_run_details(self,snapshot):
+        cloud=cloud_display(snapshot)
+        wanted=(self.cloud_stats_section if cloud
+                else self.solver_stats_section)
+        other=(self.solver_stats_section if cloud
+               else self.cloud_stats_section)
+        if other.winfo_manager():other.pack_forget()
         if snapshot.state is BakeState.ERROR:
-            self.solver_stats_section.pack_forget()
+            wanted.pack_forget()
             if not self.diagnostics_section.winfo_manager():
                 self.diagnostics_section.pack(fill="both",expand=True)
-        elif not self.solver_stats_section.winfo_manager():
+            if cloud:wanted.pack(fill="x",pady=(5,0))
+        elif not wanted.winfo_manager():
             self.diagnostics_section.pack_forget()
-            self.solver_stats_section.pack(fill="x")
+            wanted.pack(fill="x")
+
+    def _update_cloud_details(self,snapshot):
+        visible=dict(cloud_details(snapshot))
+        for key,_label in CLOUD_DETAIL_ROWS:
+            label_widget,value_widget=self.cloud_stat_rows[key]
+            value=visible.get(key)
+            if value is None:
+                label_widget.grid_remove(); value_widget.grid_remove()
+            else:
+                self.cloud_stat_vars[key].set(value)
+                label_widget.grid(); value_widget.grid()
 
     def _update_solver_details(self,snapshot):
         visible=dict(solver_details(snapshot))
@@ -1139,8 +1196,10 @@ class BakeWindow:
             and snapshot.state in {BakeState.CANCELLING, BakeState.CANCELLED, BakeState.ERROR})
         self._set_water_display(water_display)
         self._last_snapshot=snapshot
-        _set_window_close_enabled(self.root,not snapshot.active)
-        self._set_linux_close_enabled(not snapshot.active)
+        cloud=cloud_display(snapshot)
+        closable=not snapshot.active or cloud
+        _set_window_close_enabled(self.root,closable)
+        self._set_linux_close_enabled(closable)
         self._mode=snapshot.companion_mode
         self._set_window_title(self._mode)
         self.root.iconphoto(
@@ -1153,6 +1212,15 @@ class BakeWindow:
             self._frame_progress_state=FrameProgress(
                 min(1.0,max(0.0,current/total)) if total else 0.0,
                 indeterminate=not bool(total))
+        elif cloud:
+            # Server progress only: frames while simulating, bytes while
+            # transferring, otherwise an indeterminate pulse.
+            self._frame_progress_state=FrameProgress(
+                snapshot.progress_fraction,
+                indeterminate=(not bool(snapshot.progress_total)
+                               and snapshot.state not in {
+                                   BakeState.FINISHED,BakeState.CANCELLED,
+                                   BakeState.ERROR}))
         elif water_display:
             total = snapshot.preparation_total
             fraction = min(1., max(0., snapshot.preparation_current/total)) if total else 0.
@@ -1170,7 +1238,7 @@ class BakeWindow:
         self._progress_fraction=fraction
         self.progress.coords(self.progress_fill,0,0,width*fraction,22)
         modal = (snapshot.job_kind in {BakeJobKind.BAKE, BakeJobKind.VEYRA, BakeJobKind.WATER_FIELD}
-                 and snapshot.active
+                 and snapshot.active and not cloud
                  and self._job_modal)
         if modal != self._job_modal:
             self._job_modal=modal
@@ -1204,12 +1272,18 @@ class BakeWindow:
             label=error_activity_label(snapshot)
         self._set_activity(label,snapshot.state in {BakeState.ERROR,BakeState.CANCELLING,BakeState.CANCELLED,BakeState.FINISHED})
         self._update_solver_details(snapshot)
+        self._update_cloud_details(snapshot)
         self._show_run_details(snapshot)
+        if cloud:self.status_tooltip.text="Live status from the Cloud server"
+        elif not water_display:
+            self.status_tooltip.text="Contacts · Newton steps · Linear iterations"
+        self.cancel.configure(text="Cancel")
         self._set_error_blink(snapshot.state is BakeState.ERROR)
         self.particles.set_state(snapshot.state,snapshot.activity_code)
         remaining=format_duration(snapshot.estimated_remaining_seconds,approximate=True)
-        self.remaining_text.set("ETA calculating…" if remaining=="Unknown"
-                                else f"ETA  {remaining}")
+        self.remaining_text.set(
+            ("ETA from server  —" if cloud else "ETA calculating…")
+            if remaining=="Unknown" else f"ETA  {remaining}")
         trend=self._eta_trend.update(snapshot)
         self.eta_trend_label.configure(text=trend,
                                       fg="#b82020" if trend=="▲" else "#146b28")
@@ -1220,6 +1294,16 @@ class BakeWindow:
 
     def disconnected(self):
         if self._connection_failed:
+            return
+        if cloud_display(self._last_snapshot):
+            self._job_modal=False
+            _set_bake_window_topmost(self.root,False)
+            _set_window_close_enabled(self.root,True)
+            self._set_linux_close_enabled(True)
+            self.primary.set("Disconnected from Blender")
+            self.secondary.set("The Cloud job continues on the server. "
+                               "Open Blender to follow and download it.")
+            self.cancel.state(["disabled"])
             return
         if self._last_snapshot.active:
             self.connection_error("CNX-E142",

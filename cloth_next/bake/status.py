@@ -93,6 +93,15 @@ PHASE_ACTIVITIES = {"PREPARING":BakeActivity.CAPTURING_GEOMETRY, "EXPORTING":Bak
     "FETCHING":BakeActivity.READING_RESULTS, "IMPORTING":BakeActivity.BUILDING_PC2}
 
 
+# Bake-window rows for a followed Cloud job (``BakeSnapshot.cloud_details``).
+CLOUD_DETAIL_ROWS = (
+    ("JOB", "Job"), ("SERVER_STATE", "Server State"), ("ENGINE", "Engine"),
+    ("QUEUE", "Queue"), ("FRAMES", "Frames"), ("UPLOAD", "Upload"),
+    ("DOWNLOAD", "Download"), ("COST_LIMIT", "Cost Limit"),
+    ("FINAL_COST", "Final Cost"), ("AVAILABLE_UNTIL", "Available Until"),
+    ("SERVER_JOB", "Server Job"),
+)
+
 _TITLES = {s: s.value.replace("_", " ").title() for s in BakeState}
 _TITLES[BakeState.PREPARING_WATER] = "Preparing Water Flow"
 _ACTIVE = {BakeState.PREPARING, BakeState.STARTING_COMPANION,
@@ -203,6 +212,10 @@ class BakeSnapshot:
     veyra_step_index: int = 0
     veyra_step_current: int = 0
     veyra_step_total: int | None = None
+    # "CLOUD" while the window follows a Cloud job: every value then comes
+    # from the server (state, queue, frames, cost), never from a local solver.
+    execution: str = "LOCAL"
+    cloud_details: dict[str, str] = field(default_factory=dict)
 
     @property
     def progress_fraction(self) -> float:
@@ -235,7 +248,7 @@ class BakeSnapshot:
             "active_object_name": 1024, "solver_version": 512,
             "solver_mode": 128, "solver_name": 128,
             "solver_backend": 128, "solver_device": 512,
-            "job_id": 128, "error_code": 32,
+            "job_id": 128, "error_code": 32, "execution": 16,
         }
         for key, limit in limits.items():
             value = data.get(key)
@@ -284,6 +297,14 @@ class BakeSnapshot:
              if isinstance(key, str) and isinstance(value, (str, int, float))
              and not isinstance(value, bool) and str(value).strip()}
             if isinstance(telemetry, dict) else {})
+        values["execution"] = ("CLOUD" if values.get("execution") == "CLOUD"
+                               else "LOCAL")
+        details = values.get("cloud_details")
+        values["cloud_details"] = (
+            {str(key)[:32]: str(value)[:256] for key, value in details.items()
+             if isinstance(key, str) and isinstance(value, (str, int, float))
+             and not isinstance(value, bool) and str(value).strip()}
+            if isinstance(details, dict) else {})
         if "progress_total" in values and values["progress_total"] is not None:
             try: values["progress_total"] = max(0, int(values["progress_total"]))
             except (TypeError, ValueError): values["progress_total"] = None

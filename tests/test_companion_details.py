@@ -208,7 +208,9 @@ def test_expanded_details_contains_only_content_sized_solver_section():
 def test_error_details_replace_stats_and_window_refits_after_updates():
     states=inspect.getsource(app.BakeWindow._show_run_details)
     show=inspect.getsource(app.BakeWindow.show)
-    assert "self.solver_stats_section.pack_forget()" in states
+    # The visible stats group (solver, or Cloud for a followed job) yields.
+    assert "else self.solver_stats_section)" in states
+    assert "wanted.pack_forget()" in states
     assert 'self.diagnostics_section.pack(fill="both",expand=True)' in states
     assert "self._fit_window_to_content()" in show
 
@@ -321,7 +323,8 @@ def test_native_close_is_blocked_only_while_a_job_is_active():
     show=inspect.getsource(app.BakeWindow.show)
     assert 'self.root.protocol("WM_DELETE_WINDOW",self._request_window_close)' in init
     assert "self._last_snapshot.active" in request
-    assert "_set_window_close_enabled(self.root,not snapshot.active)" in show
+    assert "closable=not snapshot.active or cloud" in show
+    assert "_set_window_close_enabled(self.root,closable)" in show
 
 
 def test_encoding_progress_does_not_display_stale_capture_frame():

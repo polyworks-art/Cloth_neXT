@@ -279,6 +279,39 @@ _auto_seen: set[str] = set()
 _downloaded_here: set[str] = set()
 
 
+_review_opened: set[str] = set()
+
+
+def _open_review_for_followed_job() -> None:
+    """Open Review & Send once when the quote for the job just baked arrives.
+
+    Only for the job the Bake window follows (sent from this session). The
+    dialog itself is the explicit confirmation; nothing is sent without it.
+    """
+    from . import companion_manager
+    followed = companion_manager.following_cloud_job()
+    if not followed or followed in _review_opened:
+        return
+    record = next((item for item in cloud_runtime.view().jobs
+                   if item.client_job_id == followed), None)
+    if record is None or record.state is not LocalState.AWAITING_APPROVAL:
+        return
+    window_manager = getattr(bpy.context, "window_manager", None)
+    windows = tuple(getattr(window_manager, "windows", ()) or ())
+    if not windows:
+        return
+    _review_opened.add(followed)
+    window = windows[0]
+    area = next((item for item in window.screen.areas
+                 if item.type == "VIEW_3D"), window.screen.areas[0])
+    try:
+        with bpy.context.temp_override(window=window, area=area):
+            bpy.ops.clothnext.cloud_review("INVOKE_DEFAULT",
+                                           client_job_id=followed)
+    except (RuntimeError, AttributeError, TypeError):
+        pass  # the Jobs list still offers Review & Send
+
+
 def _auto_step() -> None:
     """Main thread: automatic download, then automatic activation (E9).
 
@@ -324,14 +357,17 @@ def register() -> None:
             description="Cloud jobs sent from this file"))
     if _auto_step not in cloud_runtime._main_thread_hooks:
         cloud_runtime._main_thread_hooks.append(_auto_step)
+    if _open_review_for_followed_job not in cloud_runtime._main_thread_hooks:
+        cloud_runtime._main_thread_hooks.append(_open_review_for_followed_job)
     header = getattr(bpy.types, "STATUSBAR_HT_header", None)
     if header is not None and hasattr(header, "append"):
         header.append(draw_status_notice)
 
 
 def unregister() -> None:
-    if _auto_step in cloud_runtime._main_thread_hooks:
-        cloud_runtime._main_thread_hooks.remove(_auto_step)
+    for hook in (_auto_step, _open_review_for_followed_job):
+        if hook in cloud_runtime._main_thread_hooks:
+            cloud_runtime._main_thread_hooks.remove(hook)
     scene_type = getattr(bpy.types, "Scene", None)
     if scene_type is not None and hasattr(scene_type, SCENE_JOBS_PROPERTY):
         try:

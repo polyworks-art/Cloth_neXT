@@ -101,6 +101,7 @@ class JobRecord:
     quote_expires_at: str = ""
     quote_billing_mode: str = ""
     quote_accepted: bool = False            # explicit artist confirmation (E10)
+    final_cost: str | None = None           # server's final cost, once known
 
     def to_json(self) -> dict:
         value = asdict(self)

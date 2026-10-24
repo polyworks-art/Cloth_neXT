@@ -24,6 +24,8 @@ from ..core.logging import get_logger, log_with_context
 
 _LOG = get_logger("cloud.runtime")
 REFRESH_SECONDS = 30.0
+LIVE_REFRESH_SECONDS = 5.0      # while the Bake window follows a job
+_PROGRESS_JOBS_SECONDS = 0.5
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,6 +34,8 @@ class CloudView:
     uploading: bool = False
     upload_done: int = 0
     upload_total: int = 0
+    download_done: int = 0
+    download_total: int = 0
     message: str = ""
     error_code: str = ""
 
@@ -44,6 +48,28 @@ _stop = threading.Event()
 _pause = threading.Event()
 _jobs: CloudJobs | None = None
 _last_refresh = 0.0
+_last_progress_jobs = 0.0
+_live = False
+
+
+def set_live(enabled: bool) -> None:
+    """Poll the server faster while a window shows live job data."""
+    global _live
+    _live = bool(enabled)
+
+
+def _progress_jobs() -> dict:
+    """Registry rows for the view, at most twice a second (worker thread)."""
+    global _last_progress_jobs
+    now = time.monotonic()
+    runtime = _jobs
+    if runtime is None or now - _last_progress_jobs < _PROGRESS_JOBS_SECONDS:
+        return {}
+    _last_progress_jobs = now
+    try:
+        return {"jobs": runtime.registry.all()}
+    except Exception:  # noqa: BLE001 - progress display only
+        return {}
 
 
 def view() -> CloudView:
@@ -153,7 +179,12 @@ def _ensure_worker() -> None:
 
 
 def _progress(done: int, total: int) -> None:
-    _publish(uploading=True, upload_done=done, upload_total=total)
+    _publish(uploading=True, upload_done=done, upload_total=total,
+             **_progress_jobs())
+
+
+def _download_progress(done: int, total: int) -> None:
+    _publish(download_done=done, download_total=total, **_progress_jobs())
 
 
 def _perform(runtime: CloudJobs, action: str, client_job_id: str) -> str:
@@ -190,7 +221,8 @@ def _perform(runtime: CloudJobs, action: str, client_job_id: str) -> str:
         runtime.recover()
         return ""
     if action == "download":
-        runtime.download(client_job_id)
+        _publish(download_done=0, download_total=0)
+        runtime.download(client_job_id, progress=_download_progress)
         return "Cloud result downloaded"
     if action == "delete_result":
         # Confirmed by the operator dialog; only this action deletes it (E20).
@@ -247,7 +279,8 @@ def tick() -> float:
                              {"error_type": type(exc).__name__})
     now = time.monotonic()
     if (service.availability().reason != service.PENDING_REASON
-            and now - _last_refresh >= REFRESH_SECONDS):
+            and now - _last_refresh >= (LIVE_REFRESH_SECONDS if _live
+                                        else REFRESH_SECONDS)):
         _last_refresh = now
         if any(record.submitted_confirmed and record.state in (
                 LocalState.QUEUED, LocalState.RUNNING) for record in view().jobs):

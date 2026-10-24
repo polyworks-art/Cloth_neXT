@@ -163,6 +163,8 @@ class CloudJobs:
             progress_frames=info.progress_frames, total_frames=info.total_frames,
             queue_position=info.queue_position, eta_seconds=info.eta_seconds,
             expires_at=info.expires_at, error_code=info.error_code)
+        if info.final_cost is not None:
+            changes["final_cost"] = info.final_cost
         local = _SERVER_TO_LOCAL.get(info.state)
         if local is not None:
             if record.state in (LocalState.STORED, LocalState.DOWNLOADING) \
