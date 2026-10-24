@@ -1,4 +1,8 @@
-# Cloth NeXt 2.9.41
+# Cloth NeXt 2.9.42
+
+Cloud Bakes now appear on your Cloud Bakes dashboard with their name, for example the object and its frame range, instead of a job number.
+
+## 2.9.41
 
 Cloud Bakes are live. Choose Cloud as Bake Location: Review & Send shows the GPU the server selected, how long one credit lasts and the maximum runtime next to the credit ceiling, and nothing is sent before you confirm. The Bake window follows the job with server data and shows the settled cost once billing is final; the result is downloaded and attached automatically.
 

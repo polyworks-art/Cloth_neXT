@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.9.42 - 2026-10-24
+
+- Cloud Bakes carry their name (for example "Sleeve · 50–60") to the Cloud Bakes dashboard. The name is one short line; anything that looks like a path, URL or secret is not sent. The Bake package and its checksum are unchanged.
+
 ## 2.9.41 - 2026-10-24
 
 - Cloud Bakes go live with the PolyWorks Cloud owner pilot. Review & Send shows the server-selected GPU, how long one credit lasts and the maximum runtime next to the credit ceiling; the final cost follows the measured server runtime including start-up.

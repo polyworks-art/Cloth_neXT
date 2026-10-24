@@ -1,0 +1,35 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.42",
+  "title": "What's New in Cloth NeXt 2.9.42",
+  "subtitle": "Your Cloud Bakes have names.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/rocket.png",
+      "title": "Named Cloud Bakes",
+      "description": "Each Cloud Bake appears on your Cloud Bakes dashboard with its name, for example the object and its frame range."
+    },
+    {
+      "icon": "icons/refresh.png",
+      "title": "Live Cloud status",
+      "description": "The Bake window follows the job with server data: upload, queue, frames, GPU, server runtime and the settled cost."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Fair billing",
+      "description": "The final cost follows the measured server runtime, start-up included, and never exceeds the confirmed ceiling."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}
