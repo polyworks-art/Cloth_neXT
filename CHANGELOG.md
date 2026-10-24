@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.9.45 - 2026-10-24
+
+- Reuse Water Flow preparation when the FLIP cache did not change, also after a Blender restart: a verified .gaia cache keeps a proof file (Fluid Cache settings and the stamps of every FLIP file) next to it, and prepared Hydrodynamic Pressure surfaces are kept in a cache keyed by every FLIP file, frame range, FPS, bounds and the preparation script. The two most recently used preparations are kept. Local and Cloud Bakes both use it.
+- The Bake window no longer makes the error text jump while it shows a failed Cloud job.
+
 ## 2.9.44 - 2026-10-24
 
 - Confirm a Cloud Bake in the Bake window: it shows GPU, credit ceiling and maximum runtime of the quote, and its Send button starts the job (Cancel drops it). The Blender dialog no longer opens by itself while the Bake window is open; the Cloud Jobs list still offers Review & Send.

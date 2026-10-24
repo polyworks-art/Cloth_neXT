@@ -1282,8 +1282,14 @@ class BakeWindow:
         self.progress.itemconfigure(self.progress_label,text=self.progress_text.get())
         self.progress.coords(self.progress_label,width/2,11)
         self.primary.set(snapshot.error_summary or snapshot.status_title or "Ready")
-        self._error_details=snapshot.error_details or ""
-        self.secondary.set(details_status(snapshot))
+        raw_details=snapshot.error_details or ""
+        if raw_details!=getattr(self,"_raw_error_details",None):
+            # A repeated status (same error, only the clock moved) keeps the
+            # guidance already applied; resetting it made the text jump.
+            self._raw_error_details=raw_details
+            self._error_details=raw_details
+        self.secondary.set(details_status(
+            replace(snapshot,error_details=self._error_details)))
         self.details_meta_text.set(details_meta(snapshot))
         self._update_error_docs_link(snapshot.error_code)
         if snapshot.state is BakeState.ERROR:

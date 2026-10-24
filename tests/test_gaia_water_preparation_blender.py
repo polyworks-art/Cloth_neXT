@@ -251,3 +251,33 @@ def test_new_job_may_rebuild_changed_grid_on_same_destination(blender_env,monkey
             assert cache.frame(0).velocity.shape==(4,4,4,3)
         assert len(samples)==4
     finally:module.shutdown()
+
+
+def test_verified_container_survives_a_blender_restart(blender_env,monkeypatch,tmp_path):
+    """A later session reuses an unchanged .gaia through its stored proof."""
+    module,c,context,obj,samples=fixture(blender_env,monkeypatch,tmp_path)
+    calls=[];original=module.WaterPreparationWorker
+    def worker(*args,**kwargs):
+        calls.append(1)
+        return original(*args,**kwargs)
+    monkeypatch.setattr(module,'WaterPreparationWorker',worker)
+    try:
+        module.start(context,(obj,),1,2,wait_for_window=False);pump(module)
+        assert len(calls)==1
+        container=module.Path(obj.cloth_next.water_flow_container)
+        assert module._proof_path(container).is_file()
+        module._prepared.clear()            # what a Blender restart forgets
+        c.reset();owner=c.transition(BakeState.PREPARING)
+        ready=[]
+        module.start(context,(obj,),1,2,job_id=owner.job_id,
+                     on_complete=lambda:ready.append(module.prepared_container(obj,1,2)),
+                     wait_for_window=False)
+        pump(module)
+        assert len(calls)==1 and ready and ready[0]==container
+        # A changed FLIP source invalidates the stored proof.
+        module._prepared.clear()
+        monkeypatch.setattr(module, 'shared_controller', BakeController())
+        (tmp_path/'source1').write_bytes(b'rebaked')
+        module.start(context,(obj,),1,2,wait_for_window=False);pump(module)
+        assert len(calls)==2
+    finally:module.shutdown()

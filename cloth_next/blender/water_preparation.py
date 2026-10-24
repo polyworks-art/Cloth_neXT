@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Main-thread FLIP capture pump feeding the Blender-free water worker."""
+import json
 import os
 from pathlib import Path
 from queue import Empty
@@ -24,6 +25,50 @@ def _field_signature(metadata):
     document.pop('fingerprint',None)
     document['provider']=dict(document['provider'],sources=[])
     return fingerprint(document)
+
+
+PROOF_SUFFIX = '.prepared.json'
+
+
+def _proof_path(container):
+    container = Path(container)
+    return container.with_name(container.name + PROOF_SUFFIX)
+
+
+def _write_proof(proof):
+    """Persist a verified preparation next to its .gaia file.
+
+    It lets a later Blender session reuse the container when neither the
+    Fluid Cache settings nor any FLIP source file changed (all file stamps
+    are rechecked before reuse). Failure to write only costs a rebuild.
+    """
+    document = {'version': 1, 'path': str(proof['path']),
+                'field_signature': proof['field_signature'],
+                'cache_stamp': list(proof['cache_stamp']),
+                'sources': [[str(path), list(stamp)] for path, stamp in proof['sources']]}
+    target = _proof_path(proof['path'])
+    temporary = target.with_name(target.name + '.tmp')
+    try:
+        temporary.write_text(json.dumps(document, sort_keys=True), encoding='utf-8')
+        os.replace(temporary, target)
+    except OSError:
+        try: temporary.unlink()
+        except OSError: pass
+
+
+def _stored_proof(container):
+    """The persisted proof for ``container``, or None when absent or damaged."""
+    try:
+        document = json.loads(_proof_path(container).read_text(encoding='utf-8'))
+        if document.get('version') != 1 or Path(document['path']) != Path(container):
+            return None
+        return {'job': None, 'settings': None, 'path': Path(document['path']),
+                'field_signature': document['field_signature'],
+                'cache_stamp': tuple(document['cache_stamp']),
+                'sources': tuple((Path(path), tuple(stamp))
+                                 for path, stamp in document['sources'])}
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
 
 
 def pressure_source_end(objects, first, last):
@@ -238,7 +283,8 @@ def _pump():
             state['settings'] = water_settings_record(obj)
             state['field_signature']=_field_signature(metadata)
             destination=Path(obj.cloth_next.water_flow_container)
-            for proof in tuple(_prepared.values()):
+            stored=_stored_proof(destination)
+            for proof in tuple(_prepared.values())+((stored,) if stored else ()):
                 if proof['path']!=destination:continue
                 if proof.get('field_signature')!=state['field_signature']:
                     if proof['job']==state['id']:
@@ -290,6 +336,7 @@ def _pump():
                 'job':state['id'], 'settings':state['settings'], 'path':worker.result,
                 'field_signature':state['field_signature'],
                 'cache_stamp':source_stamp(worker.result), 'sources':tuple(worker.source_stamps)}
+            _write_proof(_prepared[(obj.name,state['first'],state['last'])])
             state['index'] += 1
             state['worker'] = None
             state['provider'] = None

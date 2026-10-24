@@ -309,3 +309,30 @@ def test_window_send_approves_only_the_shown_quote(blender_env, monkeypatch):
     assert approved == []
     manager._cloud_approve({"client_job_id": job.client_job_id, "quote_id": "q-1"})
     assert approved == [(job.client_job_id, "q-1")]
+
+
+def test_finished_cloud_job_is_not_republished_every_second(blender_env, monkeypatch):
+    failed = record(LocalState.UPLOAD_PAUSED, error_code="cloud_access_required")
+    manager, calls, _state = _manager(monkeypatch, [failed])
+    manager.follow_cloud_job(failed.client_job_id)
+    manager._cloud_pulse(10.0)
+    manager._cloud_pulse(11.5)
+    manager._cloud_pulse(13.0)
+    assert len(calls["published"]) == 1
+    assert calls["published"][0].state is BakeState.ERROR
+
+
+@pytest.mark.skipif(os.name != "nt", reason="needs a desktop Tk")
+def test_repeated_error_status_keeps_applied_guidance(monkeypatch):
+    monkeypatch.setenv("CLOTH_NEXT_COMPANION_TEST_MODE", "hidden")
+    window = BakeWindow()
+    try:
+        error = snap(LocalState.UPLOAD_PAUSED, rec={"error_code": "cloud_access_required"})
+        window.show(error)
+        window._error_details = error.error_details.replace(
+            "What to do:", "What to do: GUIDANCE ·")
+        window.secondary.set("guided")
+        window.show(replace(error, elapsed_seconds=error.elapsed_seconds + 1))
+        assert "GUIDANCE" in window._error_details
+    finally:
+        window.close()

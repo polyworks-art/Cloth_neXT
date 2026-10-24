@@ -345,7 +345,9 @@ def _cloud_pulse(now: float) -> None:
     key = snapshot.to_dict()
     for volatile in ("updated_at", "elapsed_seconds"):
         key.pop(volatile, None)
-    if key != _cloud_last or now - _cloud_last_sent >= 1.0:
+    # Re-send unchanged status once a second only while the job is live (the
+    # clock moves); a finished job's window is left alone.
+    if key != _cloud_last or (snapshot.active and now - _cloud_last_sent >= 1.0):
         if now - _cloud_last_sent >= CLOUD_PUBLISH_SECONDS:
             try:
                 _server.publish(snapshot)

@@ -1,0 +1,35 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.45",
+  "title": "What's New in Cloth NeXt 2.9.45",
+  "subtitle": "Unchanged FLIP caches are not prepared again.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/refresh.png",
+      "title": "Faster repeat Bakes with water",
+      "description": "An unchanged FLIP cache is not prepared again, also after a Blender restart: the Water Flow cache and the Hydrodynamic Pressure surfaces are reused."
+    },
+    {
+      "icon": "icons/refresh.png",
+      "title": "Live Cloud status",
+      "description": "The Bake window follows the job with server data: upload, queue, frames, GPU, server runtime and the settled cost."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Fair billing",
+      "description": "The final cost follows the measured server runtime, start-up included, and never exceeds the confirmed ceiling."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}

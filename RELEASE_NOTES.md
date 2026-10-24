@@ -1,4 +1,8 @@
-# Cloth NeXt 2.9.44
+# Cloth NeXt 2.9.45
+
+An unchanged FLIP cache is no longer prepared again for every Bake, also after a Blender restart: the Water Flow cache and the Hydrodynamic Pressure surfaces are reused until a FLIP file, the frame range or the Fluid Cache settings change. The Bake window keeps error text steady while it shows a failed Cloud job.
+
+## 2.9.44
 
 Cloud Bakes are confirmed in the Bake window: it shows the GPU, the credit ceiling and the maximum runtime of the quote, and Send starts the job. A Cloud Bake with Water Flow says clearly that Water Flow is not offered in the Cloud yet; nothing is sent and no credits are used.
 

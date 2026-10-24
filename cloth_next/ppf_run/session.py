@@ -2724,6 +2724,13 @@ class SolverSession:
                 hydro = getattr(self, '_hydrodynamic_environment', {}).get(
                     'PPF_EXPERIMENTAL_HYDRO_VOLUME_DIR')
                 if hydro and self._owns_hydrodynamic_volumes:
+                    from ..gaia.hydrodynamic_session import is_shared_volume
+                    if is_shared_volume(hydro):
+                        # Reusable FLIP surfaces stay in their cache; only this
+                        # run's model folder below the work directory goes.
+                        hydro = str(Path(self._hydrodynamic_environment[
+                            'PPF_EXPERIMENTAL_HYDRO_TEST_JSON']).parent / 'volumes')
+                if hydro and self._owns_hydrodynamic_volumes:
                     # Prepared FLIP volumes are large and rebuilt by every run, resumes included.
                     try:
                         outcome = delete_owned(Path(hydro).parent, root=self.work_directory,
