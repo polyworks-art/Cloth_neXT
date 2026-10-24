@@ -771,7 +771,7 @@ def test_nothing_is_created_before_approval(cloud, tmp_path):
     with pytest.raises(ApprovalRequired):
         cloud.jobs.upload_and_submit(package.client_job_id)
     record = cloud.jobs.request_quote(package.client_job_id)
-    assert (record.quote_maximum, record.quote_unit) == (30.0, "test_second")
+    assert (record.quote_maximum, record.quote_unit) == (30.0, "credit")
     assert record.server_build_id == "gaia-test-linux"
     assert not any(name == "create_job" for _a, name in cloud.backend.calls)
     with pytest.raises(ApprovalRequired):

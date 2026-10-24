@@ -141,6 +141,8 @@ class Quote:
     real_charge: bool
     max_execution_seconds: float | None = None
     manifest_sha256: str = ""
+    gpu_type_id: str = ""                    # server-selected GPU
+    usage_percent: int | None = None         # 290: one credit lasts 2.9 s
 
 
 @dataclass(frozen=True, slots=True)
@@ -173,6 +175,12 @@ class JobInfo:
     display_name: str = ""
     manifest_sha256: str = ""
     deleted: bool = False
+    gpu_type_id: str = ""
+    billing_reserved: int | None = None
+    billing_charged: int | None = None       # meaningful only when finalized
+    billing_finalized: bool = False
+    billing_unit: str = ""
+    elapsed_ms: int | None = None            # accounting duration once finalized
 
     def __post_init__(self) -> None:
         if self.state not in SERVER_STATES:

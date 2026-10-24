@@ -154,6 +154,7 @@ class CloudJobs:
             quote_unit=quote.unit, quote_expires_at=quote.expires_at,
             quote_billing_mode=quote.billing_mode, quote_accepted=False,
             quote_max_seconds=quote.max_execution_seconds,
+            quote_gpu=quote.gpu_type_id, quote_usage_percent=quote.usage_percent,
             error_code="")
 
     def accept_quote(self, client_job_id: str, quote_id: str) -> JobRecord:
@@ -190,6 +191,12 @@ class CloudJobs:
             expires_at=info.expires_at, error_code=info.error_code)
         if info.final_cost is not None:
             changes["final_cost"] = info.final_cost
+        if info.gpu_type_id:
+            changes["gpu_type_id"] = info.gpu_type_id
+        changes.update(billing_reserved=info.billing_reserved,
+                       billing_finalized=info.billing_finalized)
+        if info.elapsed_ms is not None:
+            changes["elapsed_ms"] = info.elapsed_ms
         local = _SERVER_TO_LOCAL.get(info.state)
         if local is not None:
             if record.state in (LocalState.STORED, LocalState.DOWNLOADING) \

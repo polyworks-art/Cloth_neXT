@@ -96,8 +96,9 @@ PHASE_ACTIVITIES = {"PREPARING":BakeActivity.CAPTURING_GEOMETRY, "EXPORTING":Bak
 # Bake-window rows for a followed Cloud job (``BakeSnapshot.cloud_details``).
 CLOUD_DETAIL_ROWS = (
     ("JOB", "Job"), ("SERVER_STATE", "Server State"), ("ENGINE", "Engine"),
-    ("QUEUE", "Queue"), ("FRAMES", "Frames"), ("UPLOAD", "Upload"),
-    ("DOWNLOAD", "Download"), ("COST_LIMIT", "Cost Limit"),
+    ("GPU", "GPU"), ("QUEUE", "Queue"), ("FRAMES", "Frames"),
+    ("UPLOAD", "Upload"), ("DOWNLOAD", "Download"),
+    ("RUNTIME", "Server Runtime"), ("COST_LIMIT", "Cost Limit"),
     ("FINAL_COST", "Final Cost"), ("AVAILABLE_UNTIL", "Available Until"),
     ("SERVER_JOB", "Server Job"),
 )

@@ -103,6 +103,12 @@ class JobRecord:
     quote_max_seconds: float | None = None  # server's maximum execution time
     quote_accepted: bool = False            # explicit artist confirmation (E10)
     final_cost: str | None = None           # server's final cost, once known
+    quote_gpu: str = ""                     # server-selected GPU of the quote
+    quote_usage_percent: int | None = None  # 290: one credit lasts 2.9 s
+    gpu_type_id: str = ""                   # GPU the job ran / runs on
+    billing_reserved: int | None = None
+    billing_finalized: bool = False
+    elapsed_ms: int | None = None           # server accounting duration
 
     def to_json(self) -> dict:
         value = asdict(self)

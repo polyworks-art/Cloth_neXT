@@ -7,7 +7,7 @@
   },
   "execution": {
     "provider": "runpod",
-    "deployment": null,
+    "deployment": "pods",
     "enabled": false,
     "native_execution_on_website": false
   },
@@ -34,7 +34,7 @@
         "protocol": "0.26",
         "payload_schema": "example-schema",
         "frame_start": 1,
-        "frame_end": 2,
+        "frame_end": 3,
         "fps": 24.0,
         "quality": "example",
         "deterministic": true,
@@ -93,7 +93,7 @@
       "submitted_at": null,
       "finished_at": null,
       "deleted": false,
-      "manifest_sha256": "09bea4ce51893a107805218e5213b3c29984a3a65a958bee4698b7fbafff962a",
+      "manifest_sha256": "f9fce88585fee0ab5f4668378b3499ac3d1289295c062f34dac4c71c832a7252",
       "progress": {
         "completed_frame": null,
         "total_frames": 2,
@@ -106,7 +106,9 @@
       "uploaded_roles": [],
       "statistics": {
         "elapsed_ms": null
-      }
+      },
+      "gpu_type_id": null,
+      "billing": null
     }
   },
   "aether_create_request": {
@@ -123,7 +125,7 @@
       "protocol": "0.26",
       "payload_schema": "example-schema",
       "frame_start": 1,
-      "frame_end": 2,
+      "frame_end": 3,
       "fps": 24.0,
       "quality": "example",
       "deterministic": true,
@@ -187,7 +189,7 @@
       "protocol": "0.26",
       "payload_schema": "example-schema",
       "frame_start": 1,
-      "frame_end": 2,
+      "frame_end": 3,
       "fps": 24.0,
       "quality": "example",
       "deterministic": true,
@@ -272,7 +274,7 @@
         "protocol": "0.26",
         "payload_schema": "example-schema",
         "frame_start": 1,
-        "frame_end": 2,
+        "frame_end": 3,
         "fps": 24.0,
         "quality": "example",
         "deterministic": true,
@@ -325,9 +327,11 @@
     "response_status": 201,
     "response": {
       "quote_id": "00000000-0000-4000-8000-000000000003",
-      "manifest_sha256": "09bea4ce51893a107805218e5213b3c29984a3a65a958bee4698b7fbafff962a",
+      "manifest_sha256": "f9fce88585fee0ab5f4668378b3499ac3d1289295c062f34dac4c71c832a7252",
       "maximum": 30,
-      "unit": "test_second",
+      "unit": "credit",
+      "gpu_type_id": "NVIDIA RTX 6000 Ada Generation",
+      "usage_percent": 100,
       "max_execution_seconds": 30,
       "expires_at": "2026-10-23T12:10:00Z",
       "billing_mode": "test",
@@ -412,7 +416,7 @@
       "submitted_at": "2026-10-23T12:00:00Z",
       "finished_at": null,
       "deleted": false,
-      "manifest_sha256": "09bea4ce51893a107805218e5213b3c29984a3a65a958bee4698b7fbafff962a",
+      "manifest_sha256": "f9fce88585fee0ab5f4668378b3499ac3d1289295c062f34dac4c71c832a7252",
       "progress": {
         "completed_frame": null,
         "total_frames": 2,
@@ -431,7 +435,9 @@
       ],
       "statistics": {
         "elapsed_ms": null
-      }
+      },
+      "gpu_type_id": null,
+      "billing": null
     },
     "note": "Success response is test-harness only; production submission stays 503 until RunPod dispatch is configured."
   },
@@ -446,7 +452,7 @@
       "submitted_at": null,
       "finished_at": null,
       "deleted": false,
-      "manifest_sha256": "09bea4ce51893a107805218e5213b3c29984a3a65a958bee4698b7fbafff962a",
+      "manifest_sha256": "f9fce88585fee0ab5f4668378b3499ac3d1289295c062f34dac4c71c832a7252",
       "progress": {
         "completed_frame": null,
         "total_frames": 2,
@@ -459,7 +465,9 @@
       "uploaded_roles": [],
       "statistics": {
         "elapsed_ms": null
-      }
+      },
+      "gpu_type_id": null,
+      "billing": null
     }
   },
   "package_session": {
@@ -467,7 +475,7 @@
     "path": "/v1/cloud/jobs/00000000-0000-4000-8000-000000000002/package-session",
     "response": {
       "expires_at": "2026-10-23T12:05:00Z",
-      "manifest_sha256": "09bea4ce51893a107805218e5213b3c29984a3a65a958bee4698b7fbafff962a",
+      "manifest_sha256": "f9fce88585fee0ab5f4668378b3499ac3d1289295c062f34dac4c71c832a7252",
       "import_snapshot_digest": "77c7ac2358e7f561319c88874c93b13cca200c3a91801013c9aed79ec560ef14",
       "manifest": {
         "schema_version": 1,
@@ -482,7 +490,7 @@
         "protocol": "0.26",
         "payload_schema": "example-schema",
         "frame_start": 1,
-        "frame_end": 2,
+        "frame_end": 3,
         "fps": 24.0,
         "quality": "example",
         "deterministic": true,

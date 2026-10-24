@@ -231,6 +231,7 @@ def test_review_lines_show_server_quote_and_test_billing(blender_env):
                 "files": [{"size_bytes": 2_000_000}]}
     lines = ui.review_lines(record, manifest, SimpleNamespace(retention_days=14))
     assert "Cost limit: 30 test_second · quote valid until 2026-10-23T12:10:00Z" in lines
-    assert "Test billing only: no real charge is made." in lines
+    assert ("Credits are taken from your PolyWorks account; "
+            "no payment provider is charged.") in lines
     assert "1 object(s) · 625 vertices · Water Flow · Hydrodynamic Pressure" in lines
     assert ui.actions_for(record) == ("REVIEW", "CANCEL")

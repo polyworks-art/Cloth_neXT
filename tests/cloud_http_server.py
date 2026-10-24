@@ -39,7 +39,13 @@ def _job_out(info: wire.JobInfo) -> dict:
             "error_code": info.error_code or None,
             "result_available": info.state == wire.SUCCEEDED,
             "result_expires_at": info.expires_at, "uploaded_roles": [],
-            "statistics": {"elapsed_ms": None}}
+            "statistics": {"elapsed_ms": info.elapsed_ms},
+            "gpu_type_id": info.gpu_type_id or None,
+            "billing": (None if info.billing_reserved is None and not info.billing_finalized
+                        else {"unit": info.billing_unit or "credit",
+                              "reserved": 0 if info.billing_finalized else info.billing_reserved,
+                              "charged": info.billing_charged,
+                              "finalized": info.billing_finalized})}
 
 
 def _upload_out(state: wire.FileUploadState) -> dict:
@@ -158,7 +164,7 @@ class CloudHttpServer:
                             "water_flow": True, "partial_results": False})
                     return 200, {
                         "schema_version": 1, "enabled": True, "billing": "test",
-                        "execution": {"provider": "runpod", "deployment": None,
+                        "execution": {"provider": "runpod", "deployment": "pods",
                                       "enabled": outer.backend.execution_enabled,
                                       "native_execution_on_website": False},
                         "transport": {"api_origin": outer.origin,
@@ -179,7 +185,9 @@ class CloudHttpServer:
                                  "max_execution_seconds": quote.max_execution_seconds,
                                  "expires_at": quote.expires_at,
                                  "billing_mode": quote.billing_mode,
-                                 "real_charge": quote.real_charge}
+                                 "real_charge": quote.real_charge,
+                                 "gpu_type_id": quote.gpu_type_id,
+                                 "usage_percent": quote.usage_percent}
                 if method == "POST" and path == "/jobs":
                     if not key:
                         raise wire.CloudError("idempotency_key_required")

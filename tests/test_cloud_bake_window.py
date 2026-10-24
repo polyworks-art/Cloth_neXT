@@ -93,7 +93,8 @@ def test_success_downloads_then_finishes():
     assert fetching.status_title == "Downloading result"
     assert fetching.cloud_details["DOWNLOAD"] == "0.0 / 0.0 MB"
     manual = snap(LocalState.SUCCEEDED, auto_download=False,
-                  rec={"expires_at": "2026-10-31T00:00:00Z", "final_cost": "4 credits"})
+                  rec={"expires_at": "2026-10-31T00:00:00Z", "final_cost": "4 credits",
+                       "billing_finalized": True})
     assert manual.state is BakeState.FINISHED
     assert "Cloud Jobs list" in manual.activity_label
     assert manual.cloud_details["FINAL_COST"] == "4 credits"
@@ -247,3 +248,20 @@ def test_new_local_bake_stops_following(blender_env, monkeypatch):
     assert manager.following_cloud_job() == ""
     assert calls["live"][-1] is False
     manager._pending_request = None
+
+
+def test_window_shows_gpu_runtime_and_only_settled_costs():
+    settled = snap(LocalState.STORED, rec={
+        "gpu_type_id": "NVIDIA RTX A5000", "billing_finalized": True,
+        "final_cost": "98 credits", "elapsed_ms": 282000,
+        "submitted_confirmed": True})
+    assert settled.cloud_details["GPU"] == "NVIDIA RTX A5000"
+    assert settled.cloud_details["RUNTIME"] == "04:42"
+    assert settled.cloud_details["FINAL_COST"] == "98 credits"
+    pending = snap(LocalState.SUCCEEDED, rec={"submitted_confirmed": True,
+                                              "elapsed_ms": 1000})
+    assert pending.cloud_details["FINAL_COST"] == "settling on server"
+    assert "RUNTIME" not in pending.cloud_details
+    quoted = snap(LocalState.AWAITING_APPROVAL, rec={"quote_gpu": "NVIDIA RTX A5000"})
+    assert quoted.cloud_details["GPU"] == "NVIDIA RTX A5000"
+    assert "FINAL_COST" not in quoted.cloud_details

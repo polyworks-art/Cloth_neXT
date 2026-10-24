@@ -86,6 +86,13 @@ def _job(value: Any) -> wire.JobInfo:
     if not isinstance(value, dict):
         raise wire.CloudError("invalid_response")
     progress = value.get("progress") or {}
+    billing = value.get("billing") or {}
+    statistics = value.get("statistics") or {}
+    if not isinstance(billing, dict) or not isinstance(statistics, dict):
+        raise wire.CloudError("invalid_response")
+    finalized = billing.get("finalized") is True
+    charged = _int(billing.get("charged"), optional=True)
+    unit = _str(billing.get("unit"), optional=True) or ""
     return wire.JobInfo(
         job_id=_str(value.get("job_id")),
         client_job_id=_str(value.get("client_job_id")),
@@ -97,7 +104,19 @@ def _job(value: Any) -> wire.JobInfo:
         expires_at=_str(value.get("result_expires_at"), optional=True),
         error_code=_str(value.get("error_code"), optional=True) or "",
         manifest_sha256=_str(value.get("manifest_sha256"), optional=True) or "",
-        deleted=bool(value.get("deleted", False)))
+        deleted=bool(value.get("deleted", False)),
+        gpu_type_id=_str(value.get("gpu_type_id"), optional=True) or "",
+        billing_reserved=_int(billing.get("reserved"), optional=True),
+        billing_charged=charged, billing_finalized=finalized, billing_unit=unit,
+        # Only a finalized settlement is a final cost; a settled 0 is real.
+        final_cost=(f"{charged} {_plural(unit, charged)}"
+                    if finalized and charged is not None else None),
+        elapsed_ms=_int(statistics.get("elapsed_ms"), optional=True))
+
+
+def _plural(unit: str, count: int) -> str:
+    unit = unit or "credit"
+    return unit if count == 1 or unit.endswith("s") else unit + "s"
 
 
 def _upload(value: Any) -> wire.FileUploadState:
@@ -279,7 +298,9 @@ class HttpCloudBackend:
             billing_mode=_str(value.get("billing_mode"), optional=True) or "",
             real_charge=bool(value.get("real_charge", True)),
             max_execution_seconds=value.get("max_execution_seconds"),
-            manifest_sha256=_str(value.get("manifest_sha256"), optional=True) or "")
+            manifest_sha256=_str(value.get("manifest_sha256"), optional=True) or "",
+            gpu_type_id=_str(value.get("gpu_type_id"), optional=True) or "",
+            usage_percent=_int(value.get("usage_percent"), optional=True))
 
     def create_job(self, *, client_job_id, manifest, idempotency_key):
         return _job(self._json("POST", "/jobs", {"manifest": manifest},

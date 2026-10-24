@@ -253,3 +253,41 @@ def test_quote_keeps_maximum_runtime_for_review(http, tmp_path, blender_env):
     if record.quote_max_seconds:
         lines = review_lines(record, load_manifest(http.jobs.store, record.manifest_sha256))
         assert any(line.startswith("Maximum server runtime") for line in lines)
+
+
+def test_quote_and_job_responses_follow_the_current_contract(http, tmp_path):
+    import jsonschema
+    _deformables, built = package(http, tmp_path)
+    record = http.jobs.request_quote(built.client_job_id)
+    assert record.quote_gpu == "NVIDIA RTX A5000" and record.quote_usage_percent == 290
+    approve(http.jobs, built)
+    record = http.jobs.upload_and_submit(built.client_job_id)
+    http.backend.run_pending()
+    record = http.jobs.refresh(built.client_job_id)
+    assert record.billing_finalized and record.final_cost == "7 credits"
+    assert record.elapsed_ms == 21000 and record.gpu_type_id == "NVIDIA RTX A5000"
+    import urllib.request
+    request = urllib.request.Request(
+        f"{http.server.origin}/v1/cloud/jobs/{record.job_id}",
+        headers={"Authorization": f"Bearer {TOKEN}"})
+    with urllib.request.urlopen(request) as response:
+        jsonschema.validate(json.loads(response.read()), _openapi_schema("JobOut"))
+    quote = [entry for entry in http.server.requests if entry[1].endswith("/quotes")]
+    assert quote
+
+
+def test_unfinalized_billing_is_not_a_final_cost():
+    from cloth_next.cloud.http_v1 import _job
+    base = {"job_id": "00000000-0000-4000-8000-000000000002",
+            "client_job_id": "00000000-0000-4000-8000-000000000001",
+            "state": "succeeded", "progress": {}, "statistics": {"elapsed_ms": None}}
+    pending = _job({**base, "billing": {"unit": "credit", "reserved": 311,
+                                        "charged": None, "finalized": False}})
+    assert pending.final_cost is None and pending.billing_reserved == 311
+    zero = _job({**base, "billing": {"unit": "credit", "reserved": 0,
+                                     "charged": 0, "finalized": True}})
+    assert zero.final_cost == "0 credits" and zero.billing_finalized
+    settled = _job({**base, "billing": {"unit": "credit", "reserved": 0,
+                                        "charged": 1, "finalized": True},
+                    "statistics": {"elapsed_ms": 282000}})
+    assert settled.final_cost == "1 credit" and settled.elapsed_ms == 282000

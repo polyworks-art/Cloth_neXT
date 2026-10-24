@@ -300,8 +300,9 @@
         "additionalProperties": false,
         "properties": {
           "deployment": {
+            "const": "pods",
             "title": "Deployment",
-            "type": "null"
+            "type": "string"
           },
           "enabled": {
             "const": false,
@@ -372,9 +373,57 @@
         "title": "File",
         "type": "object"
       },
+      "JobBilling": {
+        "additionalProperties": false,
+        "properties": {
+          "charged": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Charged"
+          },
+          "finalized": {
+            "title": "Finalized",
+            "type": "boolean"
+          },
+          "reserved": {
+            "minimum": 0.0,
+            "title": "Reserved",
+            "type": "integer"
+          },
+          "unit": {
+            "const": "credit",
+            "default": "credit",
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reserved",
+          "finalized"
+        ],
+        "title": "JobBilling",
+        "type": "object"
+      },
       "JobOut": {
         "additionalProperties": false,
         "properties": {
+          "billing": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/JobBilling"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "client_job_id": {
             "format": "uuid",
             "title": "Client Job Id",
@@ -411,6 +460,17 @@
               }
             ],
             "title": "Finished At"
+          },
+          "gpu_type_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gpu Type Id"
           },
           "job_id": {
             "format": "uuid",
@@ -630,7 +690,7 @@
           "blender_version": {
             "maxLength": 128,
             "minLength": 1,
-            "pattern": "^[A-Za-z0-9_.+-]+$",
+            "pattern": "^[A-Za-z0-9 ._+-]+$",
             "title": "Blender Version",
             "type": "string"
           },
@@ -1020,6 +1080,10 @@
             "title": "Expires At",
             "type": "string"
           },
+          "gpu_type_id": {
+            "title": "Gpu Type Id",
+            "type": "string"
+          },
           "manifest_sha256": {
             "pattern": "^[0-9a-f]{64}$",
             "title": "Manifest Sha256",
@@ -1044,9 +1108,13 @@
             "type": "boolean"
           },
           "unit": {
-            "const": "test_second",
+            "const": "credit",
             "title": "Unit",
             "type": "string"
+          },
+          "usage_percent": {
+            "title": "Usage Percent",
+            "type": "integer"
           }
         },
         "required": [
@@ -1054,6 +1122,8 @@
           "manifest_sha256",
           "maximum",
           "unit",
+          "gpu_type_id",
+          "usage_percent",
           "max_execution_seconds",
           "expires_at",
           "billing_mode",
@@ -1422,9 +1492,9 @@
     }
   },
   "info": {
-    "description": "Website control plane only; RunPod deployment undecided and execution disabled; native GPU validation pending; commercial billing disabled.",
+    "description": "Prepared owner pilot contract. GAIA GPU bakes have run; dispatch remains operator-triggered. Credit ledger billing is active for the pilot; external payment charging is disabled. Deploy the matching backend before relying on newly added fields.",
     "title": "PolyWorks Cloud Bakes API",
-    "version": "v1-contract-draft"
+    "version": "v1-owner-pilot-20261024"
   },
   "openapi": "3.1.0",
   "paths": {

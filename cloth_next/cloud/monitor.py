@@ -52,6 +52,12 @@ def details(record: JobRecord, *, upload_done: int = 0, upload_total: int = 0,
                             if record.server_state else "not sent yet")
     if record.engine:
         rows["ENGINE"] = record.engine.upper()  # GAIA or AETHER, no build id
+    gpu = record.gpu_type_id or record.quote_gpu
+    if gpu:
+        rows["GPU"] = gpu
+    if record.elapsed_ms is not None and record.billing_finalized:
+        from ..bake.status import format_duration
+        rows["RUNTIME"] = format_duration(record.elapsed_ms / 1000.0)
     if record.queue_position:
         rows["QUEUE"] = f"Position {record.queue_position}"
     if record.total_frames:
@@ -68,8 +74,12 @@ def details(record: JobRecord, *, upload_done: int = 0, upload_total: int = 0,
         rows["COST_LIMIT"] = f"{record.quote_maximum:g}{unit}"
         if record.quote_billing_mode and record.quote_billing_mode != "live":
             rows["COST_LIMIT"] += f" ({record.quote_billing_mode})"
-    if record.final_cost:
+    if record.final_cost and record.billing_finalized:
         rows["FINAL_COST"] = record.final_cost
+    elif record.state in SUCCESS_TERMINAL | FAILURE_TERMINAL | {LocalState.SUCCEEDED,
+                                                                LocalState.DOWNLOADING}:
+        if record.submitted_confirmed:
+            rows["FINAL_COST"] = "settling on server"
     if record.expires_at:
         rows["AVAILABLE_UNTIL"] = record.expires_at
     if record.job_id:

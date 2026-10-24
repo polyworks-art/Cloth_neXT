@@ -71,6 +71,7 @@ class CloudTestBackend:
         # The server switch that unlocks Cloud Bakes in the add-on.
         self.execution_enabled = True
         self.can_submit = True
+        self.gpu_type_id = "NVIDIA RTX A5000"
         self.blobs: dict[str, dict[str, bytes]] = {}       # account -> sha -> bytes
         self.uploads: dict[str, dict] = {}                 # upload_id -> session
         self.jobs: dict[str, dict] = {}                    # job_id -> job
@@ -120,7 +121,15 @@ class CloudTestBackend:
             total_frames=job["total_frames"], expires_at=job.get("expires_at"),
             build_id=job["manifest"]["build_id"],
             error_code=job.get("error_code", "") or "",
-            manifest_sha256=job["manifest_sha256"])
+            manifest_sha256=job["manifest_sha256"],
+            gpu_type_id=self.gpu_type_id if job["state"] != wire.UPLOADING else "",
+            billing_reserved=(None if job["state"] in wire.TERMINAL_STATES | {wire.UPLOADING}
+                              else self.quote_maximum),
+            billing_charged=(7 if job["state"] in wire.TERMINAL_STATES else None),
+            billing_finalized=job["state"] in wire.TERMINAL_STATES,
+            billing_unit="credit",
+            final_cost=("7 credits" if job["state"] in wire.TERMINAL_STATES else None),
+            elapsed_ms=(21000 if job["state"] in wire.TERMINAL_STATES else None))
 
     def _claim_key(self, key: str, fingerprint: str, create):
         slot = (self.account_name, key)
@@ -172,9 +181,10 @@ class CloudTestBackend:
         digest = manifest_sha256(manifest)
         self.quotes[quote_id] = {"manifest_sha256": digest,
                                  "maximum": self.quote_maximum}
-        return wire.Quote(quote_id, self.quote_maximum, "test_second",
+        return wire.Quote(quote_id, self.quote_maximum, "credit",
                           "2026-10-23T12:10:00Z", "test", False,
-                          self.quote_maximum, digest)
+                          self.quote_maximum, digest,
+                          gpu_type_id=self.gpu_type_id, usage_percent=290)
 
     def create_job(self, *, client_job_id, manifest, idempotency_key):
         self._enter("create_job")

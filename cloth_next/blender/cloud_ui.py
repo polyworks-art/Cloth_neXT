@@ -139,13 +139,24 @@ def review_lines(record, manifest, capabilities=None) -> list[str]:
         f"Cost limit: {record.quote_maximum:g} {record.quote_unit} · "
         f"quote valid until {record.quote_expires_at}",
     ]
+    gpu = getattr(record, "quote_gpu", "")
+    usage = getattr(record, "quote_usage_percent", None)
+    if gpu:
+        rate = (f" · 1 {record.quote_unit or 'credit'} = {usage / 100:g} s of server runtime"
+                if usage else "")
+        lines.append(f"GPU: {gpu}{rate}")
+    lines.append("The cost limit is a ceiling: the final cost follows the measured "
+                 "server runtime, start-up included.")
     seconds = getattr(record, "quote_max_seconds", None)
     if seconds:
         from ..bake.status import format_duration
         lines.append(f"Maximum server runtime: {format_duration(float(seconds))} "
                      "(the job stops there; start-up counts too)")
     if record.quote_billing_mode == "test":
-        lines.append("Test billing only: no real charge is made.")
+        # Owner pilot: the account's credit ledger is debited for real; no
+        # payment provider is charged (Codex handoff, 24 October 2026).
+        lines.append("Credits are taken from your PolyWorks account; "
+                     "no payment provider is charged.")
     retention = getattr(capabilities, "retention_days", None)
     if retention:
         lines.append(f"Results stay available for {retention} days.")
