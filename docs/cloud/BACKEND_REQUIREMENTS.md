@@ -98,3 +98,17 @@ OpenAPI/Beispiele lagen beim Abgleich nicht vor; Grundlage ist die Markdown-Besc
 | C8 | `import_snapshot_digest` = Datei-Hash | Snapshot war JSON + Binär | Add-on liefert jetzt eine Datei, Digest = Datei-Hash (umgestellt) |
 | C9 | Ergebnis über `result-session` + `results/{sha256}?t=` | Add-on lädt Dateien bereichsweise mit Hash | passt; erlaubter Download-Host muss feststehen |
 | C10 | Zustände `starting`, `cancelling` | – | Add-on bildet sie auf „Running“/„Cancelling“ ab |
+
+## 7. Unlock signal (add-on 2.9.40)
+
+The add-on ships with Cloud Bakes on and talks to `https://api.cloth-next.de`
+by default (`CLOTH_NEXT_CLOUD_API=off` switches it off, another origin
+overrides it). Cloud stays **locked** for every artist until
+`GET /v1/cloud/capabilities` answers `enabled: true` **and**
+`execution.enabled: true`. Any other answer (404, 5xx, network error,
+`execution.enabled: false`) keeps it locked; account answers
+(`not_authenticated`, `session_expired`, `forbidden`, `insufficient_scope`,
+`cloud_access_required`) are shown so the artist can act. The check runs only
+while Bake Location is Cloud: every 2 minutes while locked, every 15 minutes
+once unlocked. The OpenAPI pilot pins `execution.enabled` to `false`; it must
+allow `true` for the go-live.

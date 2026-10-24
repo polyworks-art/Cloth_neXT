@@ -2,10 +2,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Which Cloud backend this add-on talks to, and whether Cloud is usable.
 
-No production backend exists until the ``/v1/cloud/`` contract is final, so
-``availability`` reports Cloud as unavailable with a specific reason. Tests
-and the Phase 0 tool install the deterministic test backend explicitly.
-Nothing here touches the network or the filesystem; draw code may call it.
+Cloud Bakes ship enabled but locked: ``availability`` only reports Cloud as
+usable once the PolyWorks Cloud server itself answered its capability check
+with Cloud enabled and execution enabled. Until then (no answer, an error,
+or the server's switch still off) the Cloud location stays locked with a
+specific reason, and nothing is packaged or sent. Tests and the Phase 0 tool
+install the deterministic test backend explicitly. Nothing here touches the
+network or the filesystem; draw code may call it.
 """
 
 from __future__ import annotations
@@ -18,6 +21,13 @@ from . import transport
 
 PENDING_REASON = ("Cloud Bakes are not available yet: the PolyWorks Cloud "
                   "service is not connected to this version.")
+LOCKED_REASON = ("Cloud Bakes are locked until the PolyWorks Cloud service "
+                 "reports that it is ready.")
+CHECKING_REASON = "Checking Cloud availability…"
+# Answers the artist can act on (sign in, access); any other failure keeps
+# Cloud locked with LOCKED_REASON.
+_ACCOUNT_CODES = frozenset({"not_authenticated", "session_expired", "forbidden",
+                            "insufficient_scope", "cloud_access_required"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,22 +44,26 @@ _last_error: str = ""
 
 
 CLOUD_API_ENV = "CLOTH_NEXT_CLOUD_API"
+DEFAULT_ORIGIN = "https://api.cloth-next.de"
+_OFF_VALUES = frozenset({"0", "off", "false", "disabled", "none"})
 
 
 def default_factory(environ=None):
-    """The HTTP backend when Cloud routing is switched on, else ``None``.
+    """The HTTP backend for the PolyWorks Cloud, else ``None``.
 
-    Cloud API v1 is a pilot: production routing and submission are not
-    enabled yet, so the add-on only talks to it when ``CLOTH_NEXT_CLOUD_API``
-    names the origin (``https://api.cloth-next.de`` or a loopback test
-    server). The bearer token is read from the existing account vault on the
-    worker thread for every request; it never passes through Blender's UI.
+    The origin is ``https://api.cloth-next.de``. ``CLOTH_NEXT_CLOUD_API``
+    may name another origin (a loopback test server) or switch Cloud off
+    (``off``). Whether Cloud may be used is decided by the server's
+    capability answer, see ``availability``. The bearer token is read from
+    the existing account vault on the worker thread for every request; it
+    never passes through Blender's UI.
     """
     import os
     environ = os.environ if environ is None else environ
     origin = str(environ.get(CLOUD_API_ENV, "") or "").strip()
-    if not origin:
+    if origin.lower() in _OFF_VALUES:
         return None
+    origin = origin or DEFAULT_ORIGIN
     from .http_v1 import HttpCloudBackend, validate_origin
     origin = validate_origin(origin)
 
@@ -90,17 +104,35 @@ def availability(engine_build_id: str | None = None) -> Availability:
         factory, capabilities, error = _factory, _capabilities, _last_error
     if factory is None:
         return Availability(False, PENDING_REASON)
-    if error:
+    if error in _ACCOUNT_CODES:
         from .errors import describe
         return Availability(False, describe(error)[2])
+    if error:
+        # No usable answer from the server keeps Cloud locked (not an error
+        # the artist has to act on); the check repeats in the background.
+        return Availability(False, LOCKED_REASON)
     if capabilities is None:
-        return Availability(False, "Checking Cloud availability…")
-    if not capabilities.enabled:
-        return Availability(False, describe_disabled())
+        return Availability(False, CHECKING_REASON)
+    if not capabilities.enabled or not capabilities.execution_enabled:
+        return Availability(False, LOCKED_REASON, capabilities)
     if engine_build_id is not None and engine_build_id not in capabilities.builds:
         from .errors import describe
         return Availability(False, describe("build_unavailable")[2], capabilities)
     return Availability(True, "", capabilities)
+
+
+def unlocked() -> bool:
+    """True once the server confirmed Cloud and execution are enabled."""
+    with _lock:
+        capabilities, error = _capabilities, _last_error
+    return bool(capabilities is not None and not error and capabilities.enabled
+                and capabilities.execution_enabled)
+
+
+def checked() -> bool:
+    """A capability answer (or failure) is on record."""
+    with _lock:
+        return _capabilities is not None or bool(_last_error)
 
 
 def describe_disabled() -> str:

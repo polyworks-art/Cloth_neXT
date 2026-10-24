@@ -68,6 +68,8 @@ class CloudTestBackend:
         # manifest names (synthetic tests).
         self.desktop_builds = builds
         self.quote_maximum = quote_maximum
+        # The server switch that unlocks Cloud Bakes in the add-on.
+        self.execution_enabled = True
         self.blobs: dict[str, dict[str, bytes]] = {}       # account -> sha -> bytes
         self.uploads: dict[str, dict] = {}                 # upload_id -> session
         self.jobs: dict[str, dict] = {}                    # job_id -> job
@@ -149,6 +151,7 @@ class CloudTestBackend:
         return wire.Capabilities(
             True, ("GAIA", "AETHER"), tuple(item["build_id"] for item in offered),
             1, 64 * 1024 ** 3, retention_days=14, billing_mode="test",
+            execution_enabled=self.execution_enabled,
             desktop_builds=tuple(wire.DesktopBuild(
                 item["engine"], item["build_id"], item["solver_sha256"],
                 item["worker_sha256"], item.get("server_build", item["build_id"]))

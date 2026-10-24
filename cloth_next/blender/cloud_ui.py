@@ -312,6 +312,17 @@ def _open_review_for_followed_job() -> None:
         pass  # the Jobs list still offers Review & Send
 
 
+def _track_location() -> None:
+    """Main thread: tell the runtime whether Cloud is the chosen location."""
+    from .addon_identity import addon_preferences
+    try:
+        prefs = addon_preferences(bpy.context, __package__)
+    except KeyError:
+        return
+    cloud_runtime.set_cloud_selected(
+        getattr(prefs, "bake_location", "LOCAL") == "CLOUD")
+
+
 def _auto_step() -> None:
     """Main thread: automatic download, then automatic activation (E9).
 
@@ -357,15 +368,16 @@ def register() -> None:
             description="Cloud jobs sent from this file"))
     if _auto_step not in cloud_runtime._main_thread_hooks:
         cloud_runtime._main_thread_hooks.append(_auto_step)
-    if _open_review_for_followed_job not in cloud_runtime._main_thread_hooks:
-        cloud_runtime._main_thread_hooks.append(_open_review_for_followed_job)
+    for hook in (_open_review_for_followed_job, _track_location):
+        if hook not in cloud_runtime._main_thread_hooks:
+            cloud_runtime._main_thread_hooks.append(hook)
     header = getattr(bpy.types, "STATUSBAR_HT_header", None)
     if header is not None and hasattr(header, "append"):
         header.append(draw_status_notice)
 
 
 def unregister() -> None:
-    for hook in (_auto_step, _open_review_for_followed_job):
+    for hook in (_auto_step, _open_review_for_followed_job, _track_location):
         if hook in cloud_runtime._main_thread_hooks:
             cloud_runtime._main_thread_hooks.remove(hook)
     scene_type = getattr(bpy.types, "Scene", None)

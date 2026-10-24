@@ -1071,7 +1071,9 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         if getattr(self, "bake_location", "LOCAL") != "CLOUD":
             return
         status = service.availability()
-        if not status.available:
+        if status.reason in (service.LOCKED_REASON, service.CHECKING_REASON):
+            box.label(text=status.reason, icon="LOCKED")
+        elif not status.available:
             row = box.row()
             row.alert = True
             row.label(text=status.reason, icon="ERROR")

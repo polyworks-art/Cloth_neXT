@@ -157,7 +157,7 @@ class CloudHttpServer:
                     return 200, {
                         "schema_version": 1, "enabled": True, "billing": "test",
                         "execution": {"provider": "runpod", "deployment": None,
-                                      "enabled": False,
+                                      "enabled": outer.backend.execution_enabled,
                                       "native_execution_on_website": False},
                         "transport": {"api_origin": outer.origin,
                                       "download_origin": outer.origin,

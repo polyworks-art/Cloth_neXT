@@ -25,6 +25,8 @@ from ..core.logging import get_logger, log_with_context
 _LOG = get_logger("cloud.runtime")
 REFRESH_SECONDS = 30.0
 LIVE_REFRESH_SECONDS = 5.0      # while the Bake window follows a job
+LOCKED_CHECK_SECONDS = 120.0    # repeat the capability check while locked
+UNLOCKED_CHECK_SECONDS = 900.0  # notice the server switching Cloud off
 _PROGRESS_JOBS_SECONDS = 0.5
 
 
@@ -50,6 +52,38 @@ _jobs: CloudJobs | None = None
 _last_refresh = 0.0
 _last_progress_jobs = 0.0
 _live = False
+_last_capability_check: float | None = None
+_wants_cloud = False
+
+
+def request_capability_check() -> None:
+    """Ask the server now (Bake Location switched to Cloud, or a Cloud Bake)."""
+    global _last_capability_check
+    if service.backend() is None:
+        return
+    _last_capability_check = time.monotonic()
+    enqueue("capabilities")
+
+
+def set_cloud_selected(selected: bool) -> None:
+    """Bake Location is Cloud: keep the lock state current in the background.
+
+    The server is only asked while an artist actually chose Cloud.
+    """
+    global _wants_cloud
+    first = bool(selected) and not _wants_cloud
+    _wants_cloud = bool(selected)
+    if first and not service.checked():
+        request_capability_check()
+
+
+def _capability_step(now: float) -> None:
+    if not _wants_cloud or service.backend() is None:
+        return
+    interval = (UNLOCKED_CHECK_SECONDS if service.unlocked()
+                else LOCKED_CHECK_SECONDS)
+    if _last_capability_check is None or now - _last_capability_check >= interval:
+        request_capability_check()
 
 
 def set_live(enabled: bool) -> None:
@@ -278,6 +312,7 @@ def tick() -> float:
             log_with_context(_LOG, 30, "Cloud main-thread step failed",
                              {"error_type": type(exc).__name__})
     now = time.monotonic()
+    _capability_step(now)
     if (service.availability().reason != service.PENDING_REASON
             and now - _last_refresh >= (LIVE_REFRESH_SECONDS if _live
                                         else REFRESH_SECONDS)):
@@ -300,7 +335,8 @@ def start() -> None:
             service.install_backend(factory)
     if service.availability().reason == service.PENDING_REASON:
         return
-    enqueue("capabilities")
+    # Settle unclear jobs of an earlier session (no network without jobs).
+    # The capability check runs only once Cloud is the chosen location.
     enqueue("recover")
 
 

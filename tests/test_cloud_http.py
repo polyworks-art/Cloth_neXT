@@ -181,8 +181,38 @@ def test_real_export_manifest_validates_against_openapi():
 def test_test_server_capabilities_validate_against_openapi(http):
     import jsonschema
     import urllib.request
+    # The pilot contract still pins execution.enabled to false; the add-on
+    # stays locked until the live server answers true (see below).
+    http.backend.execution_enabled = False
     request = urllib.request.Request(http.server.origin + "/v1/cloud/capabilities",
                                      headers={"Authorization": f"Bearer {TOKEN}"})
     with urllib.request.urlopen(request) as response:
         value = json.loads(response.read())
     jsonschema.validate(value, _openapi_schema("CapabilitiesOut"))
+
+
+def test_cloud_stays_locked_until_server_enables_execution(http):
+    from cloth_next.cloud import service
+    service.install_backend(lambda: http.client)
+    try:
+        http.backend.execution_enabled = False
+        service.record_capabilities(http.client.capabilities())
+        status = service.availability()
+        assert not status.available and status.reason == service.LOCKED_REASON
+        assert not service.unlocked()
+        http.backend.execution_enabled = True
+        service.record_capabilities(http.client.capabilities())
+        assert service.availability().available and service.unlocked()
+        service.record_capabilities(None, "not_found")
+        assert service.availability().reason == service.LOCKED_REASON
+        service.record_capabilities(None, "not_authenticated")
+        assert service.availability().reason != service.LOCKED_REASON
+    finally:
+        service.install_backend(None)
+
+
+def test_default_origin_is_the_polyworks_cloud_and_can_be_switched_off():
+    from cloth_next.cloud import service
+    factory = service.default_factory({})
+    assert factory is not None and factory().origin == service.DEFAULT_ORIGIN
+    assert service.default_factory({"CLOTH_NEXT_CLOUD_API": "off"}) is None
