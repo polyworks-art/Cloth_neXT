@@ -302,6 +302,28 @@ def _cloud_cancel() -> None:
          job_id=_cloud_follow, state=record.state.value)
 
 
+def _cloud_approve(payload: dict) -> None:
+    """The artist clicked Send in the Bake window for this exact quote."""
+    from . import cloud_runtime
+    from ..cloud.registry import LocalState
+    client_job_id = str(payload.get("client_job_id", ""))
+    quote_id = str(payload.get("quote_id", ""))
+    record = next((item for item in cloud_runtime.view().jobs
+                   if item.client_job_id == client_job_id), None)
+    if (not _cloud_follow or client_job_id != _cloud_follow or record is None
+            or record.state is not LocalState.AWAITING_APPROVAL
+            or not quote_id or record.quote_id != quote_id):
+        _log("cloud", "ignored stale Cloud approval", job_id=client_job_id)
+        return
+    try:
+        cloud_runtime.approve(client_job_id, quote_id)
+    except Exception as exc:  # noqa: BLE001 - the window shows the job state
+        _log("cloud", "Cloud approval failed", job_id=client_job_id,
+             error_type=type(exc).__name__)
+        return
+    _log("cloud", "Cloud job approved in Bake window", job_id=client_job_id)
+
+
 def _cloud_pulse(now: float) -> None:
     """Publish the followed job's server status to the window."""
     global _cloud_last, _cloud_last_sent, _cloud_finished, _terminal_deadline
@@ -539,6 +561,8 @@ def _pulse():
                                "Bake window startup failed.")))
         elif kind == "cancel_request" and _cloud_follow:
             _cloud_cancel()
+        elif kind == "cloud_approve":
+            _cloud_approve(dict(message.get("payload") or {}))
         elif kind == "cancel_request":
             snapshot = shared_controller.snapshot()
             if _pending_request is not None or snapshot.can_cancel:

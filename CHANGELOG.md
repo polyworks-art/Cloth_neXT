@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.9.44 - 2026-10-24
+
+- Confirm a Cloud Bake in the Bake window: it shows GPU, credit ceiling and maximum runtime of the quote, and its Send button starts the job (Cancel drops it). The Blender dialog no longer opens by itself while the Bake window is open; the Cloud Jobs list still offers Review & Send.
+- A Cloud Bake with Water Flow now says "Water Flow is not offered in the Cloud yet" (CNX-E207) instead of showing a paused upload; nothing is sent and no credits are used.
+
 ## 2.9.43 - 2026-10-24
 
 - Fix the Bake button staying disabled with Bake Location "Cloud" although the PolyWorks Cloud was ready: the button no longer shows the old "Cloud submission is not connected" reason once Cloud is unlocked.

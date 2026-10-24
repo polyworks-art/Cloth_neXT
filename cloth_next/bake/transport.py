@@ -21,7 +21,7 @@ MESSAGE_TYPES = {"session_hello", "bake_status", "shutdown", "heartbeat",
                  "ready", "cancel_request", "close_notice",
                  "enter_bake_mode", "bake_window_ready", "startup_error",
                  "veyra_progress", "veyra_result", "veyra_error",
-                 "veyra_cancelled", "veyra_cancel"}
+                 "veyra_cancelled", "veyra_cancel", "cloud_approve"}
 _ALIASES = {"status": "bake_status", "cancel": "cancel_request", "close": "close_notice"}
 
 @dataclass(frozen=True, slots=True)
@@ -185,11 +185,13 @@ class LocalSocketServer:
                         if message["type"] in {"ready", "cancel_request", "close_notice",
                                                "bake_window_ready", "startup_error",
                                                "veyra_progress", "veyra_result",
-                                               "veyra_error", "veyra_cancelled"}:
+                                               "veyra_error", "veyra_cancelled",
+                                               "cloud_approve"}:
                             value = (message if message["type"] in {
                                 "bake_window_ready", "startup_error",
                                 "veyra_progress", "veyra_result",
-                                "veyra_error", "veyra_cancelled"}
+                                "veyra_error", "veyra_cancelled",
+                                "cloud_approve"}
                                 else message["type"])
                             try: self.requests.put_nowait(value)
                             except Exception: pass

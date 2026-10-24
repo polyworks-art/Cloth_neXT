@@ -88,6 +88,12 @@ class PackageTooLarge(Exception):
     code = "package_too_large"
 
 
+class WaterFlowNotOffered(Exception):
+    """The build is offered, but not with Water Flow (server runtime)."""
+
+    code = "water_mode_unsupported"
+
+
 class BuildNotOffered(Exception):
     """The Cloud has no configured mapping for this exact desktop build."""
 
@@ -154,8 +160,12 @@ class CloudJobs:
             raise AccessDenied("this account may not submit Cloud jobs")
         mapping = capabilities.mapping_for(manifest)
         if mapping is None:
+            dry = capabilities.mapping_for({**manifest, "water_flow": False})
+            code = "water_mode_unsupported" if dry is not None else "build_unavailable"
             self.registry.update(client_job_id, state=LocalState.UPLOAD_PAUSED,
-                                 error_code="build_unavailable")
+                                 error_code=code)
+            if dry is not None:
+                raise WaterFlowNotOffered(manifest["build_id"])
             raise BuildNotOffered(manifest["build_id"])
         sizes = [int(item["size_bytes"]) for item in manifest["files"]]
         if ((capabilities.max_package_bytes and sum(sizes) > capabilities.max_package_bytes)

@@ -99,6 +99,7 @@ CLOUD_DETAIL_ROWS = (
     ("GPU", "GPU"), ("QUEUE", "Queue"), ("FRAMES", "Frames"),
     ("UPLOAD", "Upload"), ("DOWNLOAD", "Download"),
     ("RUNTIME", "Server Runtime"), ("COST_LIMIT", "Cost Limit"),
+    ("MAX_RUNTIME", "Max Runtime"),
     ("FINAL_COST", "Final Cost"), ("AVAILABLE_UNTIL", "Available Until"),
     ("SERVER_JOB", "Server Job"),
 )
@@ -217,6 +218,8 @@ class BakeSnapshot:
     # from the server (state, queue, frames, cost), never from a local solver.
     execution: str = "LOCAL"
     cloud_details: dict[str, str] = field(default_factory=dict)
+    # "APPROVE": the window shows the quote and its left button sends the job.
+    cloud_action: str = ""
 
     @property
     def progress_fraction(self) -> float:
@@ -300,6 +303,8 @@ class BakeSnapshot:
             if isinstance(telemetry, dict) else {})
         values["execution"] = ("CLOUD" if values.get("execution") == "CLOUD"
                                else "LOCAL")
+        values["cloud_action"] = ("APPROVE" if values.get("cloud_action") == "APPROVE"
+                                  else "")
         details = values.get("cloud_details")
         values["cloud_details"] = (
             {str(key)[:32]: str(value)[:256] for key, value in details.items()

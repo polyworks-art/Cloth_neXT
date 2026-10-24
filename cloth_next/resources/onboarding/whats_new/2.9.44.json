@@ -1,0 +1,35 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.44",
+  "title": "What's New in Cloth NeXt 2.9.44",
+  "subtitle": "Confirm Cloud Bakes in the Bake window.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/check.png",
+      "title": "Send from the Bake window",
+      "description": "The Bake window shows GPU, credit ceiling and maximum runtime of the quote; Send starts the Cloud Bake, Cancel drops it."
+    },
+    {
+      "icon": "icons/refresh.png",
+      "title": "Live Cloud status",
+      "description": "The Bake window follows the job with server data: upload, queue, frames, GPU, server runtime and the settled cost."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Fair billing",
+      "description": "The final cost follows the measured server runtime, start-up included, and never exceeds the confirmed ceiling."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}

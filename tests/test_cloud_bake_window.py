@@ -43,13 +43,33 @@ def test_every_cloud_snapshot_is_server_only():
         assert value.cloud_details["JOB"] == "Shirt Dunk"
 
 
-def test_waiting_for_approval_points_to_review_dialog():
-    value = snap(LocalState.AWAITING_APPROVAL, rec={"quote_accepted": False})
-    assert value.status_title == "Waiting for your confirmation"
-    assert "Review & Send" in value.activity_label
+def test_quote_is_confirmed_in_the_bake_window():
+    value = snap(LocalState.AWAITING_APPROVAL, rec={
+        "quote_accepted": False, "quote_id": "q-1", "quote_gpu": "NVIDIA RTX A5000",
+        "quote_usage_percent": 290, "quote_max_seconds": 900, "quote_unit": "credit"})
+    assert value.cloud_action == "APPROVE"
+    assert value.status_title == "max 30 credits · NVIDIA RTX A5000"
+    assert value.activity_label == "Click Send to start · 1 credit = 2.9 s"
     assert value.can_cancel
-    assert value.cloud_details["COST_LIMIT"] == "30 credits (test)"
+    assert value.cloud_details["COST_LIMIT"] == "30 credits"
+    assert value.cloud_details["MAX_RUNTIME"] == "15:00"
+    assert value.cloud_details["QUOTE_ID"] == "q-1"
     assert value.cloud_details["SERVER_STATE"] == "not sent yet"
+    waiting = snap(LocalState.AWAITING_APPROVAL, rec={"quote_id": ""})
+    assert waiting.cloud_action == "" and waiting.status_title == "Requesting a Cloud quote"
+
+
+def test_water_flow_not_offered_is_a_clear_error_not_a_paused_upload():
+    value = snap(LocalState.UPLOAD_PAUSED, rec={"error_code": "water_mode_unsupported",
+                                                "quote_accepted": False})
+    assert value.state is BakeState.ERROR
+    assert value.status_title == "Water Flow is not offered in the Cloud yet"
+    assert "no credits were used" in value.error_details
+    assert monitor.window_finished(record(LocalState.UPLOAD_PAUSED,
+                                          error_code="water_mode_unsupported"),
+                                   auto_download=True)
+    resumable = snap(LocalState.UPLOAD_PAUSED, rec={"error_code": "network_unavailable"})
+    assert resumable.state is BakeState.UPLOADING
 
 
 def test_upload_progress_uses_live_byte_counters():
@@ -166,6 +186,16 @@ def test_real_window_shows_cloud_section_and_hides_solver(monkeypatch):
         assert window.root.title() == "Cloth NeXt Bake"
         assert window.solver_stats_section.winfo_manager()
         assert not window.cloud_stats_section.winfo_manager()
+        sent = []
+        window.transport = SimpleNamespace(send=lambda kind, payload=None: sent.append((kind, payload)),
+                                           close=lambda: None, request_cancel=lambda: None)
+        window.show(snap(LocalState.AWAITING_APPROVAL, rec={"quote_id": "q-7"}))
+        assert str(window.details_button.cget("text")) == "Send"
+        window._details_or_send()
+        assert sent == [("cloud_approve", {"client_job_id": record(LocalState.QUEUED).client_job_id,
+                                           "quote_id": "q-7"})]
+        window.show(snap(LocalState.QUEUED, rec={"server_state": "queued"}))
+        assert str(window.details_button.cget("text")) in {"Hide", "Details"}
     finally:
         window.close()
 
@@ -265,3 +295,17 @@ def test_window_shows_gpu_runtime_and_only_settled_costs():
     quoted = snap(LocalState.AWAITING_APPROVAL, rec={"quote_gpu": "NVIDIA RTX A5000"})
     assert quoted.cloud_details["GPU"] == "NVIDIA RTX A5000"
     assert "FINAL_COST" not in quoted.cloud_details
+
+
+def test_window_send_approves_only_the_shown_quote(blender_env, monkeypatch):
+    job = record(LocalState.AWAITING_APPROVAL, quote_id="q-1")
+    manager, calls, _state = _manager(monkeypatch, [job])
+    runtime = __import__("cloth_next.blender.cloud_runtime", fromlist=["x"])
+    approved = []
+    monkeypatch.setattr(runtime, "approve", lambda cid, qid: approved.append((cid, qid)))
+    manager.follow_cloud_job(job.client_job_id)
+    manager._cloud_approve({"client_job_id": job.client_job_id, "quote_id": "old"})
+    manager._cloud_approve({"client_job_id": "other", "quote_id": "q-1"})
+    assert approved == []
+    manager._cloud_approve({"client_job_id": job.client_job_id, "quote_id": "q-1"})
+    assert approved == [(job.client_job_id, "q-1")]

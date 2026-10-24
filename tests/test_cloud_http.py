@@ -314,3 +314,24 @@ def test_dashboard_name_is_one_short_clean_line():
     assert len(dashboard_name("x" * 400)) == 128
     assert dashboard_name(r"C:\Users\someone\shirt.blend") == ""
     assert dashboard_name("") == ""
+
+
+def test_water_flow_not_offered_stops_before_quote_with_its_own_code(http, tmp_path, monkeypatch):
+    from dataclasses import replace
+    from cloth_next.cloud import jobs as jobs_module
+    from cloth_next.cloud.jobs import WaterFlowNotOffered
+    from cloth_next.cloud.registry import LocalState
+    original = http.client.capabilities
+    monkeypatch.setattr(http.client, "capabilities", lambda: replace(
+        original(), desktop_builds=tuple(replace(item, water_flow=False)
+                                         for item in original().desktop_builds)))
+    real_load = jobs_module.load_manifest
+    monkeypatch.setattr(jobs_module, "load_manifest", lambda store, sha: {
+        **real_load(store, sha), "water_flow": True, "water_mode": "hydrodynamic"})
+    _deformables, built = package(http, tmp_path)
+    with pytest.raises(WaterFlowNotOffered):
+        http.jobs.request_quote(built.client_job_id)
+    record = http.jobs.registry.get(built.client_job_id)
+    assert (record.state, record.error_code) == (LocalState.UPLOAD_PAUSED,
+                                                 "water_mode_unsupported")
+    assert not any(path.endswith("/quotes") for _m, path, _h in http.server.requests)

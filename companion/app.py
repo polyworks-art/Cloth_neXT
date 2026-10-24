@@ -900,7 +900,8 @@ class BakeWindow:
         self.solver_stat_vars,self.solver_stat_rows=solver_vars,solver_rows
         bottom=ttk.Frame(outer,style="CN.TFrame",height=30); bottom.grid(row=2,column=0,sticky="ew",pady=(5,0))
         self.details_button=ttk.Button(bottom,text="Details",width=8,
-            style="CN.TButton",command=self._toggle_details)
+            style="CN.TButton",command=self._details_or_send)
+        self._send_offer=None
         self.details_button.pack(side="left")
         ttk.Label(bottom,textvariable=self.time_text,style="CN.TLabel",
                   anchor="center",justify="center").place(
@@ -1082,6 +1083,36 @@ class BakeWindow:
         height=details_window_height(self._details_visible,requested)+self._chrome_height
         self.root.geometry(
             f"{width}x{height}+{self.root.winfo_x()}+{self.root.winfo_y()}")
+
+    def _details_or_send(self):
+        """Details, or Send while a Cloud quote waits for confirmation."""
+        offer=getattr(self,"_send_offer",None)
+        if not offer:
+            self._toggle_details(); return
+        self.transport.send("cloud_approve",dict(offer))
+        self._send_offer=None
+        self.details_button.state(["disabled"])
+        self.primary.set("Sending to Cloud…")
+
+    def _update_send_offer(self,snapshot):
+        values=dict(snapshot.cloud_details or {})
+        offer=({"client_job_id":values.get("CLIENT_JOB_ID",""),
+                "quote_id":values.get("QUOTE_ID","")}
+               if cloud_display(snapshot) and snapshot.cloud_action=="APPROVE"
+               and values.get("QUOTE_ID") else None)
+        previous=getattr(self,"_send_offer",None)
+        showing_send=str(self.details_button.cget("text"))=="Send"
+        if offer==previous and bool(offer)==showing_send:return
+        self._send_offer=offer
+        if offer:
+            # Show the quote rows next to the Send button.
+            if not self._details_visible:self._toggle_details()
+            self.details_button.configure(text="Send")
+            self.details_button.state(["!disabled"])
+        elif previous is not None or showing_send:
+            self.details_button.configure(
+                text="Hide" if self._details_visible else "Details")
+            self.details_button.state(["!disabled"])
 
     def _toggle_details(self):
         if getattr(self, '_water_display', False): return
@@ -1270,6 +1301,7 @@ class BakeWindow:
         self._set_activity(label,snapshot.state in {BakeState.ERROR,BakeState.CANCELLING,BakeState.CANCELLED,BakeState.FINISHED})
         self._update_solver_details(snapshot)
         self._update_cloud_details(snapshot)
+        self._update_send_offer(snapshot)
         self._show_run_details(snapshot)
         if cloud:self.status_tooltip.text="Live status from the Cloud server"
         elif not water_display:

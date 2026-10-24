@@ -1,4 +1,8 @@
-# Cloth NeXt 2.9.43
+# Cloth NeXt 2.9.44
+
+Cloud Bakes are confirmed in the Bake window: it shows the GPU, the credit ceiling and the maximum runtime of the quote, and Send starts the job. A Cloud Bake with Water Flow says clearly that Water Flow is not offered in the Cloud yet; nothing is sent and no credits are used.
+
+## 2.9.43
 
 Bake · Cloud is clickable again: with Cloud as Bake Location the Bake button is enabled as soon as the PolyWorks Cloud is ready. The Bake button in the floating viewport bar now shows only its icon: croissant for This Computer, cloud for Cloud.
 

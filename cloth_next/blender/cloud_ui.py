@@ -311,6 +311,8 @@ def _open_review_for_followed_job() -> None:
     followed = companion_manager.following_cloud_job()
     if not followed or followed in _review_opened:
         return
+    if companion_manager.running():
+        return  # the Bake window shows the quote and its Send button
     record = next((item for item in cloud_runtime.view().jobs
                    if item.client_job_id == followed), None)
     if record is None or record.state is not LocalState.AWAITING_APPROVAL:

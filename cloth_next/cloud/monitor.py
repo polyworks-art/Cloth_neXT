@@ -26,6 +26,29 @@ _CANCELLABLE = frozenset({LocalState.AWAITING_APPROVAL, LocalState.PACKAGED,
                           LocalState.UPLOAD_PAUSED, LocalState.QUEUED,
                           LocalState.RUNNING})
 UPLOAD_STATES = _UPLOAD
+# A paused job with one of these codes cannot be resumed as it is.
+BLOCKING_CODES = frozenset({"build_unavailable", "water_mode_unsupported",
+                            "cloud_access_required", "package_too_large"})
+_BLOCKED_HELP = {
+    "water_mode_unsupported": (
+        "The Cloud runs this GAIA build without Water Flow for now.",
+        "Bake on This Computer, or switch Water Flow off for a dry Cloud Bake."),
+    "build_unavailable": (
+        "The Cloud has no mapping for the selected solver build.",
+        "Select the GAIA build the Cloud offers, or Bake on This Computer."),
+    "cloud_access_required": (
+        "The PolyWorks account may not submit Cloud jobs.",
+        "Check Cloud access on your account page."),
+    "package_too_large": (
+        "The package exceeds the server's size limit.",
+        "Shorten the frame range or reduce the scene, then Bake again."),
+}
+_BLOCKED_TITLES = {
+    "water_mode_unsupported": "Water Flow is not offered in the Cloud yet",
+    "build_unavailable": "This solver build is not offered in the Cloud",
+    "cloud_access_required": "This account may not send Cloud Bakes",
+    "package_too_large": "The Bake is too large for the Cloud",
+}
 SUCCESS_TERMINAL = frozenset({LocalState.STORED})
 FAILURE_TERMINAL = frozenset({LocalState.FAILED, LocalState.CANCELLED,
                               LocalState.STOPPED_AT_LIMIT, LocalState.EXPIRED,
@@ -39,6 +62,8 @@ def _megabytes(done: int, total: int) -> str:
 def window_finished(record: JobRecord, *, auto_download: bool) -> bool:
     """True once the window has nothing more to follow for this job."""
     if record.state in SUCCESS_TERMINAL or record.state in FAILURE_TERMINAL:
+        return True
+    if record.state is LocalState.UPLOAD_PAUSED and record.error_code in BLOCKING_CODES:
         return True
     # Without automatic download the result waits on the server; the
     # window's work ends there and the Jobs list offers Download.
@@ -70,10 +95,13 @@ def details(record: JobRecord, *, upload_done: int = 0, upload_total: int = 0,
         rows["DOWNLOAD"] = _megabytes(min(download_done, download_total),
                                       download_total)
     if record.quote_maximum is not None:
-        unit = f" {record.quote_unit}" if record.quote_unit else ""
-        rows["COST_LIMIT"] = f"{record.quote_maximum:g}{unit}"
-        if record.quote_billing_mode and record.quote_billing_mode != "live":
-            rows["COST_LIMIT"] += f" ({record.quote_billing_mode})"
+        unit = record.quote_unit or "credit"
+        if record.quote_maximum != 1 and not unit.endswith("s"):
+            unit += "s"
+        rows["COST_LIMIT"] = f"{record.quote_maximum:g} {unit}"
+        if record.quote_max_seconds:
+            from ..bake.status import format_duration
+            rows["MAX_RUNTIME"] = format_duration(float(record.quote_max_seconds))
     if record.final_cost and record.billing_finalized:
         rows["FINAL_COST"] = record.final_cost
     elif record.state in SUCCESS_TERMINAL | FAILURE_TERMINAL | {LocalState.SUCCEEDED,
@@ -99,9 +127,33 @@ def snapshot_for(record: JobRecord, *, job_id: str = "", upload_done: int = 0,
     rows = details(record, upload_done=upload_done, upload_total=upload_total,
                    download_done=download_done, download_total=download_total)
     changes: dict = {}
-    if state in (LocalState.PACKAGED, LocalState.AWAITING_APPROVAL):
-        bake_state, title = BakeState.PREPARING, "Waiting for your confirmation"
-        activity = "Confirm the cost limit in Blender · Review & Send"
+    if state is LocalState.UPLOAD_PAUSED and record.error_code in BLOCKING_CODES:
+        public = errors.cnx_code(record.error_code)
+        title = _BLOCKED_TITLES[record.error_code]
+        cause, action = _BLOCKED_HELP[record.error_code]
+        return normalized(
+            BakeSnapshot(), state=BakeState.ERROR, job_id=job_id or record.client_job_id,
+            job_kind=BakeJobKind.BAKE, execution="CLOUD", cloud_details=rows,
+            status_title=title, status_message=title, activity_label=title,
+            error_code=public, error_summary=title,
+            error_details=(f"Stage: Cloud quote\nCause: {cause} Nothing was sent; "
+                           f"no credits were used.\nWhat to do: {action}"),
+            elapsed_seconds=max(0.0, now - record.created_at), can_cancel=False,
+            active_object_name=record.display_name)
+    if state is LocalState.AWAITING_APPROVAL and record.quote_id:
+        bake_state, title = BakeState.PREPARING, "Confirm the Cloud cost limit"
+        unit = record.quote_unit or "credit"
+        rate = (f" · 1 {unit} = {record.quote_usage_percent / 100:g} s"
+                if record.quote_usage_percent else "")
+        activity = f"Click Send to start{rate}"
+        changes.update(cloud_action="APPROVE")
+        rows["QUOTE_ID"] = record.quote_id        # not drawn; echoed on Send
+        rows["CLIENT_JOB_ID"] = record.client_job_id
+        limit = f"max {record.quote_maximum:g} {unit}s" if record.quote_maximum is not None else ""
+        title = " · ".join(item for item in (limit, record.quote_gpu) if item) or title
+    elif state in (LocalState.PACKAGED, LocalState.AWAITING_APPROVAL):
+        bake_state, title = BakeState.PREPARING, "Requesting a Cloud quote"
+        activity = "Asking the server for GPU and cost limit"
     elif state in _UPLOAD:
         total = upload_total or record.upload_bytes_total
         done = upload_done if upload_total else record.upload_bytes_done
