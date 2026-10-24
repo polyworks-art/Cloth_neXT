@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.9.48 - 2026-10-24
+
+- Cloud Jobs list: jobs the server no longer has and discarded (never sent) uploads are removed at start-up and with the new Clean Up button; jobs with a downloaded result stay.
+- Uploads wait as told when the Cloud write budget answers 429 (Retry-After) instead of pausing, and a switch to small upload blocks is logged with its original cause.
+
 ## 2.9.47 - 2026-10-24
 
 - Faster Cloud uploads: up to eight files upload at once, and every thread keeps its HTTPS connection alive instead of a new TLS handshake per request (measured on the live service with incompressible data: 10 to 34 Mbit/s). Upload progress stays exact and resumable.

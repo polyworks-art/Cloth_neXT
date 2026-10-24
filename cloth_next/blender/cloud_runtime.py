@@ -256,7 +256,12 @@ def _perform(runtime: CloudJobs, action: str, client_job_id: str) -> str:
         return ""
     if action == "recover":
         runtime.recover()
+        runtime.prune()      # drop entries the server no longer has
         return ""
+    if action == "prune":
+        removed = runtime.prune()
+        return (f"Removed {removed} Cloud job(s) that no longer exist"
+                if removed else "Cloud job list is up to date")
     if action == "download":
         _publish(download_done=0, download_total=0)
         runtime.download(client_job_id, progress=_download_progress)

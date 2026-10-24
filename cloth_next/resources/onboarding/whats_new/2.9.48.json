@@ -1,0 +1,35 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.48",
+  "title": "What's New in Cloth NeXt 2.9.48",
+  "subtitle": "A tidy Cloud Jobs list.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/check.png",
+      "title": "Clean Cloud Jobs list",
+      "description": "Jobs the server no longer has and discarded uploads leave the list automatically; Clean Up does it on request. Downloaded results stay."
+    },
+    {
+      "icon": "icons/refresh.png",
+      "title": "Live Cloud status",
+      "description": "The Bake window follows the job with server data: upload, queue, frames, GPU, server runtime and the settled cost."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Fair billing",
+      "description": "The final cost follows the measured server runtime, start-up included, and never exceeds the confirmed ceiling."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}

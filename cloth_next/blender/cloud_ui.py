@@ -25,6 +25,8 @@ _ACTIONS = (
      "Attach although settings or geometry changed or a newer local Bake exists"),
     ("DELETE_RESULT", "Delete Downloaded Result", "Delete the downloaded raw result from this computer"),
     ("REFRESH", "Refresh", "Ask the Cloud service for the current state of your jobs"),
+    ("PRUNE", "Clean Up", "Remove jobs that no longer exist on the server and unsent ones you "
+     "discarded; downloaded results stay"),
     ("RETRY", "Retry", "Run this job again after a server-side failure: the uploaded scene is "
      "reused and you confirm a new cost limit first; the failed run cost nothing"),
 )
@@ -101,6 +103,8 @@ class CLOTHNEXT_OT_cloud_job_action(bpy.types.Operator):
             cloud_runtime.enqueue("delete_result", self.client_job_id)
         elif self.action == "REFRESH":
             cloud_runtime.enqueue("refresh")
+        elif self.action == "PRUNE":
+            cloud_runtime.enqueue("prune")
         elif self.action == "RETRY":
             from ..cloud.jobs import retry_client_id
             child = retry_client_id(self.client_job_id)
@@ -254,6 +258,8 @@ def draw_jobs(layout, *, scene=None) -> None:
     header.label(text="Cloud Jobs")
     header.operator(CLOTHNEXT_OT_cloud_job_action.bl_idname, text="",
                     icon="FILE_REFRESH").action = "REFRESH"
+    header.operator(CLOTHNEXT_OT_cloud_job_action.bl_idname, text="",
+                    icon="TRASH").action = "PRUNE"
     header.operator("wm.url_open", text="", icon="URL").url = CLOUD_BAKES_PAGE
     if view.message:
         row = layout.row()

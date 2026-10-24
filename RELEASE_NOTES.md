@@ -1,4 +1,8 @@
-# Cloth NeXt 2.9.47
+# Cloth NeXt 2.9.48
+
+The Cloud Jobs list cleans itself up: jobs that no longer exist on the server and discarded uploads disappear, and a Clean Up button does it on request. Downloaded results stay. Uploads wait politely when the Cloud asks them to slow down.
+
+## 2.9.47
 
 Cloud uploads are about three times faster: up to eight files travel at once over kept-alive connections. When the service refuses large upload blocks, the upload continues with smaller blocks instead of pausing.
 

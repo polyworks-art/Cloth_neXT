@@ -185,10 +185,11 @@ def test_jobs_list_draws_from_snapshot_only(blender_env, monkeypatch):
     labels = [entry[1] for entry in log if entry[0] == "label"]
     assert "Shirt · 1–24 · GAIA" in labels
     assert "Upload paused – not sent" in labels
-    # Header: Refresh, then the Cloud Bakes dashboard link.
+    # Header: Refresh, Clean Up, then the Cloud Bakes dashboard link.
     operators = [entry for entry in log if entry[0] == "operator"]
-    assert operators[1][2].url == ui.CLOUD_BAKES_PAGE
-    assert [entry[1] for entry in operators][2:] == ["Resume Upload", "Cancel"]
+    assert operators[1][2].action == "PRUNE"
+    assert operators[2][2].url == ui.CLOUD_BAKES_PAGE
+    assert [entry[1] for entry in operators][3:] == ["Resume Upload", "Cancel"]
 
 
 def test_file_jobs_found_by_stored_id_or_object_uuid(blender_env):

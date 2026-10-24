@@ -230,6 +230,20 @@ class JobRegistry:
             self._write(records)
         return updated
 
+    def remove(self, client_job_ids) -> int:
+        """Drop records from the list (the jobs' own files are not touched)."""
+        wanted = set(client_job_ids)
+        if not wanted:
+            return 0
+        with _locked(self.root):
+            records = self._read()
+            removed = [key for key in wanted if key in records]
+            for key in removed:
+                del records[key]
+            if removed:
+                self._write(records)
+        return len(removed)
+
     def add_uploaded(self, client_job_id: str, key: str, size: int) -> JobRecord:
         """Record one confirmed file; safe for parallel uploads of one job."""
         with _locked(self.root):

@@ -417,3 +417,42 @@ def test_large_blocks_fall_back_when_a_proxy_refuses_the_body(http, tmp_path, mo
     assert refused and accepted and max(accepted) <= 1000
     # At most one refused attempt per parallel worker, never a backoff loop.
     assert len(refused) <= jobs_module.UPLOAD_WORKERS
+
+
+def test_prune_drops_gone_and_discarded_jobs_but_keeps_downloaded_results(http, tmp_path):
+    from cloth_next.cloud.registry import LocalState
+    _d1, gone = package(http, tmp_path / "a")
+    approve(http.jobs, gone)
+    gone_record = http.jobs.upload_and_submit(gone.client_job_id)
+    _d2, unsent = package(http, tmp_path / "b")
+    http.jobs.cancel(unsent.client_job_id)                    # DISCARDED locally
+    _d3, kept = package(http, tmp_path / "c")
+    approve(http.jobs, kept)
+    http.jobs.upload_and_submit(kept.client_job_id)
+    http.backend.run_pending()
+    http.jobs.refresh(kept.client_job_id)
+    http.jobs.download(kept.client_job_id)
+    del http.backend.jobs[gone_record.job_id]                 # server forgot it
+    http.backend.jobs[http.jobs.registry.get(kept.client_job_id).job_id]["state"] = "expired"
+    assert http.jobs.prune() == 2
+    remaining = {item.client_job_id: item.state for item in http.jobs.registry.all()}
+    assert remaining == {kept.client_job_id: LocalState.STORED}
+
+
+def test_rate_limit_waits_as_told_instead_of_pausing(http, tmp_path, monkeypatch):
+    from cloth_next.cloud import jobs as jobs_module
+    slept = []
+    http.jobs._sleep = slept.append
+    _deformables, built = package(http, tmp_path)
+    approve(http.jobs, built)
+    original = http.client.upload_chunk
+    hits = {"count": 0}
+    def limited(upload_id, offset, data):
+        if hits["count"] < 3:
+            hits["count"] += 1
+            raise jobs_module.wire.CloudError("rate_limited", retry_after=7)
+        return original(upload_id, offset, data)
+    monkeypatch.setattr(http.client, "upload_chunk", limited)
+    monkeypatch.setattr(jobs_module, "SMALL_UPLOAD_BLOCK", 1 << 40)   # regular path only
+    assert http.jobs.upload_and_submit(built.client_job_id).submitted_confirmed
+    assert slept.count(7.0) == 3

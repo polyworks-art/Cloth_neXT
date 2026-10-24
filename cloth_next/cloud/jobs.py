@@ -28,6 +28,9 @@ from .registry import (JobRecord, JobRegistry, LocalState, NOT_SUBMITTED,
                        POSSIBLY_SUBMITTED, new_record)
 from .results import ResultArchive, ResultCorrupt
 from .snapshot import load_snapshot
+from ..core.logging import get_logger
+
+_LOG = get_logger("cloud.jobs")
 
 UPLOAD_BLOCK = 8 * 1024 * 1024
 BACKOFF = (2.0, 5.0, 15.0, 60.0)
@@ -59,6 +62,7 @@ class ApprovalRequired(Exception):
 
 
 DISPLAY_NAME_LIMIT = 128
+RATE_LIMIT_PATIENCE = 30 * 60.0   # total 429 waiting before an upload pauses
 UPLOAD_WORKERS = 8          # measured: 1 → 10, 4 → 22, 8 → 34 Mbit/s (24 Oct)
 SMALL_UPLOAD_BLOCK = 1_000_000  # fits a 1 MiB proxy body limit even uncompressed
 
@@ -159,6 +163,34 @@ class CloudJobs:
             upload_bytes_total=package.total_bytes,
             blend_identity=blend_identity,
             object_uuids=[item["uuid"] for item in package.manifest["objects"]]))
+
+    # List cleanup ------------------------------------------------------------
+    def prune(self) -> int:
+        """Remove list entries whose server job no longer exists.
+
+        Discarded (never sent) entries go too. A job with a downloaded result
+        on this computer stays, whatever the server says: the result is local.
+        """
+        gone = []
+        for record in self.registry.all():
+            if record.state is LocalState.DISCARDED:
+                gone.append(record.client_job_id)
+                continue
+            if not record.job_id or record.state is LocalState.STORED:
+                continue
+            try:
+                info = self.backend.get_job(record.job_id)
+            except wire.CloudError as exc:
+                if exc.code in ("not_found", "job_not_found"):
+                    gone.append(record.client_job_id)
+                continue
+            except wire.CloudUnconfirmed:
+                continue
+            if info.deleted:
+                gone.append(record.client_job_id)
+        for client_job_id in gone:
+            self.store.release_reference(client_job_id)
+        return self.registry.remove(gone)
 
     # Retry of a free infrastructure failure ----------------------------------
     def request_retry(self, client_job_id: str) -> JobRecord:
@@ -287,7 +319,19 @@ class CloudJobs:
                              or exc.retryable)
                 if not transient:
                     raise
-                if attempt >= len(self._backoff) or cancelled():
+                if cancelled():
+                    raise UploadPaused("network") from exc
+                if isinstance(exc, wire.CloudError) and exc.code == "rate_limited":
+                    # The write budget (6000 per 15 min) refills: wait as told
+                    # and continue; this is not a broken connection.
+                    waited = getattr(self, "_rate_waited", 0.0)
+                    delay = min(max(float(exc.retry_after or 30.0), 1.0), 900.0)
+                    if waited + delay > RATE_LIMIT_PATIENCE:
+                        raise UploadPaused("rate_limited") from exc
+                    self._rate_waited = waited + delay
+                    self._sleep(delay)
+                    continue
+                if attempt >= len(self._backoff):
                     raise UploadPaused("network") from exc
                 delay = getattr(exc, "retry_after", None) or self._backoff[attempt]
                 self._sleep(delay)
@@ -446,6 +490,10 @@ class CloudJobs:
                     continue
                 except wire.CloudError as exc:
                     if exc.code == "network_unavailable":
+                        _LOG.warning(
+                            "Cloud upload block of %d bytes failed (%s, cause %r); "
+                            "continuing with %d-byte blocks", length, exc.code,
+                            exc.__cause__, SMALL_UPLOAD_BLOCK)
                         with self._block_lock:
                             self._upload_block = min(self._upload_block,
                                                      SMALL_UPLOAD_BLOCK)
