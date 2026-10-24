@@ -160,7 +160,7 @@ def review_lines(record, manifest, capabilities=None) -> list[str]:
     retention = getattr(capabilities, "retention_days", None)
     if retention:
         lines.append(f"Results stay available for {retention} days.")
-    lines.append("Scene geometry and simulation settings are sent to the "
+    lines.append("Scene geometry, simulation settings and the job name are sent to the "
                  "PolyWorks Cloud and deleted after the retention period.")
     return lines
 

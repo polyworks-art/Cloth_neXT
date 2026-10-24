@@ -123,6 +123,7 @@ class CloudTestBackend:
             error_code=job.get("error_code", "") or "",
             manifest_sha256=job["manifest_sha256"],
             gpu_type_id=self.gpu_type_id if job["state"] != wire.UPLOADING else "",
+            display_name=job.get("display_name") or "",
             billing_reserved=(None if job["state"] in wire.TERMINAL_STATES | {wire.UPLOADING}
                               else self.quote_maximum),
             billing_charged=(7 if job["state"] in wire.TERMINAL_STATES else None),
@@ -186,8 +187,10 @@ class CloudTestBackend:
                           self.quote_maximum, digest,
                           gpu_type_id=self.gpu_type_id, usage_percent=290)
 
-    def create_job(self, *, client_job_id, manifest, idempotency_key):
+    def create_job(self, *, client_job_id, manifest, idempotency_key, display_name=""):
         self._enter("create_job")
+        if display_name and not 1 <= len(display_name) <= 128:
+            raise wire.CloudError("validation_error", status=422)
         with self.lock:
             offered = self._offered(manifest)
             if offered is None:
@@ -197,6 +200,7 @@ class CloudTestBackend:
             def create():
                 job_id = self._new_id()
                 self.jobs[job_id] = {
+                    "display_name": display_name or None,
                     "job_id": job_id, "client_job_id": client_job_id,
                     "account": self.account_name, "state": wire.UPLOADING,
                     "manifest": manifest, "manifest_sha256": digest,

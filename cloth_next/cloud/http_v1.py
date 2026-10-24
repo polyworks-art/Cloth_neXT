@@ -106,6 +106,7 @@ def _job(value: Any) -> wire.JobInfo:
         manifest_sha256=_str(value.get("manifest_sha256"), optional=True) or "",
         deleted=bool(value.get("deleted", False)),
         gpu_type_id=_str(value.get("gpu_type_id"), optional=True) or "",
+        display_name=_str(value.get("display_name"), optional=True) or "",
         billing_reserved=_int(billing.get("reserved"), optional=True),
         billing_charged=charged, billing_finalized=finalized, billing_unit=unit,
         # Only a finalized settlement is a final cost; a settled 0 is real.
@@ -302,8 +303,13 @@ class HttpCloudBackend:
             gpu_type_id=_str(value.get("gpu_type_id"), optional=True) or "",
             usage_percent=_int(value.get("usage_percent"), optional=True))
 
-    def create_job(self, *, client_job_id, manifest, idempotency_key):
-        return _job(self._json("POST", "/jobs", {"manifest": manifest},
+    def create_job(self, *, client_job_id, manifest, idempotency_key, display_name=""):
+        # display_name sits beside the manifest: the manifest and its
+        # checksum stay unchanged (contract 24 October 2026).
+        body = {"manifest": manifest}
+        if display_name:
+            body["display_name"] = display_name
+        return _job(self._json("POST", "/jobs", body,
                                idempotency_key=idempotency_key))
 
     def open_upload(self, job_id, role, name):

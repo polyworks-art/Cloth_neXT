@@ -199,6 +199,19 @@
       "Create": {
         "additionalProperties": false,
         "properties": {
+          "display_name": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
           "manifest": {
             "$ref": "#/components/schemas/Manifest"
           }
@@ -436,6 +449,17 @@
           "deleted": {
             "title": "Deleted",
             "type": "boolean"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
           },
           "error_code": {
             "anyOf": [

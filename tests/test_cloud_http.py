@@ -291,3 +291,26 @@ def test_unfinalized_billing_is_not_a_final_cost():
                                         "charged": 1, "finalized": True},
                     "statistics": {"elapsed_ms": 282000}})
     assert settled.final_cost == "1 credit" and settled.elapsed_ms == 282000
+
+
+def test_display_name_is_sent_beside_the_manifest(http, tmp_path):
+    import jsonschema
+    _deformables, built = package(http, tmp_path)
+    approve(http.jobs, built)
+    record = http.jobs.upload_and_submit(built.client_job_id)
+    job = http.backend.jobs[record.job_id]
+    assert job["display_name"] == record.display_name and record.display_name
+    # The manifest (and so its checksum) is unchanged by the name.
+    assert "display_name" not in job["manifest"]
+    assert job["manifest_sha256"] == record.server_manifest_sha256 or not record.server_manifest_sha256
+    body = {"manifest": job["manifest"], "display_name": record.display_name}
+    jsonschema.validate(body, _openapi_schema("Create"))
+
+
+def test_dashboard_name_is_one_short_clean_line():
+    from cloth_next.cloud.jobs import dashboard_name
+    assert dashboard_name("Sleeve · 50–60") == "Sleeve · 50–60"
+    assert dashboard_name("  Shirt\n\t· 1–24 ") == "Shirt · 1–24"
+    assert len(dashboard_name("x" * 400)) == 128
+    assert dashboard_name(r"C:\Users\someone\shirt.blend") == ""
+    assert dashboard_name("") == ""

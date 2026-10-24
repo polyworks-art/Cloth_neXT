@@ -58,6 +58,24 @@ class ApprovalRequired(Exception):
     code = "quote_expired"
 
 
+DISPLAY_NAME_LIMIT = 128
+
+
+def dashboard_name(name: str) -> str:
+    """The job title for the Cloud Bakes dashboard, or "" to send none.
+
+    One printable line of at most 128 characters; anything that looks like a
+    path, URL or secret is not sent (the dashboard then shows its own title).
+    """
+    from . import privacy
+    text = "".join(ch if ch.isprintable() else " " for ch in str(name or ""))
+    text = " ".join(text.split())
+    text = text[:DISPLAY_NAME_LIMIT].strip()
+    if not text or privacy.findings({"display_name": text}):
+        return ""
+    return text
+
+
 class AccessDenied(Exception):
     """The PolyWorks account may not submit Cloud jobs (``/account``)."""
 
@@ -231,7 +249,8 @@ class CloudJobs:
             try:
                 info = self.backend.create_job(
                     client_job_id=client_job_id, manifest=manifest,
-                    idempotency_key=record.create_key)
+                    idempotency_key=record.create_key,
+                    display_name=dashboard_name(record.display_name))
             except wire.CloudUnconfirmed:
                 self.registry.update(client_job_id, state=LocalState.UNCONFIRMED)
                 return self.reconcile(client_job_id)

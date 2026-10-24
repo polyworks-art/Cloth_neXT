@@ -41,6 +41,7 @@ def _job_out(info: wire.JobInfo) -> dict:
             "result_expires_at": info.expires_at, "uploaded_roles": [],
             "statistics": {"elapsed_ms": info.elapsed_ms},
             "gpu_type_id": info.gpu_type_id or None,
+            "display_name": info.display_name or None,
             "billing": (None if info.billing_reserved is None and not info.billing_finalized
                         else {"unit": info.billing_unit or "credit",
                               "reserved": 0 if info.billing_finalized else info.billing_reserved,
@@ -192,9 +193,12 @@ class CloudHttpServer:
                     if not key:
                         raise wire.CloudError("idempotency_key_required")
                     manifest = payload["manifest"]
+                    if set(payload) - {"manifest", "display_name"}:
+                        raise wire.CloudError("validation_error")
                     return 201, _job_out(backend.create_job(
                         client_job_id=manifest["client_job_id"], manifest=manifest,
-                        idempotency_key=key))
+                        idempotency_key=key,
+                        display_name=payload.get("display_name") or ""))
                 match = re.fullmatch(r"/jobs/by-client-id/([^/]+)", path)
                 if method == "GET" and match:
                     info = backend.find_job(match.group(1))
