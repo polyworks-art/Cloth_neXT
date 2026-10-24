@@ -866,8 +866,9 @@ def _bake_panel_model(context, solver_status: _SolverStatus | None = None) \
     if not reason and location == "CLOUD":
         from ..cloud import service
         # Never a silent fallback to this computer (concept 12.1).
-        reason = service.availability().reason or (
-            "Cloud submission is not connected in this version.")
+        status = service.availability()
+        if not status.available:
+            reason = status.reason or "Cloud Bakes are not available right now."
     return _BakePanelModel(not reason, action, reason, summary, cache_label)
 
 

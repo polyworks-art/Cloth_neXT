@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.9.43 - 2026-10-24
+
+- Fix the Bake button staying disabled with Bake Location "Cloud" although the PolyWorks Cloud was ready: the button no longer shows the old "Cloud submission is not connected" reason once Cloud is unlocked.
+
 ## 2.9.42 - 2026-10-24
 
 - Cloud Bakes carry their name (for example "Sleeve · 50–60") to the Cloud Bakes dashboard. The name is one short line; anything that looks like a path, URL or secret is not sent. The Bake package and its checksum are unchanged.

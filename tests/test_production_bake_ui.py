@@ -1207,3 +1207,23 @@ def test_no_native_cloth_modifier_added_by_production_bake():
     source = Path("cloth_next/blender/solver_test.py").read_text(encoding="utf-8")
     assert 'type="CLOTH"' not in source
     assert 'type="MESH_CACHE"' in source
+
+
+def test_cloud_bake_button_follows_cloud_availability(blender_env, monkeypatch):
+    """Bake · Cloud is enabled exactly when the server unlocked Cloud."""
+    from cloth_next.cloud import service
+    env = blender_env; env.registration.register()
+    objects = _objects(env)
+    ui = env.physics_ui
+    monkeypatch.setattr(ui, "_solver_status",
+                        lambda _c: ui._SolverStatus(True, "Ready"))
+    monkeypatch.setattr(ui, "bake_location", lambda _c: "CLOUD")
+    monkeypatch.setattr(service, "availability",
+                        lambda *_a: service.Availability(True, ""))
+    model = ui._bake_panel_model(_context(env, objects))
+    assert model.enabled and model.reason == ""
+    monkeypatch.setattr(service, "availability",
+                        lambda *_a: service.Availability(False, service.LOCKED_REASON))
+    model = ui._bake_panel_model(_context(env, objects))
+    assert not model.enabled and model.reason == service.LOCKED_REASON
+    env.registration.unregister()

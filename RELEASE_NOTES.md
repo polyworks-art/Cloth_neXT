@@ -1,4 +1,8 @@
-# Cloth NeXt 2.9.42
+# Cloth NeXt 2.9.43
+
+Bake · Cloud is clickable again: with Cloud as Bake Location the Bake button is enabled as soon as the PolyWorks Cloud is ready.
+
+## 2.9.42
 
 Cloud Bakes now appear on your Cloud Bakes dashboard with their name, for example the object and its frame range, instead of a job number.
 
