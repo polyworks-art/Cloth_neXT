@@ -1,6 +1,6 @@
 # Cloth NeXt 2.9.43
 
-Bake · Cloud is clickable again: with Cloud as Bake Location the Bake button is enabled as soon as the PolyWorks Cloud is ready.
+Bake · Cloud is clickable again: with Cloud as Bake Location the Bake button is enabled as soon as the PolyWorks Cloud is ready. The Bake button in the floating viewport bar now shows only its icon: croissant for This Computer, cloud for Cloud.
 
 ## 2.9.42
 
