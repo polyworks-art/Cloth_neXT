@@ -13,7 +13,7 @@ from dataclasses import dataclass
 
 SEPARATOR = None
 
-BUTTON = 24.0                     # diameter, matches Blender's navigation buttons
+BUTTON = 80.0 / 2.8               # diameter of the capsule behind Blender's navigation buttons
 GAP = 5.0
 SEPARATOR_HEIGHT = 11.0
 MARGIN = 10.0

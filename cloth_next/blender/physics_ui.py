@@ -1535,10 +1535,6 @@ class CLOTHNEXT_PT_sewing(_ClothNextSubpanel, bpy.types.Panel):
         top.operator(op, text="Start Sewing", icon="ADD").mode = "SEGMENT"
         top.prop(scene, "cloth_next_show_sewing", text="",
                  icon="HIDE_OFF" if scene.cloth_next_show_sewing else "HIDE_ON")
-        modes = layout.row(align=True)
-        for mode, label in (("SEGMENT", "Segment"), ("FREE", "Free"),
-                            ("MULTI", "Multi"), ("EDIT", "Edit")):
-            modes.operator(op, text=label).mode = mode
         visual = scene.cloth_next_sewing_visual
         display = layout.row(align=True)
         display.prop(visual, "ui_expanded", text="Display", emboss=False,

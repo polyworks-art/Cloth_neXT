@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Draws modal editor toolbars in the Cloth NeXt floating-toolbar style.
 
-A column of round icon buttons, exactly as wide as Blender's navigation
-buttons, hangs below them on the right edge of the 3D View and moves with the
-sidebar (N panel). The top of the viewport stays free for other add-ons.
+A column of round icon buttons, exactly as wide as the capsule behind
+Blender's navigation buttons, hangs below them on the right edge of the 3D
+View and moves with the sidebar (N panel). The top of the viewport stays free for other add-ons.
 
 Icons: ``assets/icons/tool_<icon>.png`` is used when present; otherwise a
 vector placeholder from ``tool_icons`` is drawn.
@@ -75,7 +75,10 @@ def anchor(context):
 
 def build_layout(context, items):
     center, top, bottom = anchor(context)
-    return tool_overlay.vertical_layout(items, center, top, bottom, ui_scale(context))
+    # Blender sizes its navigation buttons from the gizmo size preference.
+    gizmo_size = float(getattr(context.preferences.view, "gizmo_size_navigate_v3d", 80))
+    return tool_overlay.vertical_layout(items, center, top, bottom,
+                                        ui_scale(context) * gizmo_size / 80)
 
 
 def _bubble(blf, shader, batch_for_shader, floating, text, right, center_y, size,
@@ -118,7 +121,7 @@ def _draw_glyph(gpu, batch_for_shader, floating, blf, placed, color, region):
             shader = gpu.shader.from_builtin("POLYLINE_UNIFORM_COLOR")
             shader.bind()
             shader.uniform_float("viewportSize", (region.width, region.height))
-            shader.uniform_float("lineWidth", max(1.0, 1.5 * placed.width / 24))
+            shader.uniform_float("lineWidth", max(1.0, 1.6 * placed.width / 24))
             shader.uniform_float("color", color)
             batch_for_shader(shader, "LINES", {"pos": lines}).draw(shader)
         flat = gpu.shader.from_builtin("UNIFORM_COLOR")
