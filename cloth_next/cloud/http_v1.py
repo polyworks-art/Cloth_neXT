@@ -112,7 +112,10 @@ def _job(value: Any) -> wire.JobInfo:
         # Only a finalized settlement is a final cost; a settled 0 is real.
         final_cost=(f"{charged} {_plural(unit, charged)}"
                     if finalized and charged is not None else None),
-        elapsed_ms=_int(statistics.get("elapsed_ms"), optional=True))
+        elapsed_ms=_int(statistics.get("elapsed_ms"), optional=True),
+        retryable=value.get("retryable") is True,
+        retry_of=_str(value.get("retry_of"), optional=True) or "",
+        retried_as=_str(value.get("retried_as"), optional=True) or "")
 
 
 def _plural(unit: str, count: int) -> str:
@@ -311,6 +314,15 @@ class HttpCloudBackend:
             body["display_name"] = display_name
         return _job(self._json("POST", "/jobs", body,
                                idempotency_key=idempotency_key))
+
+    def retry(self, job_id, *, accepted_maximum):
+        """Resubmit a free infrastructure failure as its (one) retry job.
+
+        The server reuses the retained package; repeating the call returns
+        the same retry job, so it is safe after an unclear answer.
+        """
+        return _job(self._json("POST", f"/jobs/{quote(job_id)}/retry",
+                               {"accepted_maximum": int(accepted_maximum)}))
 
     def open_upload(self, job_id, role, name):
         return _upload(self._json("POST", f"/jobs/{quote(job_id)}/uploads",

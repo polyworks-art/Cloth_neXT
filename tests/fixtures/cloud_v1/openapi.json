@@ -561,6 +561,37 @@
             },
             "title": "Uploaded Roles",
             "type": "array"
+          },
+          "retryable": {
+            "default": false,
+            "title": "Retryable",
+            "type": "boolean"
+          },
+          "retry_of": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Retry Of"
+          },
+          "retried_as": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Retried As"
           }
         },
         "required": [
@@ -1499,6 +1530,21 @@
           "expires_at"
         ],
         "title": "UploadOut",
+        "type": "object"
+      },
+      "Retry": {
+        "additionalProperties": false,
+        "properties": {
+          "accepted_maximum": {
+            "minimum": 0,
+            "title": "Accepted Maximum",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "accepted_maximum"
+        ],
+        "title": "Retry",
         "type": "object"
       }
     },

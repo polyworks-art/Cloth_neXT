@@ -22,3 +22,14 @@ downloaded from https://account.cloth-next.de/assets/.
   charging stays disabled. Automatic add-on-triggered Pod dispatch and public
   API routing remain server-side dependencies: a submitted job is not proof of
   a Pod launch.
+
+## Retry (Tim, 24 October 2026)
+
+`POST /v1/cloud/jobs/{job_id}/retry`, body `{"accepted_maximum": <credits>}` →
+`JobOut` of the retry job. Only a FAILED job whose error is a free infrastructure
+failure (`provisioning_failed`, `worker_lost`, `active_pod_exists`) with no used
+credits and a retained package can be retried; the retry job's client_job_id is
+`uuid5(client_job_id, "cloud-bake-retry")`, a repeated call returns the same job,
+and `accepted_maximum` must equal a current quote of that manifest. `JobOut`
+carries `retryable`, `retry_of`, `retried_as`. The published OpenAPI asset does not
+list these yet; the fixture adds them from the live JobOut and the server schema.

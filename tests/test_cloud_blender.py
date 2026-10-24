@@ -235,3 +235,28 @@ def test_review_lines_show_server_quote_and_test_billing(blender_env):
             "no payment provider is charged.") in lines
     assert "1 object(s) · 625 vertices · Water Flow · Hydrodynamic Pressure" in lines
     assert ui.actions_for(record) == ("REVIEW", "CANCEL")
+
+
+def test_failed_free_job_offers_retry_and_requests_its_review(blender_env, monkeypatch):
+    import importlib
+    from cloth_next.cloud.jobs import retry_client_id
+    from cloth_next.cloud.registry import LocalState
+    ui = importlib.import_module("cloth_next.blender.cloud_ui")
+    runtime = importlib.import_module("cloth_next.blender.cloud_runtime")
+    parent_id = "0f0e0d0c-0b0a-4908-8706-050403020100"
+    failed = SimpleNamespace(state=LocalState.FAILED, retryable=True, retried_as="",
+                             client_job_id=parent_id)
+    assert ui.actions_for(failed) == ("RETRY",)
+    assert ui.actions_for(SimpleNamespace(state=LocalState.FAILED, retryable=False,
+                                          retried_as="")) == ()
+    assert ui.actions_for(SimpleNamespace(state=LocalState.FAILED, retryable=True,
+                                          retried_as="x")) == ()
+    queued = []
+    monkeypatch.setattr(runtime, "enqueue", lambda action, job="": queued.append((action, job)))
+    operator = ui.CLOTHNEXT_OT_cloud_job_action()
+    operator.action, operator.client_job_id = "RETRY", parent_id
+    scene = SimpleNamespace(cloth_next_cloud_job_ids="")
+    assert operator.execute(SimpleNamespace(scene=scene)) == {"FINISHED"}
+    child = retry_client_id(parent_id)
+    assert queued == [("retry", parent_id)]
+    assert child in scene.cloth_next_cloud_job_ids and child in ui._review_requested

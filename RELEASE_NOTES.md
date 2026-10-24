@@ -1,4 +1,8 @@
-# Cloth NeXt 2.9.45
+# Cloth NeXt 2.9.46
+
+A Cloud Bake that failed on the server side without cost can be retried from the Cloud Jobs list. The uploaded scene is reused, and Review & Send asks you to confirm the new cost limit before the retry starts.
+
+## 2.9.45
 
 An unchanged FLIP cache is no longer prepared again for every Bake, also after a Blender restart: the Water Flow cache and the Hydrodynamic Pressure surfaces are reused until a FLIP file, the frame range or the Fluid Cache settings change. The Bake window keeps error text steady while it shows a failed Cloud job.
 

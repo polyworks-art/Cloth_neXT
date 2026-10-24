@@ -54,6 +54,7 @@ KNOWN_CODES = frozenset({
     "content_corrupt", "conflict", "upload_expired", "result_unavailable",
     "payload_too_large", "package_too_large", "invalid_content_type",
     "validation_error", "rate_limited", "account_limit", "feature_disabled",
+    "not_retryable", "package_not_retained",
     # client-side conditions
     "network_unavailable", "service_unavailable", "invalid_response",
     "hash_mismatch", "quote_expired", "build_unavailable", "job_not_found",
@@ -181,6 +182,9 @@ class JobInfo:
     billing_finalized: bool = False
     billing_unit: str = ""
     elapsed_ms: int | None = None            # accounting duration once finalized
+    retryable: bool = False                  # failed for free; POST /retry allowed
+    retry_of: str = ""                       # server job this one retries
+    retried_as: str = ""                     # server job that retries this one
 
     def __post_init__(self) -> None:
         if self.state not in SERVER_STATES:
@@ -232,6 +236,8 @@ class CloudBackend(Protocol):
                idempotency_key: str) -> JobInfo: ...
 
     def get_job(self, job_id: str) -> JobInfo: ...
+
+    def retry(self, job_id: str, *, accepted_maximum: int) -> JobInfo: ...
 
     def find_job(self, client_job_id: str) -> JobInfo | None: ...
 

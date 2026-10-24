@@ -109,6 +109,9 @@ class JobRecord:
     billing_reserved: int | None = None
     billing_finalized: bool = False
     elapsed_ms: int | None = None           # server accounting duration
+    retryable: bool = False                 # server allows POST /retry
+    retried_as: str = ""                    # local client_job_id of the retry
+    retry_of: str = ""                      # local client_job_id this retries
 
     def to_json(self) -> dict:
         value = asdict(self)

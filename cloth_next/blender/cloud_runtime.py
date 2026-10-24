@@ -245,6 +245,9 @@ def _perform(runtime: CloudJobs, action: str, client_job_id: str) -> str:
     if action == "quote":
         runtime.request_quote(client_job_id)
         return "Review the Cloud cost limit to send this job."
+    if action == "retry":
+        runtime.request_retry(client_job_id)
+        return "Review the Cloud cost limit to retry this job."
     if action == "refresh":
         for record in runtime.registry.all():
             if record.submitted_confirmed and record.state in (
@@ -390,6 +393,10 @@ def describe_state(record: JobRecord) -> str:
     if state is LocalState.STOPPED_AT_LIMIT:
         return "Stopped at cost limit"
     if state is LocalState.FAILED:
+        if getattr(record, "retried_as", ""):
+            return f"Failed ({errors.cnx_code('solver_failed')}) · retried"
+        if getattr(record, "retryable", False):
+            return f"Failed on the server ({errors.cnx_code('solver_failed')}) · free retry"
         return f"Failed ({errors.cnx_code('solver_failed')})"
     if state is LocalState.CANCELLED:
         return "Cancelled"

@@ -57,6 +57,9 @@ class RawRunOutput:
         self.failed_code = failed_code
 
 
+RETRYABLE_ERRORS = {"provisioning_failed", "worker_lost", "active_pod_exists"}
+
+
 class CloudTestBackend:
     def __init__(self, *, executor=None, account: str = "account-a",
                  builds=None, quote_maximum: int = 30) -> None:
@@ -124,6 +127,11 @@ class CloudTestBackend:
             manifest_sha256=job["manifest_sha256"],
             gpu_type_id=self.gpu_type_id if job["state"] != wire.UPLOADING else "",
             display_name=job.get("display_name") or "",
+            retryable=(job["state"] == wire.FAILED
+                       and job.get("error_code") in RETRYABLE_ERRORS
+                       and not job.get("retried_as")),
+            retry_of=job.get("retry_of") or "",
+            retried_as=job.get("retried_as") or "",
             billing_reserved=(None if job["state"] in wire.TERMINAL_STATES | {wire.UPLOADING}
                               else self.quote_maximum),
             billing_charged=(7 if job["state"] in wire.TERMINAL_STATES else None),
@@ -303,6 +311,30 @@ class CloudTestBackend:
                 return job_id
             self._claim_key(idempotency_key, f"submit:{job_id}:{quote_id}", accept)
             return self._leave("submit", self._info(job))
+
+    def retry(self, job_id, *, accepted_maximum):
+        """Server retry (24 Oct): one free retry job reusing the package."""
+        import uuid
+        self._enter("retry")
+        with self.lock:
+            parent = self._job(job_id)
+            if parent.get("retried_as"):
+                return self._leave("retry", self._info(self.jobs[parent["retried_as"]]))
+            if parent["state"] != wire.FAILED or parent.get("error_code") not in RETRYABLE_ERRORS:
+                raise wire.CloudError("conflict", status=409)
+            if int(accepted_maximum) != int(self.quote_maximum):
+                raise wire.CloudError("invalid_quote", status=409)
+            child_client = str(uuid.uuid5(uuid.UUID(parent["client_job_id"]), "cloud-bake-retry"))
+            manifest = {**parent["manifest"], "client_job_id": child_client}
+            child_id = self._new_id()
+            self.jobs[child_id] = {
+                **{key: value for key, value in parent.items()
+                   if key not in ("result", "result_manifest", "progress", "error_code")},
+                "job_id": child_id, "client_job_id": child_client, "manifest": manifest,
+                "manifest_sha256": manifest_sha256(manifest), "state": wire.QUEUED,
+                "attached": set(parent["files"]), "submits": 1, "retry_of": job_id}
+            parent["retried_as"] = child_id
+            return self._leave("retry", self._info(self.jobs[child_id]))
 
     def get_job(self, job_id):
         self._enter("get_job")

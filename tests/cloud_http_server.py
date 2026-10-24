@@ -42,6 +42,8 @@ def _job_out(info: wire.JobInfo) -> dict:
             "statistics": {"elapsed_ms": info.elapsed_ms},
             "gpu_type_id": info.gpu_type_id or None,
             "display_name": info.display_name or None,
+            "retryable": info.retryable, "retry_of": info.retry_of or None,
+            "retried_as": info.retried_as or None,
             "billing": (None if info.billing_reserved is None and not info.billing_finalized
                         else {"unit": info.billing_unit or "credit",
                               "reserved": 0 if info.billing_finalized else info.billing_reserved,
@@ -223,6 +225,9 @@ class CloudHttpServer:
                             idempotency_key=key))
                     if method == "POST" and action == "cancel":
                         return 200, _job_out(backend.cancel(job_id))
+                    if method == "POST" and action == "retry":
+                        return 200, _job_out(backend.retry(
+                            job_id, accepted_maximum=payload["accepted_maximum"]))
                     if method == "POST" and action == "result-session":
                         return 200, self._result_session(job_id)
                     if method == "POST" and action == "package-session":

@@ -70,6 +70,8 @@ _BY_CODE = {
     "native_process_terminated": "CNX-E210",
     "result_storage_failed": "CNX-E210",
     "test_limit_reached": "CNX-E204",
+    "not_retryable": "CNX-E210",
+    "package_not_retained": "CNX-E212",
 }
 
 

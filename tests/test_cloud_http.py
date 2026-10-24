@@ -335,3 +335,51 @@ def test_water_flow_not_offered_stops_before_quote_with_its_own_code(http, tmp_p
     assert (record.state, record.error_code) == (LocalState.UPLOAD_PAUSED,
                                                  "water_mode_unsupported")
     assert not any(path.endswith("/quotes") for _m, path, _h in http.server.requests)
+
+
+def test_free_server_failure_is_retried_with_a_confirmed_quote(http, tmp_path):
+    """Retry reuses the package; the artist confirms the new cost limit first."""
+    from cloth_next.cloud.jobs import retry_client_id
+    from cloth_next.cloud.registry import LocalState
+    from tests.cloud_backend import RawRunOutput
+    real_executor = http.backend.executor
+    http.backend.executor = lambda job, files: RawRunOutput(
+        map_blob=b"", frames=[], failed_code="worker_lost")
+    _deformables, built = package(http, tmp_path)
+    approve(http.jobs, built)
+    http.jobs.upload_and_submit(built.client_job_id)
+    http.backend.run_pending()
+    failed = http.jobs.refresh(built.client_job_id)
+    assert failed.state is LocalState.FAILED and failed.retryable
+    uploads_before = sum(1 for _m, path, _h in http.server.requests if "/uploads" in path)
+    child = http.jobs.request_retry(built.client_job_id)
+    assert child.client_job_id == retry_client_id(built.client_job_id)
+    assert child.state is LocalState.AWAITING_APPROVAL and child.retry_of == built.client_job_id
+    assert not any(path.endswith("/retry") for _m, path, _h in http.server.requests)
+    http.jobs.accept_quote(child.client_job_id, child.quote_id)
+    http.backend.executor = real_executor
+    sent = http.jobs.upload_and_submit(child.client_job_id)
+    assert sent.submitted_confirmed and sent.state is LocalState.QUEUED
+    assert sum(1 for _m, path, _h in http.server.requests if "/uploads" in path) == uploads_before
+    parent = http.jobs.registry.get(built.client_job_id)
+    assert parent.retried_as == child.client_job_id and not parent.retryable
+    # Asking again returns the same retry job, never a second one.
+    again = http.backend.retry(failed.job_id, accepted_maximum=http.backend.quote_maximum)
+    assert again.job_id == sent.job_id
+    http.backend.run_pending()
+    assert http.jobs.refresh(child.client_job_id).state is LocalState.SUCCEEDED
+
+
+def test_solver_failure_offers_no_retry(http, tmp_path):
+    import pytest
+    from cloth_next.cloud.jobs import NotRetryable
+    from tests.cloud_backend import RawRunOutput
+    http.backend.executor = lambda job, files: RawRunOutput(
+        map_blob=b"", frames=[], failed_code="native_solver_failed")
+    _deformables, built = package(http, tmp_path)
+    approve(http.jobs, built)
+    http.jobs.upload_and_submit(built.client_job_id)
+    http.backend.run_pending()
+    assert not http.jobs.refresh(built.client_job_id).retryable
+    with pytest.raises(NotRetryable):
+        http.jobs.request_retry(built.client_job_id)

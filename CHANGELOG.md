@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.9.46 - 2026-10-24
+
+- Cloud Jobs list: a Cloud Bake that failed on the server side without cost (for example a lost GPU worker) offers Retry. The retry reuses the uploaded scene; Review & Send opens with the new cost limit, and only after confirmation the server starts exactly one retry job.
+
 ## 2.9.45 - 2026-10-24
 
 - Reuse Water Flow preparation when the FLIP cache did not change, also after a Blender restart: a verified .gaia cache keeps a proof file (Fluid Cache settings and the stamps of every FLIP file) next to it, and prepared Hydrodynamic Pressure surfaces are kept in a cache keyed by every FLIP file, frame range, FPS, bounds and the preparation script. The two most recently used preparations are kept. Local and Cloud Bakes both use it.

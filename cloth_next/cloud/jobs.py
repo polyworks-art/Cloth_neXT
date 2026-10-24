@@ -17,7 +17,7 @@ money-relevant step follows E23:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import time
 from typing import Callable
 
@@ -94,6 +94,18 @@ class WaterFlowNotOffered(Exception):
     code = "water_mode_unsupported"
 
 
+class NotRetryable(Exception):
+    """The server does not offer a free retry for this job."""
+
+    code = "not_retryable"
+
+
+def retry_client_id(client_job_id: str) -> str:
+    """The server's deterministic id of the single retry of a job."""
+    import uuid
+    return str(uuid.uuid5(uuid.UUID(client_job_id), "cloud-bake-retry"))
+
+
 class BuildNotOffered(Exception):
     """The Cloud has no configured mapping for this exact desktop build."""
 
@@ -143,6 +155,72 @@ class CloudJobs:
             upload_bytes_total=package.total_bytes,
             blend_identity=blend_identity,
             object_uuids=[item["uuid"] for item in package.manifest["objects"]]))
+
+    # Retry of a free infrastructure failure ----------------------------------
+    def request_retry(self, client_job_id: str) -> JobRecord:
+        """Quote the retry of a failed job; the artist confirms it (E10).
+
+        The retry is a new server job with a deterministic client id that
+        reuses the retained package, so nothing is uploaded again. Locally it
+        is a new job record waiting for approval; approving it sends
+        ``POST /jobs/{job_id}/retry`` with exactly the quoted maximum.
+        """
+        parent = self.registry.get(client_job_id)
+        if parent is None or not parent.job_id or not parent.retryable:
+            raise NotRetryable(client_job_id)
+        child_id = retry_client_id(client_job_id)
+        child = self.registry.get(child_id)
+        if child is not None and child.submitted_confirmed:
+            return child
+        manifest = dict(load_manifest(self.store, parent.manifest_sha256))
+        manifest["client_job_id"] = child_id
+        from .package import canonical_bytes
+        blob = self.store.put_bytes(canonical_bytes(manifest))
+        if child is None:
+            from .registry import new_record
+            child = self.registry.add(replace(new_record(
+                client_job_id=child_id, display_name=parent.display_name,
+                solver={"engine": parent.engine, "build_id": parent.build_id},
+                manifest_sha256=blob.sha256, snapshot_digest=parent.snapshot_digest,
+                package_hashes=parent.package_hashes,
+                upload_bytes_total=0, blend_identity=parent.blend_identity,
+                object_uuids=parent.object_uuids), retry_of=client_job_id,
+                server_build_id=parent.server_build_id))
+            self.store.add_reference(child_id, tuple(parent.package_hashes) + (blob.sha256,))
+        self.registry.update(client_job_id, retried_as=child_id)
+        quote = self.backend.quote(manifest)
+        return self.registry.update(
+            child_id, state=LocalState.AWAITING_APPROVAL,
+            quote_id=quote.quote_id, quote_maximum=quote.maximum,
+            quote_unit=quote.unit, quote_expires_at=quote.expires_at,
+            quote_billing_mode=quote.billing_mode, quote_accepted=False,
+            quote_max_seconds=quote.max_execution_seconds,
+            quote_gpu=quote.gpu_type_id, quote_usage_percent=quote.usage_percent,
+            error_code="")
+
+    def _submit_retry(self, record: JobRecord) -> JobRecord:
+        parent = self.registry.get(record.retry_of)
+        record = self.registry.update(record.client_job_id,
+                                      state=LocalState.SUBMIT_REQUESTED)
+        try:
+            info = self.backend.retry(parent.job_id,
+                                      accepted_maximum=int(record.quote_maximum))
+        except wire.CloudUnconfirmed:
+            self.registry.update(record.client_job_id, state=LocalState.UNCONFIRMED)
+            return self.reconcile(record.client_job_id)
+        except wire.CloudError as exc:
+            if exc.code in ("invalid_quote", "quote_expired"):
+                self.registry.update(record.client_job_id, quote_accepted=False,
+                                     state=LocalState.UPLOAD_PAUSED,
+                                     error_code="quote_expired")
+            else:
+                self.registry.update(record.client_job_id,
+                                     state=LocalState.UPLOAD_PAUSED,
+                                     error_code=exc.code)
+            raise
+        updated = self._adopt(record, info)
+        self.registry.update(parent.client_job_id, retryable=False)
+        return updated
 
     # Quote + approval (E10) ------------------------------------------------
     def request_quote(self, client_job_id: str) -> JobRecord:
@@ -225,6 +303,7 @@ class CloudJobs:
                        billing_finalized=info.billing_finalized)
         if info.elapsed_ms is not None:
             changes["elapsed_ms"] = info.elapsed_ms
+        changes["retryable"] = info.retryable
         local = _SERVER_TO_LOCAL.get(info.state)
         if local is not None:
             if record.state in (LocalState.STORED, LocalState.DOWNLOADING) \
@@ -252,6 +331,8 @@ class CloudJobs:
             return record
         if not record.quote_accepted or not record.quote_id:
             raise ApprovalRequired("confirm the Cloud cost limit first")
+        if record.retry_of:
+            return self._submit_retry(record)   # the server reuses the package
         manifest = load_manifest(self.store, record.manifest_sha256)
         if not record.job_id:
             record = self.registry.update(client_job_id,

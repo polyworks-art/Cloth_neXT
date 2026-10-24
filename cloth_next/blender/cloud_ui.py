@@ -25,6 +25,8 @@ _ACTIONS = (
      "Attach although settings or geometry changed or a newer local Bake exists"),
     ("DELETE_RESULT", "Delete Downloaded Result", "Delete the downloaded raw result from this computer"),
     ("REFRESH", "Refresh", "Ask the Cloud service for the current state of your jobs"),
+    ("RETRY", "Retry", "Run this job again after a server-side failure: the uploaded scene is "
+     "reused and you confirm a new cost limit first; the failed run cost nothing"),
 )
 # PolyWorks account dashboard listing the artist's Cloud Bakes.
 CLOUD_BAKES_PAGE = "https://account.cloth-next.de/dashboard/cloud-bakes"
@@ -50,6 +52,9 @@ def actions_for(record) -> tuple[str, ...]:
         return ("DOWNLOAD",)
     if state is LocalState.STORED:
         return ("ACTIVATE", "DELETE_RESULT")
+    if (state is LocalState.FAILED and getattr(record, "retryable", False)
+            and not getattr(record, "retried_as", "")):
+        return ("RETRY",)
     return ()
 
 
@@ -96,6 +101,12 @@ class CLOTHNEXT_OT_cloud_job_action(bpy.types.Operator):
             cloud_runtime.enqueue("delete_result", self.client_job_id)
         elif self.action == "REFRESH":
             cloud_runtime.enqueue("refresh")
+        elif self.action == "RETRY":
+            from ..cloud.jobs import retry_client_id
+            child = retry_client_id(self.client_job_id)
+            remember_job(context.scene, child)
+            _review_requested.add(child)   # open Review & Send once it is quoted
+            cloud_runtime.enqueue("retry", self.client_job_id)
         return {"FINISHED"}
 
     def _activate(self, context, confirmed):
@@ -299,6 +310,7 @@ _downloaded_here: set[str] = set()
 
 
 _review_opened: set[str] = set()
+_review_requested: set[str] = set()   # retries waiting for their quote
 
 
 def _open_review_for_followed_job() -> None:
@@ -309,10 +321,17 @@ def _open_review_for_followed_job() -> None:
     """
     from . import companion_manager
     followed = companion_manager.following_cloud_job()
+    if followed and companion_manager.running():
+        followed = ""  # the Bake window shows that quote and its Send button
+    waiting = [job_id for job_id in _review_requested if any(
+        item.client_job_id == job_id and item.state is LocalState.AWAITING_APPROVAL
+        for item in cloud_runtime.view().jobs)]
+    if waiting:
+        followed = waiting[0]
+        _review_requested.discard(followed)
+        _review_opened.discard(followed)
     if not followed or followed in _review_opened:
         return
-    if companion_manager.running():
-        return  # the Bake window shows the quote and its Send button
     record = next((item for item in cloud_runtime.view().jobs
                    if item.client_job_id == followed), None)
     if record is None or record.state is not LocalState.AWAITING_APPROVAL:
