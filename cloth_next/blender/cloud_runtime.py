@@ -335,9 +335,11 @@ def start() -> None:
             service.install_backend(factory)
     if service.availability().reason == service.PENDING_REASON:
         return
-    # Settle unclear jobs of an earlier session (no network without jobs).
-    # The capability check runs only once Cloud is the chosen location.
-    enqueue("recover")
+    # Settle unclear jobs of an earlier session. Without a job registry
+    # there is nothing to settle: no worker, no file IO, no network. The
+    # capability check runs only once Cloud is the chosen location.
+    if JobRegistry().path.is_file():
+        enqueue("recover")
 
 
 def shutdown(timeout: float = 5.0) -> bool:
