@@ -383,3 +383,37 @@ def test_solver_failure_offers_no_retry(http, tmp_path):
     assert not http.jobs.refresh(built.client_job_id).retryable
     with pytest.raises(NotRetryable):
         http.jobs.request_retry(built.client_job_id)
+
+
+def test_requests_reuse_kept_alive_connections(http, tmp_path):
+    _deformables, built = package(http, tmp_path)
+    approve(http.jobs, built)
+    http.jobs.upload_and_submit(built.client_job_id)
+    requests = len(http.server.requests)
+    assert requests > 10
+    # One TLS/TCP connection per thread instead of one per request.
+    from cloth_next.cloud.jobs import UPLOAD_WORKERS
+    assert http.server.connections <= UPLOAD_WORKERS + 2, (http.server.connections, requests)
+
+
+def test_large_blocks_fall_back_when_a_proxy_refuses_the_body(http, tmp_path, monkeypatch):
+    from cloth_next.cloud import jobs as jobs_module
+    _deformables, built = package(http, tmp_path)
+    approve(http.jobs, built)
+    http.jobs._upload_block = 4 * 1024 * 1024
+    original = http.client.upload_chunk
+    refused, accepted = [], []
+    def proxy(upload_id, offset, data):
+        if len(data) > jobs_module.SMALL_UPLOAD_BLOCK:
+            refused.append(len(data))
+            raise jobs_module.wire.CloudError("network_unavailable")
+        accepted.append(len(data))
+        return original(upload_id, offset, data)
+    monkeypatch.setattr(http.client, "upload_chunk", proxy)
+    monkeypatch.setattr(jobs_module, "SMALL_UPLOAD_BLOCK", 1000)
+    record = http.jobs.upload_and_submit(built.client_job_id)
+    assert record.submitted_confirmed
+    assert http.jobs._upload_block == 1000
+    assert refused and accepted and max(accepted) <= 1000
+    # At most one refused attempt per parallel worker, never a backoff loop.
+    assert len(refused) <= jobs_module.UPLOAD_WORKERS

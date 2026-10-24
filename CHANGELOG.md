@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.9.47 - 2026-10-24
+
+- Faster Cloud uploads: up to eight files upload at once, and every thread keeps its HTTPS connection alive instead of a new TLS handshake per request (measured on the live service with incompressible data: 10 to 34 Mbit/s). Upload progress stays exact and resumable.
+- When a proxy in front of the Cloud service refuses large upload blocks, the upload switches to 1 MB blocks at once instead of pausing after retries.
+
 ## 2.9.46 - 2026-10-24
 
 - Cloud Jobs list: a Cloud Bake that failed on the server side without cost (for example a lost GPU worker) offers Retry. The retry reuses the uploaded scene; Review & Send opens with the new cost limit, and only after confirmation the server starts exactly one retry job.

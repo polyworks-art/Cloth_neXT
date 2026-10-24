@@ -182,6 +182,9 @@ class HttpCloudBackend:
         self._sessions: dict[tuple[str, str], tuple[float, dict]] = {}
         self._encodings: tuple[str, ...] = ("identity", "zstd")
         self._lock = threading.Lock()
+        # One kept-alive connection per thread and origin: a new TLS
+        # handshake per request cost more than many small uploads themselves.
+        self._local = threading.local()
 
     # Transport ---------------------------------------------------------------
     def _connection(self, origin: str):
@@ -202,35 +205,72 @@ class HttpCloudBackend:
         return {"Authorization": "Bearer " + token, "User-Agent": USER_AGENT,
                 "Accept": "application/json"}
 
+    def _pooled(self, origin: str):
+        pool = getattr(self._local, "connections", None)
+        if pool is None:
+            pool = self._local.connections = {}
+        return pool
+
+    def _drop(self, origin: str) -> None:
+        connection = self._pooled(origin).pop(origin, None)
+        if connection is not None:
+            connection.close()
+
+    def close(self) -> None:
+        """Close this thread's kept-alive connections."""
+        for origin in list(self._pooled("")):
+            self._drop(origin)
+
     def _send(self, method: str, target: str, *, body: bytes | None = None,
               headers: Mapping[str, str] | None = None, origin: str | None = None,
               limit: int = MAX_JSON_BYTES):
         origin = origin or self.origin
         request_headers = self._headers()
         request_headers.update(headers or {})
-        connection = self._connection(origin)
-        sent = False
-        try:
-            try:
-                connection.connect()
-            except (OSError, http.client.HTTPException, ssl.SSLError) as exc:
-                raise wire.CloudError("network_unavailable") from exc
+        pool = self._pooled(origin)
+        for attempt in (0, 1):
+            connection = pool.get(origin)
+            reused = connection is not None
+            if connection is None:
+                connection = self._connection(origin)
+                try:
+                    connection.connect()
+                except (OSError, http.client.HTTPException, ssl.SSLError) as exc:
+                    raise wire.CloudError("network_unavailable") from exc
+                pool[origin] = connection
+            if connection.sock is None:          # the server closed it after a reply
+                try:
+                    connection.connect()
+                except (OSError, http.client.HTTPException, ssl.SSLError) as exc:
+                    self._drop(origin)
+                    raise wire.CloudError("network_unavailable") from exc
             connection.sock.settimeout(READ_TIMEOUT)
+            sent = False
             try:
                 connection.request(method, target, body=body, headers=request_headers)
                 sent = True
                 response = connection.getresponse()
                 raw = response.read(limit + 1)
             except (OSError, http.client.HTTPException, ssl.SSLError) as exc:
+                self._drop(origin)
+                if reused and attempt == 0 and isinstance(exc, (
+                        http.client.RemoteDisconnected, ConnectionResetError,
+                        ConnectionAbortedError, BrokenPipeError)):
+                    # The server closed an idle kept-alive connection before
+                    # answering: nothing was processed. Every request of this
+                    # client is safe to repeat (offsets, idempotency keys).
+                    continue
                 if method in _MUTATING and sent:
                     raise wire.CloudUnconfirmed(method) from exc
                 raise wire.CloudError("network_unavailable") from exc
             status = response.status
+            if (len(raw) > limit or not response.isclosed()
+                    or (response.getheader("Connection") or "").lower() == "close"):
+                self._drop(origin)       # unread body or server closes: no reuse
             if len(raw) > limit:
                 raise wire.CloudError("invalid_response", status=status)
             return status, raw, response
-        finally:
-            connection.close()
+        raise wire.CloudError("network_unavailable")
 
     def _json(self, method: str, path: str, body: Any = None, *,
               idempotency_key: str | None = None, expect=(200, 201)):

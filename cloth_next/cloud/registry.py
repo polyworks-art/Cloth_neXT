@@ -21,6 +21,7 @@ from enum import Enum
 import json
 import os
 from pathlib import Path
+import threading
 import time
 from typing import Iterator
 
@@ -136,8 +137,18 @@ class RegistryError(RuntimeError):
     pass
 
 
+_thread_lock = threading.RLock()
+
+
 @contextmanager
 def _locked(root: Path) -> Iterator[None]:
+    # Threads of this process queue here first: msvcrt.LK_LOCK waits a full
+    # second between attempts, which parallel uploads would hit constantly.
+    with _thread_lock:
+        yield from _file_locked(root)
+
+
+def _file_locked(root: Path) -> Iterator[None]:
     storage.ensure_private_directory(root)
     with open(root / LOCK_FILE, "a+b") as stream:
         if os.name == "nt":
@@ -215,6 +226,22 @@ class JobRegistry:
                 raise RegistryError("unknown Cloud job")
             changes.setdefault("updated_at", time.time())
             updated = replace(current, **changes)
+            records[client_job_id] = updated
+            self._write(records)
+        return updated
+
+    def add_uploaded(self, client_job_id: str, key: str, size: int) -> JobRecord:
+        """Record one confirmed file; safe for parallel uploads of one job."""
+        with _locked(self.root):
+            records = self._read()
+            current = records.get(client_job_id)
+            if current is None:
+                raise RegistryError("unknown Cloud job")
+            if key in current.uploaded:
+                return current
+            updated = replace(current, uploaded=tuple(sorted({*current.uploaded, key})),
+                              upload_bytes_done=current.upload_bytes_done + size,
+                              updated_at=time.time())
             records[client_job_id] = updated
             self._write(records)
         return updated

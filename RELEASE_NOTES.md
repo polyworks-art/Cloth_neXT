@@ -1,4 +1,8 @@
-# Cloth NeXt 2.9.46
+# Cloth NeXt 2.9.47
+
+Cloud uploads are about three times faster: up to eight files travel at once over kept-alive connections. When the service refuses large upload blocks, the upload continues with smaller blocks instead of pausing.
+
+## 2.9.46
 
 A Cloud Bake that failed on the server side without cost can be retried from the Cloud Jobs list. The uploaded scene is reused, and Review & Send asks you to confirm the new cost limit before the retry starts.
 

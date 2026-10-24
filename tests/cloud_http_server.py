@@ -66,6 +66,7 @@ class CloudHttpServer:
         self.requests: list[tuple[str, str, dict]] = []
         self.drop_after_handling: set[str] = set()     # "POST /submit" style keys
         self.redirect_next = False
+        self.connections = 0                           # TCP connections accepted
         self.foreign_url = False
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), self._handler())
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
@@ -83,6 +84,12 @@ class CloudHttpServer:
         outer = self
 
         class Handler(BaseHTTPRequestHandler):
+            protocol_version = "HTTP/1.1"   # kept-alive connections, as in production
+
+            def setup(self):
+                outer.connections += 1
+                super().setup()
+
             def log_message(self, *_args):
                 pass
 
@@ -96,6 +103,8 @@ class CloudHttpServer:
                     self.send_header("Content-Type", "application/json"
                                      if body is not None else "application/octet-stream")
                     self.send_header("Content-Length", str(len(raw)))
+                else:
+                    self.send_header("Content-Length", "0")
                 self.end_headers()
                 if raw:
                     self.wfile.write(raw)

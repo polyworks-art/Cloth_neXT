@@ -59,6 +59,8 @@ class ApprovalRequired(Exception):
 
 
 DISPLAY_NAME_LIMIT = 128
+UPLOAD_WORKERS = 8          # measured: 1 → 10, 4 → 22, 8 → 34 Mbit/s (24 Oct)
+SMALL_UPLOAD_BLOCK = 1_000_000  # fits a 1 MiB proxy body limit even uncompressed
 
 
 def dashboard_name(name: str) -> str:
@@ -141,6 +143,8 @@ class CloudJobs:
         self._sleep = sleep
         self._backoff = backoff
         self._upload_block = upload_block
+        import threading
+        self._block_lock = threading.Lock()
         self._free_bytes = free_bytes
 
     # Registration ----------------------------------------------------------
@@ -362,66 +366,112 @@ class CloudJobs:
         return self._submit(record)
 
     def _upload_files(self, record, manifest, cancelled, progress) -> JobRecord:
-        """One session per ``(role, name)``; resume at the server's offset."""
-        files = list(manifest["files"])
-        done = sum(item["size_bytes"] for item in files
-                   if _file_key(item) in record.uploaded)
+        """One session per ``(role, name)``; resume at the server's offset.
+
+        Up to ``UPLOAD_WORKERS`` files travel at once (each on its own
+        kept-alive connection): Water Flow packages hold hundreds of files,
+        and one file at a time spent most of the upload waiting for replies.
+        """
+        import threading
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        files = [item for item in manifest["files"]
+                 if _file_key(item) not in record.uploaded]
         total = record.upload_bytes_total
-        flushed = done
-        for item in files:
-            key = _file_key(item)
-            if key in record.uploaded:
-                continue
+        lock = threading.Lock()
+        stop = threading.Event()
+        counter = {"done": sum(item["size_bytes"] for item in manifest["files"]
+                               if _file_key(item) in record.uploaded)}
+
+        def stopped():
+            return stop.is_set() or cancelled()
+
+        def advance(count):
+            with lock:
+                counter["done"] += count
+                done = counter["done"]
+            progress(done, total)
+
+        def send(item):
+            # Each worker thread keeps its own connection for all its files;
+            # it closes when the thread ends with the pool.
+            self._upload_file(record.job_id, item, stopped, advance)
+            self.registry.add_uploaded(record.client_job_id, _file_key(item), 0)
+
+        workers = max(1, min(UPLOAD_WORKERS, len(files)))
+        error = None
+        with ThreadPoolExecutor(max_workers=workers,
+                                thread_name_prefix="clothnext-upload") as pool:
+            futures = [pool.submit(send, item) for item in files]
+            for future in as_completed(futures):
+                try:
+                    future.result()
+                except BaseException as exc:  # noqa: BLE001 - re-raised below
+                    if error is None:
+                        error = exc
+                    stop.set()
+        record = self.registry.update(record.client_job_id,
+                                      upload_bytes_done=counter["done"])
+        if error is not None:
+            if isinstance(error, UploadPaused) or cancelled():
+                raise UploadPaused("paused") from error
+            raise error
+        return record
+
+    def _upload_file(self, job_id, item, cancelled, advance) -> None:
+        sha, size = item["sha256"], item["size_bytes"]
+        if cancelled():
+            raise UploadPaused("paused")
+        state = self._retry(lambda: self.backend.open_upload(
+            job_id, item["role"], item["name"]), cancelled=cancelled)
+        if state.confirmed:
+            advance(size)    # reused: this account already owns the content
+            return
+        # Re-hash before sending (5.5): a damaged store never uploads.
+        self.store.verify(sha, size=size)
+        offset = state.received
+        advance(offset)
+        while offset < size:
             if cancelled():
                 raise UploadPaused("paused")
-            sha, size = item["sha256"], item["size_bytes"]
-            state = self._retry(lambda: self.backend.open_upload(
-                record.job_id, item["role"], item["name"]), cancelled=cancelled)
-            if not state.confirmed:
-                # Re-hash before sending (5.5): a damaged store never uploads.
-                self.store.verify(sha, size=size)
-                offset = state.received
-                while offset < size:
-                    if cancelled():
-                        raise UploadPaused("paused")
-                    length = min(self._upload_block, size - offset)
-                    block = self.store.read_range(sha, offset, length)
-                    try:
-                        state = self._retry(
-                            lambda: self.backend.upload_chunk(state.upload_id, offset, block),
-                            cancelled=cancelled)
-                    except wire.CloudError as exc:
-                        if exc.code == "offset_mismatch":
-                            state = self._retry(lambda: self.backend.upload_status(
-                                state.upload_id), cancelled=cancelled)
-                        elif exc.code == "upload_expired":
-                            state = self._retry(lambda: self.backend.open_upload(
-                                record.job_id, item["role"], item["name"]),
-                                cancelled=cancelled)
-                        else:
-                            raise
-                        done += state.received - offset
-                        offset = state.received
-                        continue
-                    done += state.received - offset
+            length = min(self._upload_block, size - offset)
+            block = self.store.read_range(sha, offset, length)
+            if length > SMALL_UPLOAD_BLOCK:
+                # A proxy in front of the API may refuse bodies above its own
+                # limit by closing the connection. One such refusal switches
+                # this upload to small blocks right away (no backoff).
+                try:
+                    state = self.backend.upload_chunk(state.upload_id, offset, block)
+                    advance(state.received - offset)
                     offset = state.received
-                    progress(done, total)
-                    if done - flushed >= PROGRESS_FLUSH_BYTES:
-                        record = self.registry.update(record.client_job_id,
-                                                      upload_bytes_done=done)
-                        flushed = done
-                state = self._retry(lambda: self.backend.complete_upload(state.upload_id),
-                                    cancelled=cancelled)
-                if not state.confirmed:
-                    raise wire.CloudError("hash_mismatch")
-            else:
-                done += size  # reused: this account already owns the content
-                progress(done, total)
-            record = self.registry.update(
-                record.client_job_id, uploaded=tuple(sorted({*record.uploaded, key})),
-                upload_bytes_done=done)
-            flushed = done
-        return record
+                    continue
+                except wire.CloudError as exc:
+                    if exc.code == "network_unavailable":
+                        with self._block_lock:
+                            self._upload_block = min(self._upload_block,
+                                                     SMALL_UPLOAD_BLOCK)
+                        continue
+                    # Any other answer is handled by the regular path below.
+                except wire.CloudUnconfirmed:
+                    pass  # sent, no answer: the regular path repeats it safely
+            try:
+                state = self._retry(
+                    lambda: self.backend.upload_chunk(state.upload_id, offset, block),
+                    cancelled=cancelled)
+            except wire.CloudError as exc:
+                if exc.code == "offset_mismatch":
+                    state = self._retry(lambda: self.backend.upload_status(
+                        state.upload_id), cancelled=cancelled)
+                elif exc.code == "upload_expired":
+                    state = self._retry(lambda: self.backend.open_upload(
+                        job_id, item["role"], item["name"]), cancelled=cancelled)
+                else:
+                    raise
+            advance(state.received - offset)
+            offset = state.received
+        state = self._retry(lambda: self.backend.complete_upload(state.upload_id),
+                            cancelled=cancelled)
+        if not state.confirmed:
+            raise wire.CloudError("hash_mismatch")
 
     def _submit(self, record: JobRecord) -> JobRecord:
         record = self.registry.update(record.client_job_id,
