@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.9.40 - 2026-10-24
+
+- Cloud Bakes: Bake Location "Cloud" packages the scene with the existing export, shows the binding cost limit in Review & Send, uploads resumably, and downloads and attaches the result automatically. Cloud stays locked until the PolyWorks Cloud service reports that it is ready; nothing is sent before that, and a Cloud Bake never falls back to this computer.
+- The Bake window follows a Cloud job with live server data (upload, server state, queue position, frames, ETA, cost limit, final cost, download). Closing it never stops the job; Cancel cancels the Cloud job.
+- Water Flow can only be switched on with GAIA access; the legacy Coupling Strength, Velocity Damping and Influence controls are no longer shown.
+- Sewing and Attachment toolbar buttons match the size of Blender's navigation buttons and follow the gizmo size preference; the Segment / Free / Multi / Edit text row in the Sewing panel is gone.
+
 ## 2.9.39 - 2026-10-22
 
 - Hydrodynamic Pressure: new Pressure Strength and Tangential Drag settings. Tangential Drag lets the flow pull fitted garments along instead of only pushing against the surface.

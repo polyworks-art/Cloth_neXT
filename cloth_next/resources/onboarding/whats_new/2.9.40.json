@@ -1,0 +1,35 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.40",
+  "title": "What's New in Cloth NeXt 2.9.40",
+  "subtitle": "Cloud Bakes are on their way.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/rocket.png",
+      "title": "Cloud Bakes",
+      "description": "Choose Cloud as Bake Location to simulate on PolyWorks GPUs. It unlocks as soon as the PolyWorks Cloud service is ready."
+    },
+    {
+      "icon": "icons/refresh.png",
+      "title": "Live Cloud status",
+      "description": "The Bake window follows a Cloud job with live server data: upload, queue, frames, cost limit and download."
+    },
+    {
+      "icon": "icons/sliders.png",
+      "title": "Cleaner tools",
+      "description": "Water Flow needs GAIA access, legacy coupling controls are gone, and the Sewing toolbar matches Blender's navigation buttons."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}

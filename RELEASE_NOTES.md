@@ -1,4 +1,12 @@
-# Cloth NeXt 2.9.39
+# Cloth NeXt 2.9.40
+
+Cloud Bakes: choose Cloud as Bake Location to simulate on PolyWorks GPUs. Review & Send shows the binding cost limit before anything is sent, the upload resumes after interruptions, and the result is downloaded and attached automatically. Cloud stays locked until the PolyWorks Cloud service reports that it is ready; a Cloud Bake never falls back to this computer.
+
+The Bake window follows a Cloud job with live server data: upload, server state, queue position, frames, ETA, cost limit, final cost and download. Closing it never stops the job.
+
+Water Flow can only be switched on with GAIA access, and the legacy coupling controls are gone. The Sewing and Attachment toolbars match Blender's navigation buttons.
+
+## 2.9.39
 
 Wet Fabric for Hydrodynamic Pressure (needs GAIA 0.26.0-dev.20261022 or newer): fabric floats under water, soaks up water over time, hangs heavier once it leaves the water and dries again. Wet Cling makes soaked fabric grip the body only where it touches it, and Wet Damping stops soaked fabric from springing back and forth after it leaves the water. Pressure Strength and Tangential Drag let the flow push harder and pull fitted garments along.
 
