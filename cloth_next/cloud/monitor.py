@@ -36,14 +36,6 @@ def _megabytes(done: int, total: int) -> str:
     return f"{done / 1e6:.1f} / {total / 1e6:.1f} MB"
 
 
-def _short(text: str, limit: int = 34) -> str:
-    """Fit a long build id into one window row, keeping both ends."""
-    if len(text) <= limit:
-        return text
-    head = (limit - 1) * 2 // 3
-    return text[:head] + "…" + text[-(limit - 1 - head):]
-
-
 def window_finished(record: JobRecord, *, auto_download: bool) -> bool:
     """True once the window has nothing more to follow for this job."""
     if record.state in SUCCESS_TERMINAL or record.state in FAILURE_TERMINAL:
@@ -58,10 +50,8 @@ def details(record: JobRecord, *, upload_done: int = 0, upload_total: int = 0,
     rows = {"JOB": record.display_name or record.client_job_id[:8]}
     rows["SERVER_STATE"] = (record.server_state.replace("_", " ")
                             if record.server_state else "not sent yet")
-    build = record.server_build_id or record.build_id
-    engine = " · ".join(item for item in (record.engine, _short(build, 26)) if item)
-    if engine:
-        rows["ENGINE"] = engine
+    if record.engine:
+        rows["ENGINE"] = record.engine.upper()  # GAIA or AETHER, no build id
     if record.queue_position:
         rows["QUEUE"] = f"Position {record.queue_position}"
     if record.total_frames:

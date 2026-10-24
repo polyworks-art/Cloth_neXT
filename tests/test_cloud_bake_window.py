@@ -75,7 +75,7 @@ def test_queue_and_running_show_server_values_and_eta():
     assert running.state is BakeState.SIMULATING
     assert (running.progress_current, running.progress_total) == (7, 23)
     assert running.cloud_details["FRAMES"] == "7 / 23"
-    assert running.cloud_details["ENGINE"] == "GAIA · gaia-test-linux"
+    assert running.cloud_details["ENGINE"] == "GAIA"
     assert progress_display_text(running) == "Cloud · Frame 7 / 23"
     assert running.can_cancel
 
