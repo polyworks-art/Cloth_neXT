@@ -7,7 +7,7 @@
       "id": "cloth_next",
       "name": "Cloth NeXt",
       "tagline": "High-fidelity cloth and soft-body simulation",
-      "version": "2.9.49",
+      "version": "2.9.50",
       "type": "add-on",
       "maintainer": "Tim Christmann",
       "license": [
@@ -29,9 +29,9 @@
         "windows-x64",
         "linux-x64"
       ],
-      "archive_url": "./cloth_next-2.9.49-windows-x64.zip",
-      "archive_size": 34908456,
-      "archive_hash": "sha256:f1055667c6c1fdb1a66c90e42c1d548be782b97992a8b93a9c8ed33777db8770"
+      "archive_url": "./cloth_next-2.9.50-windows-x64.zip",
+      "archive_size": 34915267,
+      "archive_hash": "sha256:d90511462b5c425dee1fb27e3031d35798ffa152b5c9d7c4cb29706b8f098242"
     }
   ]
 }
