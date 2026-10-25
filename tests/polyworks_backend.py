@@ -30,9 +30,17 @@ def b64url(raw: bytes) -> str:
 class ContractBackend:
     DEVICE_LIMIT = 3
 
-    def __init__(self, *, key_id="test-key-1", entitlement_seconds=30 * 24 * 3600):
+    def __init__(self, *, key_id="test-key-1", entitlement_seconds=30 * 24 * 3600, private_key=None,
+                 gaia_entitlement_seconds=7 * 24 * 3600, gaia_entitlement_route=True):
         self.lock = threading.Lock()
-        self.private_key = Ed25519PrivateKey.generate()
+        self.private_key = private_key or Ed25519PrivateKey.generate()
+        # TETHYS: installation-bound GAIA feature entitlements, issued only from
+        # the GAIA access decision (grant, approved request, invite, tester list
+        # or "everyone" mode). Licences and activations play no part.
+        self.gaia_entitlement_seconds = gaia_entitlement_seconds
+        self.gaia_entitlement_route = gaia_entitlement_route
+        self.gaia_testers = set()      # user ids on the dev-tester list
+        self.suspended = set()         # suspended accounts get nothing
         self.key_id = key_id
         self.entitlement_seconds = entitlement_seconds
         self.clock = time.time
@@ -132,9 +140,15 @@ class ContractBackend:
         return build_id
 
     def _gaia_status(self, user_id):
-        if self.gaia_mode == "everyone":
+        if user_id in self.suspended:
+            return None
+        if self.gaia_mode == "everyone" or user_id in self.gaia_testers:
             return "granted"
         return self.gaia_access.get(user_id)
+
+    def revoke_gaia(self, user_id):
+        self.gaia_access[user_id] = "declined"
+        self.gaia_testers.discard(user_id)
 
     # HTTP --------------------------------------------------------------------------
     def start(self):
@@ -418,6 +432,23 @@ class ContractBackend:
 
     # GAIA (Companion v1) ------------------------------------------------------------
     def _gaia_route(self, method, path, raw, user_id):
+        if method == "POST" and path == "/v1/account/gaia-entitlement" and self.gaia_entitlement_route:
+            body, error = self._body(raw, {"installation_id"})
+            if error:
+                return error
+            if user_id in self.suspended:
+                return self.error(403, "account_suspended")
+            status = self._gaia_status(user_id)
+            if status != "granted":
+                return 200, {"status": status, "mode": self.gaia_mode, "entitlement": None}, None
+            now = int(self.clock())
+            source = ("everyone" if self.gaia_mode == "everyone" else
+                      "tester" if user_id in self.gaia_testers else "grant")
+            token = self.sign({"typ": "polyworks.feature-entitlement", "v": 1, "kid": self.key_id,
+                               "sub": user_id, "inst": body["installation_id"], "prd": "cloth-next",
+                               "feat": ["gaia"], "src": source, "iat": now,
+                               "exp": now + self.gaia_entitlement_seconds})
+            return 200, {"status": "granted", "mode": self.gaia_mode, "entitlement": token}, None
         if method == "GET" and path == "/v1/account/gaia-access":
             return 200, {"status": self._gaia_status(user_id), "mode": self.gaia_mode}, None
         if method == "POST" and path == "/v1/account/gaia-access/request":

@@ -50,6 +50,19 @@ the panel names the reason, Bake Wetness is disabled and the engine never
 launches. Existing wetness caches stay untouched when GAIA is deselected.
 TETHYS enablement (per object) and GAIA availability are separate.
 
+**Native authorization (prepared, not enforced).** The engine itself reads
+the PolyWorks `installation-id` and `gaia-entitlement` files and verifies an
+installation-bound, Ed25519-signed GAIA feature entitlement (compiled-in key
+`k1`; type, version, product, installation, validity window, `feat:["gaia"]`).
+A licence entitlement or a mere GAIA installation does not qualify. The add-on
+fetches and renews the token whenever it checks GAIA access and deletes it
+when access is revoked or the account suspended. Enforcement is compiled off
+(`kEnforceGaiaEntitlement = false`) until the server issues these tokens for
+every access path; until then a missing token blocks nothing and the verdict
+is only reported (start event, wetness sidecar). Server contract and the
+offline window after revocation (at most 7 days + 5 min):
+`docs/polyworks/GAIA_ENTITLEMENT_SERVER_REQUIREMENTS.md`.
+
 ## 2. Surface representation
 
 * One cell per **loop triangle** of the cloth mesh (quads/N-gons give 2+ cells,

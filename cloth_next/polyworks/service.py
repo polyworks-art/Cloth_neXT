@@ -17,7 +17,7 @@ import time
 
 from . import messages
 from .api import ApiError, Endpoints, PolyWorksApi
-from .entitlements import EntitlementError, verify
+from .entitlements import EntitlementError, verify, verify_gaia
 from .state import sanitize, utc_now_iso, parse_iso
 from .status import StatusView, compute_view
 from .storage import PRESENCE_FILE, STATE_FILE, LocalStore, StorageError, exclusive_operation
@@ -461,6 +461,38 @@ class AccountService:
         self._online(state)
         self._save(state)
         return result
+
+    def refresh_gaia_entitlement(self) -> str:
+        """Fetch or renew the installation-bound GAIA entitlement for TETHYS.
+
+        Returns "stored", "removed" (access no longer granted: revoked,
+        declined, account suspended), "unavailable" (the server does not
+        offer the endpoint yet) or "kept" (offline; the stored token stays
+        until its own expiry). Never blocks GAIA or Cloth NeXt use.
+        """
+        token = self._require_token()
+        installation_id = self.installation_id()
+        try:
+            result = self.api.gaia_entitlement(token, installation_id)
+        except ApiError as exc:
+            if exc.code in {"not_found", "feature_disabled"} or exc.status == 404:
+                return "unavailable"
+            if exc.code in {"account_suspended", "account_disabled", "gaia_access_required", "forbidden"}:
+                self.store.delete_gaia_entitlement()
+                return "removed"
+            if exc.code in {"network_unavailable", "service_unavailable", "server_error", "rate_limited"}:
+                return "kept"
+            raise ServiceError(exc.code, request_id=exc.request_id) from None
+        if result["status"] != "granted":
+            self.store.delete_gaia_entitlement()
+            return "removed"
+        try:
+            verify_gaia(result["entitlement"], trust=self.trust, installation_id=installation_id,
+                        now=self.clock())
+        except EntitlementError as exc:
+            raise ServiceError("untrusted_entitlement") from exc
+        self.store.write_gaia_entitlement(result["entitlement"])
+        return "stored"
 
     def request_gaia_access(self, message: str = "") -> str:
         token = self._require_token()

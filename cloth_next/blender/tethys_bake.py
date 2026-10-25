@@ -317,6 +317,7 @@ class BakeJob:
         self.cancelled = False
         self.engine: engine.EngineJob | None = None
         self.wet_frames = 0
+        self.gaia_entitlement = ""
         self._cancel = threading.Event()
         self._thread = threading.Thread(target=self._run, name="TETHYS bake", daemon=True)
         self._thread.start()
@@ -342,7 +343,10 @@ class BakeJob:
             while True:
                 for event in self.engine.take_events():
                     kind = event.get("event")
-                    if kind == "progress":
+                    if kind == "start":
+                        # Native GAIA entitlement verdict (reported; not enforced yet).
+                        self.gaia_entitlement = str(event.get("gaia_entitlement", ""))
+                    elif kind == "progress":
                         self.progress = float(event.get("done", 0)) / total
                     elif kind == "complete":
                         self.result = event
@@ -450,6 +454,7 @@ def _ledger(plan: BakePlan) -> dict:
 
 def finalize(plan: BakePlan, obj, job: BakeJob) -> str:
     """Publish a finished engine run, connect materials and record it on the object."""
+    plan.record["gaia_entitlement"] = job.gaia_entitlement
     sealed = publish(plan)
     from . import tethys_overlay, tethys_shader
     notes = tethys_shader.attach(obj, plan.final, plan.image_size, plan.request.first_frame,

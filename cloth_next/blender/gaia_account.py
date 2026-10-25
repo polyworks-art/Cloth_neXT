@@ -33,6 +33,7 @@ class GaiaState:
     signed_in: bool | None = None       # None: not checked yet
     email: str = ""
     access: str | None = None          # granted | pending | declined | None
+    gaia_entitlement: str = ""         # last TETHYS entitlement refresh result
     mode: str = "none"
     downloads_enabled: bool | None = None
     available: dict | None = None      # chosen compatible build (no URL, no token)
@@ -145,6 +146,20 @@ def _refresh_job(service) -> None:
         available = choose_build(listing["builds"], manifest_version()) if enabled else None
     _update(signed_in=True, email=view.account_identity, access=access["status"], mode=access["mode"],
             downloads_enabled=enabled, available=available, checked_at=time.time())
+    _refresh_gaia_entitlement(service)
+
+
+def _refresh_gaia_entitlement(service) -> None:
+    """Keep the signed GAIA entitlement for the TETHYS Engine current.
+
+    Issued and renewed only from the server's GAIA decision; a failure here
+    never changes the GAIA access shown above or blocks anything else.
+    """
+    try:
+        _update(gaia_entitlement=service.refresh_gaia_entitlement())
+    except Exception as exc:  # noqa: BLE001 - optional during the transition phase
+        LOG.info("GAIA entitlement refresh skipped: %s", type(exc).__name__)
+        _update(gaia_entitlement="error")
 
 
 def refresh() -> bool:

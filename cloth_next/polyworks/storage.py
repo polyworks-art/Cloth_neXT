@@ -28,6 +28,8 @@ import tempfile
 ROOT_ENV = "CLOTH_NEXT_ACCOUNT_ROOT"
 INSTALLATION_FILE = "installation-id"
 ENTITLEMENT_FILE = "entitlement"
+# Signed GAIA feature entitlement; read directly by the native TETHYS Engine.
+GAIA_ENTITLEMENT_FILE = "gaia-entitlement"
 STATE_FILE = "state.json"
 PRESENCE_FILE = "companion.json"
 LOCK_FILE = "account.lock"
@@ -159,6 +161,16 @@ class LocalStore:
 
     def delete_entitlement(self) -> None:
         self.path(ENTITLEMENT_FILE).unlink(missing_ok=True)
+
+    def read_gaia_entitlement(self) -> str | None:
+        text = read_trusted_text(self.path(GAIA_ENTITLEMENT_FILE), 16 * 1024)
+        return text.strip() if text else None
+
+    def write_gaia_entitlement(self, token: str) -> None:
+        atomic_write(self.path(GAIA_ENTITLEMENT_FILE), token)
+
+    def delete_gaia_entitlement(self) -> None:
+        self.path(GAIA_ENTITLEMENT_FILE).unlink(missing_ok=True)
 
     # Public JSON documents ---------------------------------------------------
     def read_json(self, name: str, limit: int = 256 * 1024):
