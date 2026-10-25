@@ -439,3 +439,22 @@ def test_test_engine_rejects_bad_entitlements(tmp_path, monkeypatch):
         monkeypatch.setenv("CLOTH_NEXT_ACCOUNT_ROOT", str(root))
         code, events = _run(executable, request)
         assert code == 2 and events[-1]["code"] == "TETHYS-E140" and status in events[-1]["message"], events
+
+
+def test_vendored_engine_binaries_match_their_manifest(tmp_path):
+    """Release workflows stage these prebuilt binaries; they must be intact and current."""
+    vendor = ROOT / "vendor" / "tethys"
+    manifest = json.loads((vendor / "ENGINE.json").read_text("utf-8"))
+    assert manifest["protocol"] == protocol.PROTOCOL_VERSION
+    assert set(manifest["binaries"]) == set(engine.FILENAMES)
+    for platform, entry in manifest["binaries"].items():
+        data = (vendor / platform / entry["filename"]).read_bytes()
+        assert entry["filename"] == engine.FILENAMES[platform]
+        assert len(data) == entry["file_size"] and hashlib.sha256(data).hexdigest() == entry["sha256"]
+    from cloth_next.platform_support import platform_spec
+    from tools import stage_tethys
+    host = platform_spec().blender_platform
+    extension = tmp_path / "extension"
+    (extension / "bin").mkdir(parents=True)
+    staged = stage_tethys.stage(vendor / host / engine.FILENAMES[host], extension)   # probes --version
+    assert engine.locate(extension) == staged

@@ -36,7 +36,9 @@ FORBIDDEN_FILE_PATTERNS = (
     "*.pyc",
     "*.partial",
 )
-ALLOWED_EXECUTABLES = {"bin/cloth-next-bake.exe", "bin/cloth-next-bake"}
+ALLOWED_EXECUTABLES = {"bin/cloth-next-bake.exe", "bin/cloth-next-bake",
+                       # Bundled native TETHYS Engine (Cloth NeXt's own, not PPF material).
+                       "bin/tethys engine.exe", "bin/tethys-engine"}
 
 FORBIDDEN_DIRECTORIES = (
     "solver",

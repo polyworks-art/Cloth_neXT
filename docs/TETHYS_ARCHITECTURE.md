@@ -329,10 +329,19 @@ match the manifest, the platform and the protocol, or TETHYS is unavailable.
 in a packaged ZIP, accepts it only as one binary for the ZIP's platform that
 matches its manifest (executable mode on Linux). Developers point
 `CLOTH_NEXT_TETHYS_ENGINE` at a local build instead of staging into the source.
-Release CI is **not changed yet**: it needs a step that fetches the engine
-binary for the target platform from the private build and runs
-`stage_tethys.py` before packaging. Until then released builds simply show
-“The TETHYS Engine is not included in this Cloth NeXt build”.
+Release builds: the prebuilt engine binaries (production builds only, no
+source, no test key) are vendored in `vendor/tethys/<platform>/` with
+`vendor/tethys/ENGINE.json` (engine commit, sizes, SHA-256, protocol).
+`build-release-candidate.yml`, `publish-dev.yml` and `ci.yml` run
+`stage_tethys.py` next to `stage_companion.py`, so every packaged extension
+contains exactly one engine for its platform; `scan_release_artifact.py`
+allows exactly `bin/TETHYS Engine.exe` and `bin/tethys-engine` besides the
+Companion. After an engine change: build it in `polyworks-art/THETYS`
+(`python build.py --tests`, `python build.py --linux-alma --tests`), then run
+`python tools/update_tethys_vendor.py ../TETHYS-Engine` here and commit.
+Both engine builds are byte-reproducible. A local Windows package built this
+way passed Blender's extension validation, `validate_extension --phase
+packaged`, the artifact scan and the built-artifact tests.
 
 Open legal questions (no compliance claim made here):
 

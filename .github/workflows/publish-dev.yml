@@ -51,6 +51,7 @@ jobs:
       - run: python tools/scan_companion.py "companion/dist/Cloth NeXt Bake.exe"
       - run: python tools/verify_companion.py
       - run: python tools/stage_companion.py "companion/dist/Cloth NeXt Bake.exe"
+      - run: python tools/stage_tethys.py "vendor/tethys/windows-x64/TETHYS Engine.exe"
       - shell: pwsh
         run: |
           Invoke-WebRequest "https://download.blender.org/release/Blender${env:BLENDER_SERIES}/blender-${env:BLENDER_VERSION}-windows-x64.zip" -OutFile blender.zip

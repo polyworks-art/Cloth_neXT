@@ -31,17 +31,19 @@ def stage(source: Path, extension: Path = ROOT / "cloth_next", *,
     source = Path(source)
     if not source.is_file():
         raise FileNotFoundError(source)
-    if probe and selected == platform_spec():
-        line = subprocess.run([str(source), "--version"], capture_output=True, text=True,
-                              timeout=30).stdout.strip()
-        if not line.endswith(f"protocol {PROTOCOL_VERSION}"):
-            raise ValueError(f"engine protocol mismatch: {line!r}")
     filename = FILENAMES[selected.blender_platform]
     target = extension / "bin" / filename
     target.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(source, target)
     if selected.executable_permission_required:
         os.chmod(target, target.stat().st_mode | 0o755)
+    if probe and selected == platform_spec():
+        # Probe the staged copy: it carries the executable mode bits.
+        line = subprocess.run([str(target), "--version"], capture_output=True, text=True,
+                              timeout=30).stdout.strip()
+        if not line.endswith(f"protocol {PROTOCOL_VERSION}"):
+            target.unlink()
+            raise ValueError(f"engine protocol mismatch: {line!r}")
     data = target.read_bytes()
     payload = {"schema_version": 1, "filename": filename, "platform": selected.blender_platform,
                "file_size": len(data), "sha256": hashlib.sha256(data).hexdigest(),

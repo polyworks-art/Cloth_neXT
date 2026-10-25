@@ -34,6 +34,8 @@ def parse():
     parser.add_argument("--frames", type=int, default=72)
     parser.add_argument("--resolution", type=int, default=24)
     parser.add_argument("--engine", type=Path, help="engine binary when none is staged in the add-on")
+    parser.add_argument("--keep-blend", type=Path,
+                        help="save the baked scene here after the material checks and stop (manual viewing)")
     parser.add_argument("--account", type=Path,
                         help="PolyWorks account folder holding a GAIA entitlement the engine trusts")
     return parser.parse_args(sys.argv[sys.argv.index("--") + 1:])
@@ -296,6 +298,17 @@ for frame in (1, 40, 51, ARGS.frames):
     mismatch = max(mismatch, *errors)
     bpy.data.images.remove(loaded)
 check("exr_frames_match_cache", mismatch < 1e-3, details)
+
+if ARGS.keep_blend:
+    camera = bpy.data.objects.new("Camera", bpy.data.cameras.new("Camera"))
+    scene.collection.objects.link(camera)
+    camera.location, camera.rotation_euler = (0.0, -2.2, 1.6), (1.05, 0.0, 0.0)
+    scene.camera = camera
+    bpy.ops.wm.save_as_mainfile(filepath=str(ARGS.keep_blend.resolve()))
+    REPORT["result"] = "PASS" if all(item["ok"] for item in REPORT["checks"].values()) else "FAIL"
+    save()
+    print(json.dumps({"result": REPORT["result"], "kept": str(ARGS.keep_blend)}), flush=True)
+    sys.exit(0)
 
 # 7. Renders: wet frames render darker than dry ones (Cycles and EEVEE).
 camera = bpy.data.objects.new("Camera", bpy.data.cameras.new("Camera"))

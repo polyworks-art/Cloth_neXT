@@ -161,6 +161,7 @@ jobs:
         run: |
           VERSION="$(python -c 'import tomllib; print(tomllib.load(open("cloth_next/blender_manifest.toml","rb"))["version"])')"
           python tools/stage_companion.py "companion/dist/Cloth NeXt Bake"
+          python tools/stage_tethys.py vendor/tethys/linux-x64/tethys-engine
           python tools/build_extension.py --output "dist/cloth_next-$VERSION-linux-x64.zip"
           echo "LINUX_ZIP=dist/cloth_next-$VERSION-linux-x64.zip" >> "$GITHUB_ENV"
       - run: pytest -m built_artifact --extension-zip "$LINUX_ZIP"
