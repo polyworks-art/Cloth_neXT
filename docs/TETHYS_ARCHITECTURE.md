@@ -126,13 +126,15 @@ Each substep (adaptive; bounded by Quality: 16/64/256 per frame):
    channel) for later drip effects.
 3b. **Beads** (repellent fabric, beading = (repellency − 0.35)/0.5 clamped):
    mobile film above the pinned depth gathers into one bead per cell. A bead
-   whose footprint (0.9·V^(1/3)) exceeds half a cell collects neighbouring
+   whose footprint (0.9·V^(1/3)) exceeds a fixed per-cell reach of 0.25–0.6
+   cell (uneven contact lines) collects neighbouring
    beads and film (coalescence). It moves when gravity beats contact-line
    pinning, V^(2/3)·sin(slope) > 0.155 m · retention · grip, at up to
    0.3 m/s × mobility, one cell at a time toward the most downhill edge;
    it tops up the film of the cell it leaves (trail), merges with beads it
    meets, spreads into wettable or submerged fabric and drips off open edges
-   (drainage). Grip (0.6–1.6) varies deterministically per bead. Beads dry
+   (drainage). Grip (0.6–2.1, skewed high so most beads hold and few run)
+   varies deterministically per bead. Beads dry
    through their cap (1.2·V^(2/3)). They are surface water in the ledger.
    This is a simplified, conservative bead model, not surface tension.
 4. **Absorption** `S→A`: `k·(1 − r·(1−s))·(1−s)` as an exact exponential
@@ -271,16 +273,26 @@ sequence (`<stem>_normal_####.exr`). Corner values average only cells of the
 same material, so zone borders stay sharp. Everything is texture-only: no
 extra geometry is created.
 
-*Drops and dewetting.* On repellent fabric (beading > 0) the film does not
-stay a sheet. The beading share of the film in each cell of a jittered
-lattice fixed to the fabric (pitch 0.9 × Feature Size, at least 3 texels) is
-drawn as one spherical cap at the lattice point, with a contact angle of
-70° + 55° × beading (bulging drops above 90°). A film that drains, or a
-waterproof zone pulled out of water, therefore leaves a cellular,
-Voronoi-like pattern of drops whose size follows the local film volume and
-which stay at the same places as they shrink. Rolling beads from the solver
-are drawn the same way inside their cell; rivulets come from the film. The
-water normal is the finite-difference gradient of this height field.
+*Drops (rain-on-glass look).* On repellent fabric (beading > 0) the film
+does not stay a sheet. Resting beads from the solver join the film, and
+the beading share above a 0.02 mm residue collects into close-packed drops
+of very different sizes: seeds on three lattices fixed to the fabric
+(pitch 2.6 / 1.3 / 0.65 × 0.9 × Feature Size, each lattice cell occupied
+with probability 0.55 / 0.7 / 0.85) own the texels nearest to them relative
+to their size, and each basin becomes one drop at its water-weighted centre,
+so drops shrink in place as the water drains or dries. A drop is a
+spherical cap with a contact angle of 70° + 55° × beading; on a slope it
+hangs as a teardrop (stretched downhill, round at the bottom, tapered at the
+top, more for large drops on steep slopes), using the downhill direction of
+the triangle in UV space.
+
+*Runners.* Beads that moved this frame are drawn on their own at the end of
+a rivulet: every bead hop is drawn along the downhill direction (removing
+the cell-to-cell zigzag) with a gentle meander, blurred into a smooth
+rounded water line, and sweeps a lane in which the small drops are gone.
+Rivulets fade with a 6 s time constant, lanes refill with 12 s. Drops never
+open up under water (submerged cells keep a sheet). The water normal is the
+finite-difference gradient of the height field.
 
 The material reads the sequence through a UV Map node. **Per Face:** one pixel per
 polygon, located through the FACE attribute `cnx_tethys_cell` (polygon index
