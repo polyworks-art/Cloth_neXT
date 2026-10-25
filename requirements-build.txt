@@ -9,3 +9,5 @@ numpy==2.3.4
 # Companion PolyWorks account mode: Ed25519 verification of signed entitlements
 # (Blender itself uses the dependency-free verifier in cloth_next/polyworks).
 cryptography==46.0.3
+# Cloud OpenAPI contract tests (tests/test_cloud_http.py); test-only.
+jsonschema==4.26.0
