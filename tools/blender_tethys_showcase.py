@@ -32,7 +32,7 @@ parser.add_argument("--frames", type=int, default=96)
 parser.add_argument("--detail", default="6")
 parser.add_argument("--texture", default="2048")
 parser.add_argument("--resolution", type=int, default=40)
-parser.add_argument("--drops", type=int, default=140)
+parser.add_argument("--drops", type=int, default=320)
 parser.add_argument("--samples", type=int, default=96)
 parser.add_argument("--eevee", action="store_true", help="fast EEVEE renders instead of Cycles")
 ARGS = parser.parse_args(sys.argv[sys.argv.index("--") + 1:])
@@ -93,9 +93,10 @@ zone.name = "Waterproof"
 material_zones.write_owners(sheet, tuple(zone.token if p.center.x > 0.0 else 0 for p in sheet.data.polygons))
 zone.wetness_profile = "WATERPROOF"
 
-# Synthetic GAIA water around the hanging sheet (1 cm cells).
-lo, hi = (-0.45, -0.15, 0.15), (0.45, 0.15, 1.05)
-dims = tuple(int(round((b - a) / 0.01)) + 1 for a, b in zip(lo, hi))
+# Synthetic GAIA water in a thin slab around the hanging sheet (5 mm cells, so
+# a raindrop touches the cloth on a spot about its own size).
+lo, hi = (-0.45, -0.03, 0.15), (0.45, 0.03, 1.05)
+dims = tuple(int(round((b - a) / 0.005)) + 1 for a, b in zip(lo, hi))
 x = np.linspace(lo[0], hi[0], dims[0])
 y = np.linspace(lo[1], hi[1], dims[1])
 z = np.linspace(lo[2], hi[2], dims[2])
@@ -117,10 +118,10 @@ def fields():
         inside = (Z < level) if 6 <= frame <= 36 else np.zeros(X.shape, bool)
         for start, cx, cz in DROPS:
             if start <= frame <= start + 1:
-                inside |= (X - cx) ** 2 + (Y + 0.004) ** 2 + (Z - cz) ** 2 < 0.012 ** 2
+                inside |= (X - cx) ** 2 + Y ** 2 + (Z - cz) ** 2 < 0.0045 ** 2
         if 50 <= frame <= 75:
             for cx, cz in TRICKLES:
-                inside |= (X - cx) ** 2 + (Y + 0.004) ** 2 + (Z - cz) ** 2 < 0.012 ** 2
+                inside |= (X - cx) ** 2 + Y ** 2 + (Z - cz) ** 2 < 0.006 ** 2
         velocity = np.zeros(X.shape + (3,), np.float32)
         velocity[inside] = (0.0, 1.2, -2.0)
         yield frame, (frame - 1) / 24.0, WaterVelocityField(lo, hi, velocity, inside.astype(np.float32))

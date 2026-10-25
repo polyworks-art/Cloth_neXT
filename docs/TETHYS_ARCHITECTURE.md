@@ -280,7 +280,9 @@ of very different sizes: seeds on three lattices fixed to the fabric
 (pitch 2.6 / 1.3 / 0.65 × 0.9 × Feature Size, each lattice cell occupied
 with probability 0.55 / 0.7 / 0.85) own the texels nearest to them relative
 to their size, and each basin becomes one drop at its water-weighted centre,
-so drops shrink in place as the water drains or dries. A drop is a
+so drops shrink in place as the water drains or dries. A small isolated wet
+patch (up to 4 coarse seed cells, e.g. a raindrop impact) pulls together
+into one drop at its centre instead of a cluster. A drop is a
 spherical cap with a contact angle of 70° + 55° × beading; on a slope it
 hangs as a teardrop (stretched downhill, round at the bottom, tapered at the
 top, more for large drops on steep slopes), using the downhill direction of
