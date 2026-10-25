@@ -56,6 +56,8 @@ from ..materials.deformables import (RodMaterialSettings,
                                      SoftBodyMaterialSettings,
                                      RigidBodyMaterialSettings)
 from . import icon_registry, validation_state, viewport_colors
+from .tethys_properties import (CLOTHNEXT_PG_tethys_settings, CLOTHNEXT_PG_wetness_override,
+                                ZONE_PROFILE_ITEMS, _tethys_changed)
 
 ROLE_ITEMS = (
     ("CLOTH", "Cloth", "Simulate this object as cloth"),
@@ -300,6 +302,12 @@ class CLOTHNEXT_PG_material_zone(bpy.types.PropertyGroup):
     expanded: bpy.props.BoolProperty(default=True)
     face_count: bpy.props.IntProperty(default=0, options={"HIDDEN"})
     overrides: bpy.props.CollectionProperty(type=CLOTHNEXT_PG_zone_override)
+    # TETHYS wetness, independent of the mechanical overrides above.
+    wetness_profile: bpy.props.EnumProperty(
+        name="Wetness Profile", items=ZONE_PROFILE_ITEMS, default="INHERIT", update=_tethys_changed,
+        description="Wetness profile of this zone's faces")
+    wetness_overrides: bpy.props.CollectionProperty(type=CLOTHNEXT_PG_wetness_override)
+    wetness_expanded: bpy.props.BoolProperty(default=False)
 
 
 class CLOTHNEXT_PG_material_settings(bpy.types.PropertyGroup):
@@ -1085,6 +1093,7 @@ class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
     friction_region_index: bpy.props.IntProperty(
         default=0, min=0, options={"HIDDEN"})
     material_zones: bpy.props.CollectionProperty(type=CLOTHNEXT_PG_material_zone)
+    tethys: bpy.props.PointerProperty(type=CLOTHNEXT_PG_tethys_settings)
     material_zone_mesh_id: bpy.props.StringProperty(options={"HIDDEN"})
     material_zone_digest: bpy.props.StringProperty(options={"HIDDEN"})
     material_zone_status: bpy.props.StringProperty(options={"HIDDEN"})

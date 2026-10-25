@@ -10634,6 +10634,13 @@ class CLOTHNEXT_OT_inspect_parameters(bpy.types.Operator):
 # ---------------------------------------------------------------------------
 # Operators
 
+def _tethys_running() -> bool:
+    # The TETHYS Engine reads the published PC2 while it runs; replacing or
+    # clearing that cache must wait until the wetness bake has finished.
+    from . import tethys_bake
+    return tethys_bake.is_running()
+
+
 class CLOTHNEXT_OT_solver_test_run(bpy.types.Operator):
     """Run the simulation solver diagnostic on the current scene"""
 
@@ -10676,7 +10683,8 @@ class CLOTHNEXT_OT_bake(bpy.types.Operator):
     @classmethod
     def poll(cls, _context):
         return (not run_active() and _pending_plan is None
-                and not shared_controller.snapshot().active)
+                and not shared_controller.snapshot().active
+                and not _tethys_running())
 
     def execute(self, context):
         global _cloud_submit_requested
@@ -10917,7 +10925,7 @@ class CLOTHNEXT_OT_solver_test_clear(bpy.types.Operator):
 
     @classmethod
     def poll(cls, _context):
-        return not run_active()
+        return not run_active() and not _tethys_running()
 
     def execute(self, context):
         _clear_intersection_diagnostics()

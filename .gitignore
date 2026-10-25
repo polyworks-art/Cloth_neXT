@@ -46,3 +46,5 @@ staging/
 .polyworks-build.log
 cloth_next/gaia_owner_test.json
 cloth_next/dev_build.json
+cloth_next/bin/tethys-engine
+cloth_next/tethys_manifest.json

@@ -296,6 +296,8 @@ def draw(layout, context):
                 op.identity, op.key, op.remove = zone.identity, override.key, True
             op = box.operator('clothnext.material_zone_property', text='Add Property', icon='ADD')
             op.identity, op.key, op.remove = zone.identity, '', False
+            from .tethys_ui import draw_zone_wetness
+            draw_zone_wetness(box, context.object, zone)
     if settings.material_zones:
         column.label(text='Managed solver required · hard face boundaries', icon='INFO')
         if settings.material_zone_status:

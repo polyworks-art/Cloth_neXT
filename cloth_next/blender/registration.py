@@ -25,7 +25,8 @@ from . import (account_status, addon_update_operators, cloud_runtime, cloud_ui, 
                onboarding_manager, pin_constraints, preferences, solver_preferences_ui,
                solver_release_naming, solver_test, test_scene,
                telemetry_runtime, timeline_overlay, validation_state, viewport_autoframe,
-               viewport_colors, water_flow, water_settings, wind_fields, material_zones, material_zone_selector)
+               viewport_colors, water_flow, water_settings, wind_fields, material_zones, material_zone_selector,
+               tethys_bake, tethys_overlay, tethys_properties, tethys_ui)
 
 _CLASSES = (
     preferences.CLASSES
@@ -37,6 +38,7 @@ _CLASSES = (
     + addon_update_operators.CLASSES
     + object_attachments.CLASSES
     + sewing.CLASSES
+    + tethys_properties.CLASSES
     + object_properties.CLASSES
     + collider_proxy.CLASSES
     + linked_colliders.CLASSES
@@ -49,6 +51,8 @@ _CLASSES = (
     + floating_simulation.CLASSES
     + pin_constraints.CLASSES
     + water_flow.CLASSES
+    + tethys_bake.CLASSES
+    + tethys_ui.CLASSES
     + material_zones.CLASSES
     + material_zone_selector.CLASSES
 )
@@ -132,6 +136,8 @@ def unregister() -> None:
     # test shutdown cancels the run, stops the exact owned solver process
     # (never an external server), and joins the worker thread.
     solver_test.shutdown()
+    tethys_bake.shutdown()
+    tethys_overlay.unregister()
     viewport_autoframe.reset()
     preferences.shutdown()
     addon_update_operators.shutdown()
