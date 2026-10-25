@@ -1,11 +1,10 @@
 # Server requirements: installation-bound GAIA entitlements (for TETHYS)
 
-Status: **client and engine implemented, server not implemented.** The
-production backend (`api.cloth-next.de`, code at `/opt/cloth-next/` on the
-backend host) is not in a repository Claude can reach. This document is the
-contract for whoever implements the server side. The add-on already calls
-the endpoint and tolerates its absence; the native engine verifies the token
-but does **not** enforce it (`kEnforceGaiaEntitlement = false`).
+Status: server issues GAIA entitlements (`POST /v1/entitlements/gaia`,
+renewal via check-in). Client and engine are adapted to that format. The
+native engine verifies the token but does **not** enforce it
+(`kEnforceGaiaEntitlement = false`) until the joint test with all existing
+GAIA testers has passed.
 
 ## Purpose
 
@@ -31,52 +30,36 @@ The issuance rule below must reuse the exact function that answers
 `gaia-access` today, so the set of entitled accounts equals the set of
 `granted` accounts by construction.
 
-## 2. Endpoint
+## 2. Endpoints (as deployed 2026-10-25)
 
-`POST /v1/account/gaia-entitlement` — authenticated with the existing bearer
-session (device link / login). No new registration step.
+* **Issue:** `POST /v1/entitlements/gaia` with the existing bearer session,
+  body `{"installation_id": "inst_…"}` → `200 {"entitlement": "<token>"}`;
+  `403 gaia_access_required` without GAIA access, `403 account_suspended`
+  for suspended accounts. No new registration step.
+* **Renew / revocation check:** `POST /v1/entitlements/check-in` with
+  `{"entitlement": <stored GAIA token>, "installation_id"}` →
+  `{"status":"valid","entitlement":<fresh token>}` or `revoked`/`invalid`.
 
-Request: `{"installation_id": "inst_…"}` (the client's existing installation id,
-32 URL-safe characters after `inst_`; validate the same way as activations).
+Client behaviour (`AccountService.refresh_gaia_entitlement`, run at every
+GAIA access check): with a stored token → check-in; without → issue.
+`revoked`/`invalid`, `gaia_access_required`, `account_suspended` delete the
+stored token. Network errors and 5xx keep it; `404 not_found` (server without
+the endpoint) changes nothing.
 
-Responses (contract error envelope as elsewhere):
+## 3. Token (as issued by the server)
 
-| Case | Response |
-|---|---|
-| GAIA decision `granted` | `200 {"status":"granted","mode":…,"entitlement":"<token>"}` |
-| `pending`, `declined`, none | `200 {"status":"pending"/"declined"/null,"mode":…,"entitlement":null}` |
-| Account suspended/disabled | `403 account_suspended` (or `account_disabled`) |
-| Not signed in | `401 not_authenticated` |
-| Rate limit | `429 rate_limited` with `Retry-After` |
-
-The client deletes its stored GAIA entitlement on every non-granted answer and
-on `account_suspended` / `account_disabled` / `gaia_access_required`; it keeps
-it on network errors and 5xx; on `404 not_found` it treats the feature as not
-yet deployed and changes nothing.
-
-Suggested limit: 30 requests per 15 minutes per account (the add-on asks only
-when it checks GAIA access: Blender start, Check Access, access request,
-invite redemption, GAIA install).
-
-## 3. Token
-
-Same format and signing key as the licence entitlement
-(`base64url(payload) "." base64url(ed25519(payload))`, key `k1`, see
-`BLENDER_ADDON_API_CONTRACT.md` §4.1–4.2). Payload (compact JSON, no
-duplicate keys):
+`base64url(JSON) "." base64url(Ed25519 signature)`, key `k1`:
 
 ```json
-{"typ":"polyworks.feature-entitlement","v":1,"kid":"k1",
- "sub":"<account id>","inst":"<installation id from the request>",
- "prd":"cloth-next","feat":["gaia"],"src":"grant|request|invite|tester|everyone",
- "iat":1761400000,"exp":1762004800}
+{"typ":"polyworks.entitlement","v":1,"purpose":"gaia-access","feat":["gaia"],
+ "kid":"k1","sub":"<account>","inst":"<installation id>","iat":…,"exp":…}
 ```
 
-* `typ` must differ from `polyworks.entitlement`; a licence entitlement is
-  never accepted as GAIA proof (the engine checks `typ`).
-* `exp - iat` = **7 days** (604,800 s). Each call issues a fresh token.
-* `src` is informational (support), not checked by the engine.
-* Never include e-mail addresses or licence data.
+The engine and the add-on require `typ == "polyworks.entitlement"`, `v == 1`,
+`purpose == "gaia-access"`, `"gaia"` in `feat`, `inst` equal to the local
+installation id and the validity window. `prd` is optional; when present it
+must be `"cloth-next"`. A licence entitlement (same `typ`, no `purpose`) is
+refused.
 
 ## 4. Revocation and offline validity
 
@@ -87,13 +70,14 @@ account is suspended:
   (`removed`), immediately ending TETHYS on that computer once enforcement
   is on;
 * a computer that stays offline keeps a token that was already issued until its
-  `exp`: **at most 7 days plus 5 minutes clock tolerance** after the last
-  successful issuance. That is the documented worst case.
+  `exp` (+5 minutes clock tolerance). With the 7-day lifetime proposed here that
+  is at most 7 days after the last successful issuance; the actual bound is the
+  server's `exp - iat`.
 
 ## 5. Engine checks (already implemented)
 
 Signature with a compiled-in key (`k1` only in shipped builds), `kid`, `typ`,
-`v == 1`, `prd == "cloth-next"`, `inst` equals the local
+`v == 1`, `purpose == "gaia-access"`, optional `prd == "cloth-next"`, `inst` equals the local
 `installation-id` file, `"gaia"` in `feat`, `iat - 300 <= now <= exp + 300`.
 The engine reads `installation-id` and `gaia-entitlement` itself from the
 PolyWorks account folder (`%LOCALAPPDATA%\PolyWorks\ClothNeXt`, Linux

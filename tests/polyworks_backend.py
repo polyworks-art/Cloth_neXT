@@ -146,6 +146,12 @@ class ContractBackend:
             return "granted"
         return self.gaia_access.get(user_id)
 
+    def _gaia_token(self, user_id, installation_id):
+        now = int(self.clock())
+        return self.sign({"typ": "polyworks.entitlement", "v": 1, "purpose": "gaia-access",
+                          "feat": ["gaia"], "kid": self.key_id, "sub": user_id,
+                          "inst": installation_id, "iat": now, "exp": now + self.gaia_entitlement_seconds})
+
     def revoke_gaia(self, user_id):
         self.gaia_access[user_id] = "declined"
         self.gaia_testers.discard(user_id)
@@ -412,6 +418,14 @@ class ContractBackend:
             return {"status": "invalid", "reason": None, "entitlement": None, "license": None}
         if payload["sub"] != user_id or payload["inst"] != body["installation_id"]:
             return {"status": "invalid", "reason": None, "entitlement": None, "license": None}
+        if payload.get("purpose") == "gaia-access":
+            # Renewal decided only by the current GAIA access decision.
+            if user_id in self.suspended:
+                return {"status": "revoked", "reason": "account_suspended", "entitlement": None, "license": None}
+            if self._gaia_status(user_id) != "granted":
+                return {"status": "revoked", "reason": "gaia_access_revoked", "entitlement": None, "license": None}
+            return {"status": "valid", "reason": None, "license": None,
+                    "entitlement": self._gaia_token(user_id, body["installation_id"])}
         record = self.licenses.get(payload["lic"])
         activation = self.activations.get(payload["act"])
         reason = None
@@ -432,23 +446,15 @@ class ContractBackend:
 
     # GAIA (Companion v1) ------------------------------------------------------------
     def _gaia_route(self, method, path, raw, user_id):
-        if method == "POST" and path == "/v1/account/gaia-entitlement" and self.gaia_entitlement_route:
+        if method == "POST" and path == "/v1/entitlements/gaia" and self.gaia_entitlement_route:
             body, error = self._body(raw, {"installation_id"})
             if error:
                 return error
             if user_id in self.suspended:
                 return self.error(403, "account_suspended")
-            status = self._gaia_status(user_id)
-            if status != "granted":
-                return 200, {"status": status, "mode": self.gaia_mode, "entitlement": None}, None
-            now = int(self.clock())
-            source = ("everyone" if self.gaia_mode == "everyone" else
-                      "tester" if user_id in self.gaia_testers else "grant")
-            token = self.sign({"typ": "polyworks.feature-entitlement", "v": 1, "kid": self.key_id,
-                               "sub": user_id, "inst": body["installation_id"], "prd": "cloth-next",
-                               "feat": ["gaia"], "src": source, "iat": now,
-                               "exp": now + self.gaia_entitlement_seconds})
-            return 200, {"status": "granted", "mode": self.gaia_mode, "entitlement": token}, None
+            if self._gaia_status(user_id) != "granted":
+                return self.error(403, "gaia_access_required")
+            return 200, {"entitlement": self._gaia_token(user_id, body["installation_id"])}, None
         if method == "GET" and path == "/v1/account/gaia-access":
             return 200, {"status": self._gaia_status(user_id), "mode": self.gaia_mode}, None
         if method == "POST" and path == "/v1/account/gaia-access/request":

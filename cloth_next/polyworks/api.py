@@ -365,19 +365,13 @@ class PolyWorksApi:
         access = value.get("access") if isinstance(value, dict) else None
         return {"access": access is True, "mode": _gaia_access(value)["mode"]}
 
-    def gaia_entitlement(self, token: str, installation_id: str) -> dict:
-        """Installation-bound GAIA feature entitlement (TETHYS server contract).
-
-        {"status": granted|pending|declined|None, "entitlement": token|None}.
-        Only the server's GAIA access decision grants it; no licence needed.
-        """
-        value = self._call("POST", "/v1/account/gaia-entitlement",
+    def gaia_entitlement(self, token: str, installation_id: str) -> str:
+        """Installation-bound GAIA entitlement for TETHYS. Granted only from the
+        server's GAIA access decision; no licence or activation involved.
+        403 gaia_access_required when the account has no GAIA access."""
+        value = self._call("POST", "/v1/entitlements/gaia",
                            {"installation_id": installation_id}, token=token)
-        entitlement = value.get("entitlement") if isinstance(value, dict) else None
-        status = _gaia_access(value)["status"]
-        if status == "granted" and not (isinstance(entitlement, str) and entitlement):
-            raise ApiError("invalid_response")
-        return {"status": status, "entitlement": entitlement if status == "granted" else None}
+        return _field(value, "entitlement", str)
 
     def account_downloads(self, token: str) -> dict:
         value = self._call("GET", "/v1/account/downloads", token=token)

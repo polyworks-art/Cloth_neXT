@@ -53,7 +53,7 @@ TETHYS enablement (per object) and GAIA availability are separate.
 **Native authorization (prepared, not enforced).** The engine itself reads
 the PolyWorks `installation-id` and `gaia-entitlement` files and verifies an
 installation-bound, Ed25519-signed GAIA feature entitlement (compiled-in key
-`k1`; type, version, product, installation, validity window, `feat:["gaia"]`).
+`k1`; type, version, `purpose: "gaia-access"`, installation, validity window, `feat:["gaia"]`).
 A licence entitlement or a mere GAIA installation does not qualify. The add-on
 fetches and renews the token whenever it checks GAIA access and deletes it
 when access is revoked or the account suspended. Enforcement is compiled off

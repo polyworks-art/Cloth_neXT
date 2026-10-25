@@ -465,15 +465,25 @@ class AccountService:
     def refresh_gaia_entitlement(self) -> str:
         """Fetch or renew the installation-bound GAIA entitlement for TETHYS.
 
-        Returns "stored", "removed" (access no longer granted: revoked,
-        declined, account suspended), "unavailable" (the server does not
-        offer the endpoint yet) or "kept" (offline; the stored token stays
-        until its own expiry). Never blocks GAIA or Cloth NeXt use.
+        A stored token is renewed through check-in (which also reports a
+        revocation); without one a new token is requested from
+        ``/v1/entitlements/gaia``. Returns "stored", "removed" (GAIA access
+        revoked, declined or account suspended), "unavailable" (endpoint not
+        deployed) or "kept" (offline: the stored token stays until its own
+        expiry). Never blocks GAIA or Cloth NeXt use.
         """
         token = self._require_token()
         installation_id = self.installation_id()
+        stored = self.store.read_gaia_entitlement()
         try:
-            result = self.api.gaia_entitlement(token, installation_id)
+            if stored:
+                result = self.api.check_in(token, stored, installation_id)
+                if result["status"] != "valid":
+                    self.store.delete_gaia_entitlement()
+                    return "removed"
+                fresh = result["entitlement"]
+            else:
+                fresh = self.api.gaia_entitlement(token, installation_id)
         except ApiError as exc:
             if exc.code in {"not_found", "feature_disabled"} or exc.status == 404:
                 return "unavailable"
@@ -483,15 +493,11 @@ class AccountService:
             if exc.code in {"network_unavailable", "service_unavailable", "server_error", "rate_limited"}:
                 return "kept"
             raise ServiceError(exc.code, request_id=exc.request_id) from None
-        if result["status"] != "granted":
-            self.store.delete_gaia_entitlement()
-            return "removed"
         try:
-            verify_gaia(result["entitlement"], trust=self.trust, installation_id=installation_id,
-                        now=self.clock())
+            verify_gaia(fresh, trust=self.trust, installation_id=installation_id, now=self.clock())
         except EntitlementError as exc:
             raise ServiceError("untrusted_entitlement") from exc
-        self.store.write_gaia_entitlement(result["entitlement"])
+        self.store.write_gaia_entitlement(fresh)
         return "stored"
 
     def request_gaia_access(self, message: str = "") -> str:

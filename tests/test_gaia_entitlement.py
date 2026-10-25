@@ -9,6 +9,7 @@ the native engine's own verdict is checked too.
 """
 from __future__ import annotations
 
+import base64
 import json
 import os
 from pathlib import Path
@@ -114,6 +115,8 @@ def test_every_access_path_issues_an_engine_verified_entitlement(backend, tmp_pa
     token = (root / GAIA_ENTITLEMENT_FILE).read_text("utf-8")
     claims = verify_gaia(token, trust=service.trust, installation_id=service.installation_id())
     assert claims.features == ("gaia",) and claims.subject == service.user
+    payload = json.loads(base64.urlsafe_b64decode(token.split(".")[0] + "=" * (-len(token.split(".")[0]) % 4)))
+    assert payload["typ"] == "polyworks.entitlement" and payload["purpose"] == "gaia-access"
     assert claims.expires_at - claims.issued_at == 7 * 24 * 3600
     engine = _test_engine()
     if engine is not None:
@@ -154,11 +157,12 @@ def test_transition_phase_never_blocks(backend, tmp_path):
     root = tmp_path / "account"
     service = _service(backend, root)
     backend.gaia_access[service.user] = "granted"
-    assert service.refresh_gaia_entitlement() == "stored"
-    backend.gaia_entitlement_route = False
+    backend.gaia_entitlement_route = False                 # older server: no issuing endpoint
     assert service.refresh_gaia_entitlement() == "unavailable"
-    assert (root / GAIA_ENTITLEMENT_FILE).exists()
+    assert not (root / GAIA_ENTITLEMENT_FILE).exists()
+    assert service.gaia_access()["status"] == "granted"    # GAIA itself is unaffected
     backend.gaia_entitlement_route = True
+    assert service.refresh_gaia_entitlement() == "stored"
     backend.offline = True
     assert service.refresh_gaia_entitlement() == "kept"
     assert (root / GAIA_ENTITLEMENT_FILE).exists()
@@ -181,7 +185,7 @@ def test_installation_binding_and_licence_tokens_are_refused(backend, tmp_path):
     engine = _test_engine()
     if engine is not None:
         (root / GAIA_ENTITLEMENT_FILE).write_text(licence, encoding="utf-8")
-        assert _engine_verdict(root, engine) == "wrong_type"
+        assert _engine_verdict(root, engine) == "wrong_purpose"
 
 
 def test_production_engine_trusts_only_the_pinned_key(backend, tmp_path):
