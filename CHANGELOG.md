@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.9.50 - 2026-10-25
+
+- TETHYS Wetness is its own Physics panel next to GAIA Water Flow, with the TETHYS logo. Up front: Fabric, cache status, Bake Wetness and clear, and the look (Wetness, Darkening, Wet Roughness, Drop Relief). Collapsed: Detail, Advanced (Runoff, Soaking and Drying, Water Contact, Shading Response), Fabric Overrides, Debug.
+- GAIA Water Flow: Source and Domain with a compact velocity-export button, the fluid cache status with Prepare Fluid Cache up front, Fluid Cache Settings collapsed; Wet Fabric is now Wet Fabric Physics.
+
 ## 2.9.49 - 2026-10-25
 
 - TETHYS Wetness (requires GAIA): Bake Wetness turns a GAIA water simulation into surface water and absorbed moisture on the cloth, per Material Zone, computed by the bundled native TETHYS Engine (Windows and Linux). The engine verifies the installation-bound GAIA entitlement itself.

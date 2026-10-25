@@ -1,0 +1,35 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.50",
+  "title": "What's New in Cloth NeXt 2.9.50",
+  "subtitle": "Tidier water panels.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/check.png",
+      "title": "TETHYS gets its own panel",
+      "description": "TETHYS Wetness now sits next to GAIA Water Flow with its own logo: fabric, Bake Wetness and the wet look up front, everything technical folded away."
+    },
+    {
+      "icon": "icons/refresh.png",
+      "title": "Clearer GAIA Water Flow",
+      "description": "Source, domain and the fluid cache status with Prepare Fluid Cache come first; cache settings are folded away, and Wet Fabric Physics says what it does."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Look changes are instant",
+      "description": "Wetness, Darkening, Wet Roughness and Drop Relief update the material at once, without baking again."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}

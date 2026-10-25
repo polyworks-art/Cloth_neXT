@@ -1,4 +1,8 @@
-# Cloth NeXt 2.9.49
+# Cloth NeXt 2.9.50
+
+The water panels are tidier. TETHYS Wetness now has its own panel with its own logo next to GAIA Water Flow: choose the fabric, bake, and set the wet look up front, with everything technical folded away. GAIA Water Flow starts with the source, the domain and the fluid cache status, and Wet Fabric Physics now says what it does.
+
+## 2.9.49
 
 TETHYS Wetness arrives under GAIA: cloth now gets wet from a GAIA water simulation. Fabrics soak, darken, dry and shed water according to their material, and every Material Zone behaves on its own. On waterproof fabric water beads into drops of every size, running drops leave trails, rivulets form on slopes, and a water sheet pulled out of water tears into holes before it breaks into drops. Everything plays as image sequences and a water normal map in your materials, without extra geometry.
 
