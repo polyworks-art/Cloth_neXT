@@ -409,7 +409,10 @@ class _Cancelled(Exception):
 # ---------------------------------------------------------------- publish
 
 def write_images(plan: BakePlan, frames, *, image_name="__CNX_TETHYS_EXPORT"):
-    """Convert cache frames to EXR images (R surface mm, G saturation, B contact)."""
+    """Convert cache frames to EXR images. UV layout: R water height mm, G absorbed
+    mm, plus a second sequence with the tangent-space water normal as a
+    normal-map colour (alpha is not lossless in Blender's EXR path, so it stays
+    1). Per face: R surface mm, G absorbed mm, B contact."""
     width, height = plan.image_size
     textured = bool(plan.request.texture_size)
     # Each polygon owns one wetness material: capacity in mm per polygon.
@@ -418,17 +421,45 @@ def write_images(plan: BakePlan, frames, *, image_name="__CNX_TETHYS_EXPORT"):
     capacity_mm[np.asarray(plan.request.polygon_of)] = rows[np.asarray(plan.request.material_of), 1] * 1000.0
     pixels = np.zeros((height * width, 4), np.float32)
     pixels[:, 3] = 1.0
+    normals = np.ones((height * width, 4), np.float32)
     image = bpy.data.images.new(image_name, width, height, alpha=True, float_buffer=True)
+    normal_image = bpy.data.images.new(image_name + " N", width, height, alpha=True, float_buffer=True) \
+        if textured else None
+    # Image.save() is lossy for EXR in Blender 5.2; save_render with an owned
+    # scene writes lossless 16-bit ZIP without any view transform.
+    exporter = bpy.data.scenes.new("__CNX_TETHYS_EXPORT")
+    settings = exporter.render.image_settings
+    settings.file_format = "OPEN_EXR"
+    settings.color_depth = "16"
+    settings.exr_codec = "ZIP"
+    settings.color_mode = "RGBA"
+    settings.color_management = "OVERRIDE"
+    settings.view_settings.view_transform = "Standard"
+    settings.view_settings.look = "None"
+    settings.view_settings.exposure = 0.0
+    settings.view_settings.gamma = 1.0
     try:
-        image.colorspace_settings.name = "Non-Color"
-        image.file_format = "OPEN_EXR"
+        for target in (image, normal_image):
+            if target is not None:
+                target.colorspace_settings.name = "Non-Color"
+                target.file_format = "OPEN_EXR"
         with protocol.CacheReader(plan.staging.cache) as reader:
             for frame in frames:
                 data = reader.read(frame)
                 if textured:
-                    texture = data.channels["texture"].reshape(-1, 2)
-                    pixels[:, 0] = texture[:, 0]
-                    pixels[:, 1] = texture[:, 1]
+                    texture = data.channels["texture"]
+                    parts = texture.shape[-1]
+                    flat = texture.reshape(-1, parts)
+                    pixels[:, 0] = flat[:, 0]
+                    pixels[:, 1] = flat[:, 1]
+                    if parts == 4:
+                        nx, ny = flat[:, 2], flat[:, 3]
+                        nz = np.sqrt(np.maximum(1.0 - nx * nx - ny * ny, 0.0))
+                        normals[:, 0], normals[:, 1], normals[:, 2] = 0.5 * nx + 0.5, 0.5 * ny + 0.5, 0.5 * nz + 0.5
+                    else:
+                        normals[:, :3] = (0.5, 0.5, 1.0)
+                    normal_image.pixels.foreach_set(normals.reshape(-1))
+                    normal_image.save_render(str(plan.staging.normal_image(frame)), scene=exporter)
                 else:
                     count = plan.polygon_count
                     pixels[:count, 0] = data.channels["surface"]
@@ -436,10 +467,12 @@ def write_images(plan: BakePlan, frames, *, image_name="__CNX_TETHYS_EXPORT"):
                     pixels[:count, 2] = data.channels.get("contact", 0.0)
                 image.pixels.foreach_set(pixels.reshape(-1))
                 path = plan.staging.frame_image(frame)
-                image.filepath_raw = str(path)
-                image.save()
+                image.save_render(str(path), scene=exporter)
     finally:
         bpy.data.images.remove(image)
+        if normal_image is not None:
+            bpy.data.images.remove(normal_image)
+        bpy.data.scenes.remove(exporter)
 
 
 def publish(plan: BakePlan) -> dict:
@@ -448,7 +481,9 @@ def publish(plan: BakePlan) -> dict:
     partial = tcache.write_partial(staging, plan.record)
     images = {"directory": final.frames.name, "width": plan.image_size[0], "height": plan.image_size[1],
               "format": "OPEN_EXR", "layout": "UV" if plan.request.texture_size else "FACE",
-              "channels": ["surface_mm", "absorbed_mm", "contact"]}
+              "channels": ["water_height_mm", "absorbed_mm"] if plan.request.texture_size
+              else ["surface_mm", "absorbed_mm", "contact"],
+              "normal_map": bool(plan.request.texture_size)}
     staged = tcache.write_complete(staging, partial, images=images, result=_ledger(plan))
     # Replace only this object's owned files; the cloth cache is untouched.
     tcache.remove(final, stage="TETHYS_REPLACE")
@@ -456,7 +491,8 @@ def publish(plan: BakePlan) -> dict:
     final.frames.mkdir(parents=True, exist_ok=True)
     for image in sorted(staging.frames.glob(f"{staging.stem}_*.exr")):
         frame = int(image.stem.rsplit("_", 1)[1])
-        os.replace(image, final.frame_image(frame))
+        normal = image.stem.startswith(f"{staging.stem}_normal_")
+        os.replace(image, final.normal_image(frame) if normal else final.frame_image(frame))
     shutil.rmtree(staging.frames, ignore_errors=True)
     sealed = {k: v for k, v in staged.items() if k not in {"metadata_digest", "cache_file"}}
     sealed["cache_file"] = final.cache.name

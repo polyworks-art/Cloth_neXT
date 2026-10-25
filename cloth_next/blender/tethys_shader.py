@@ -44,12 +44,12 @@ def _socket(tree, name, in_out, socket_type, default=None, minimum=None, maximum
     return item
 
 
-def _math(tree, operation, a=None, b=None, location=(0, 0), clamp=False):
+def _math(tree, operation, a=None, b=None, location=(0, 0), clamp=False, extra=None):
     node = tree.nodes.new("ShaderNodeMath")
     node.operation = operation
     node.use_clamp = clamp
     node.location = location
-    for index, value in ((0, a), (1, b)):
+    for index, value in ((0, a), (1, b), (2, extra)):
         if isinstance(value, (int, float)):
             node.inputs[index].default_value = value
         elif value is not None:
@@ -103,7 +103,7 @@ def cell_group():
 
 def wetness_group():
     tree = bpy.data.node_groups.get(GROUP)
-    if tree is not None and "Absorbed Water" in tree.interface.items_tree:
+    if tree is not None and "Water Normal" in tree.interface.items_tree:
         return tree
     if tree is not None:          # older development layout: rebuild under the same name
         tree.name = GROUP + " (old)"
@@ -113,10 +113,11 @@ def wetness_group():
     _socket(tree, "Coat Weight", "INPUT", "NodeSocketFloat", 0.0, 0.0, 1.0)
     _socket(tree, "Surface Water", "INPUT", "NodeSocketFloat", 0.0, 0.0)
     _socket(tree, "Absorbed Water", "INPUT", "NodeSocketFloat", 0.0, 0.0)
+    _socket(tree, "Normal Map", "INPUT", "NodeSocketColor", (0.5, 0.5, 1.0, 1.0))
     _socket(tree, "Valid", "INPUT", "NodeSocketFloat", 0.0, 0.0, 1.0)
     _socket(tree, "Darkening", "INPUT", "NodeSocketFloat", 0.6, 0.0, 1.0)
     _socket(tree, "Wet Roughness", "INPUT", "NodeSocketFloat", 0.08, 0.0, 1.0)
-    _socket(tree, "Film Response", "INPUT", "NodeSocketFloat", 0.3, 0.001)
+    _socket(tree, "Film Response", "INPUT", "NodeSocketFloat", 0.08, 0.001)
     _socket(tree, "Moisture Response", "INPUT", "NodeSocketFloat", 0.25, 0.001)
     _socket(tree, "Strength", "INPUT", "NodeSocketFloat", 1.0, 0.0, 1.0)
     _socket(tree, "Base Color", "OUTPUT", "NodeSocketColor")
@@ -125,6 +126,7 @@ def wetness_group():
     _socket(tree, "Film", "OUTPUT", "NodeSocketFloat")
     _socket(tree, "Moisture", "OUTPUT", "NodeSocketFloat")
     _socket(tree, "Water Height", "OUTPUT", "NodeSocketFloat")
+    _socket(tree, "Water Normal", "OUTPUT", "NodeSocketColor")
     i = tree.nodes.new("NodeGroupInput")
     o = tree.nodes.new("NodeGroupOutput")
     i.location, o.location = (-900, 0), (700, 0)
@@ -160,6 +162,16 @@ def wetness_group():
     tree.links.new(moisture, o.inputs["Moisture"])
     # Surface water (mm) as relief for beads and rivulets; zero where invalid.
     tree.links.new(_math(tree, "MULTIPLY", i.outputs["Surface Water"], gate, (150, -450)), o.inputs["Water Height"])
+    # Tangent-space normal of the water surface (drops, rivulets) as a
+    # normal-map colour; flat where there is no data.
+    flat = tree.nodes.new("ShaderNodeMix")
+    flat.data_type = "RGBA"
+    flat.clamp_factor = True
+    flat.location = (400, -600)
+    tree.links.new(gate, flat.inputs["Factor"])
+    next(s for s in flat.inputs if s.name == "A" and s.type == "RGBA").default_value = (0.5, 0.5, 1.0, 1.0)
+    tree.links.new(i.outputs["Normal Map"], next(s for s in flat.inputs if s.name == "B" and s.type == "RGBA"))
+    tree.links.new(next(s for s in flat.outputs if s.type == "RGBA"), o.inputs["Water Normal"])
     return tree
 
 
@@ -169,36 +181,16 @@ def image_name(obj) -> str:
     return f"{IMAGE_PREFIX}{obj.name}"
 
 
+def normal_image_name(obj) -> str:
+    return f"{IMAGE_PREFIX}{obj.name} Normal"
+
+
 def _restore_validation_after(obj, write):
     """Writing the cell attribute is not a geometry change for the cloth
     solver (positions and topology are untouched), so keep its validation."""
-    import time
     from . import validation_state
-    record = validation_state.record_for(obj)
-    names = {obj.name_full, obj.data.name_full}
+    validation_state.keep_record_through_update(obj)
     write()
-    deadline = time.monotonic() + 2.0
-
-    def observer(_scene, depsgraph):
-        if time.monotonic() > deadline:
-            # Never let a late, unrelated edit inherit the old record.
-            validation_state.remove_depsgraph_observer(observer)
-            return
-        # Blender may report the write in more than one update; compare by
-        # name (evaluated copies are different Python objects).
-        for update in getattr(depsgraph, "updates", ()):
-            original = getattr(getattr(update, "id", None), "original", None)
-            if getattr(original, "name_full", None) in names:
-                validation_state.restore_record(obj, record)
-                return
-
-    validation_state.add_depsgraph_observer(observer)
-
-    def expire():
-        validation_state.remove_depsgraph_observer(observer)
-        return None
-
-    bpy.app.timers.register(expire, first_interval=2.0)
 
 
 def ensure_cell_attribute(obj) -> None:
@@ -226,9 +218,9 @@ def ensure_cell_attribute(obj) -> None:
     _restore_validation_after(obj, write)
 
 
-def sequence_image(obj, paths, first, last):
-    path = str(paths.frame_image(first))
-    name = image_name(obj)
+def sequence_image(obj, paths, first, last, normal=False):
+    path = str(paths.normal_image(first) if normal else paths.frame_image(first))
+    name = normal_image_name(obj) if normal else image_name(obj)
     image = bpy.data.images.get(name)
     if image is None or not image.get(OWNED):
         image = bpy.data.images.load(path, check_existing=False)
@@ -305,7 +297,7 @@ def _uv_name(obj) -> str:
     return layer.name if layer is not None else ""
 
 
-def _insert(material, obj, image, size, first, last, uv_layout=False):
+def _insert(material, obj, image, size, first, last, uv_layout=False, normal_image=None):
     tree = material.node_tree
     settings = obj.cloth_next.tethys
     for principled in [n for n in tree.nodes if n.bl_idname == "ShaderNodeBsdfPrincipled" and not n.get(OWNED)]:
@@ -313,11 +305,19 @@ def _insert(material, obj, image, size, first, last, uv_layout=False):
                          and n.bl_idname == "ShaderNodeGroup"), None)
         if existing is not None:
             texture = next((n for n in tree.nodes if n.get(OWNED) and n.bl_idname == "ShaderNodeTexImage"
+                            and not n.get("cnx_tethys_normal")
                             and n.get("cnx_tethys_target") == principled.name), None)
             cell = next((n for n in tree.nodes if n.get(OWNED) and n.get("cnx_tethys_target") == principled.name
                          and n.bl_idname == "ShaderNodeGroup" and n.node_tree.name == CELL_GROUP), None)
             if texture is not None:
                 _configure_texture(texture, image, first, last)
+                if uv_layout:
+                    texture.interpolation = "Linear"
+            normals = next((n for n in tree.nodes if n.get(OWNED) and n.get("cnx_tethys_normal")
+                            and n.get("cnx_tethys_target") == principled.name), None)
+            if normals is not None and normal_image is not None:
+                _configure_texture(normals, normal_image, first, last)
+                normals.interpolation = "Linear"
             if cell is not None:
                 cell.inputs["Width"].default_value, cell.inputs["Height"].default_value = size
             continue
@@ -363,14 +363,37 @@ def _insert(material, obj, image, size, first, last, uv_layout=False):
         tree.links.new(texture.outputs["Color"], split.inputs[0])
         tree.links.new(split.outputs[0], group.inputs["Surface Water"])
         tree.links.new(split.outputs[1], group.inputs["Absorbed Water"])
-        # Beads and rivulets catch the light: bump from the water height,
-        # chained onto any existing normal map so it is kept.
-        bump = add("ShaderNodeBump", (-100, -600))
-        bump.inputs["Strength"].default_value = 1.0
-        bump.inputs["Distance"].default_value = 0.001 * settings.water_relief
-        tree.links.new(group.outputs["Water Height"], bump.inputs["Height"])
-        _feed(tree, record["normal"], bump.inputs["Normal"])
-        tree.links.new(bump.outputs["Normal"], normal)
+        if uv_layout:
+            # Drops and rivulets catch the light through the engine's water
+            # normal. Where water covers the fabric its smooth surface replaces
+            # the fabric's own normal (kept everywhere else; Clear restores it).
+            normals = add("ShaderNodeTexImage", (-800, -800))
+            normals["cnx_tethys_normal"] = 1
+            _configure_texture(normals, normal_image, first, last)
+            normals.interpolation = "Linear"
+            tree.links.new(uv.outputs["UV"], normals.inputs["Vector"])
+            tree.links.new(normals.outputs["Color"], group.inputs["Normal Map"])
+            water = add("ShaderNodeNormalMap", (-50, -650))
+            water.space = "TANGENT"
+            water.uv_map = _uv_name(obj)
+            water.inputs["Strength"].default_value = settings.water_relief
+            tree.links.new(group.outputs["Water Normal"], water.inputs["Color"])
+            fabric = add("ShaderNodeMix", (150, -550))
+            fabric.data_type = "VECTOR"
+            fabric.clamp_factor = True
+            fabric_a = next(s for s in fabric.inputs if s.name == "A" and s.type == "VECTOR")
+            fabric_b = next(s for s in fabric.inputs if s.name == "B" and s.type == "VECTOR")
+            if "link" in record["normal"]:
+                _feed(tree, record["normal"], fabric_a)
+            else:
+                geometry = add("ShaderNodeNewGeometry", (-50, -450))
+                tree.links.new(geometry.outputs["Normal"], fabric_a)
+            tree.links.new(group.outputs["Film"], fabric.inputs["Factor"])
+            tree.links.new(water.outputs["Normal"], fabric_b)
+            unit = add("ShaderNodeVectorMath", (350, -550))
+            unit.operation = "NORMALIZE"
+            tree.links.new(next(s for s in fabric.outputs if s.type == "VECTOR"), unit.inputs[0])
+            tree.links.new(unit.outputs["Vector"], normal)
         tree.links.new(cell.outputs["Valid"], group.inputs["Valid"])
         _feed(tree, record["base"], group.inputs["Base Color"])
         _feed(tree, record["rough"], group.inputs["Roughness"])
@@ -413,6 +436,7 @@ def attach(obj, paths, size, first, last, uv_layout=False) -> list[str]:
                               "Make it single-user first")
     ensure_cell_attribute(obj)
     image = sequence_image(obj, paths, first, last)
+    normal_image = sequence_image(obj, paths, first, last, normal=True) if uv_layout else None
     for material in materials:
         # Material.use_nodes is deprecated (Blender 6 removes it); the tree decides.
         if material.node_tree is None or not getattr(material, "use_nodes", True):
@@ -421,7 +445,7 @@ def attach(obj, paths, size, first, last, uv_layout=False) -> list[str]:
         if not any(n.bl_idname == "ShaderNodeBsdfPrincipled" for n in material.node_tree.nodes):
             notes.append(f"{material.name}: no Principled BSDF")
             continue
-        _insert(material, obj, image, size, first, last, uv_layout)
+        _insert(material, obj, image, size, first, last, uv_layout, normal_image)
     if not materials:
         notes.append("no material slots")
     return notes
@@ -437,8 +461,8 @@ def update_appearance(obj) -> None:
             if node.get(OWNED) and node.bl_idname == "ShaderNodeGroup" and node.node_tree and \
                     node.node_tree.name == GROUP:
                 _apply_appearance(node, settings)
-            elif node.get(OWNED) and node.bl_idname == "ShaderNodeBump":
-                node.inputs["Distance"].default_value = 0.001 * settings.water_relief
+            elif node.get(OWNED) and node.bl_idname == "ShaderNodeNormalMap":
+                node.inputs["Strength"].default_value = settings.water_relief
 
 
 def detach(obj, keep_attribute=False) -> None:
@@ -461,9 +485,10 @@ def detach(obj, keep_attribute=False) -> None:
                 _restore(tree, principled.inputs["Coat Weight"], record["coat"])
         for node in owned:
             tree.nodes.remove(node)
-    image = bpy.data.images.get(image_name(obj))
-    if image is not None and image.get(OWNED):
-        bpy.data.images.remove(image)
+    for name in (image_name(obj), normal_image_name(obj)):
+        image = bpy.data.images.get(name)
+        if image is not None and image.get(OWNED):
+            bpy.data.images.remove(image)
     mesh = obj.data
     if keep_attribute:
         return

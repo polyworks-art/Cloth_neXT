@@ -31,10 +31,14 @@ PREVIEW_ITEMS = (
 )
 
 
-def _tethys_changed(_self, _context):
+def _tethys_changed(self, _context):
     # Wetness settings never touch cloth validation; the cache fingerprint
-    # comparison reports a stale wetness bake instead.
-    from . import tethys_bake
+    # comparison reports a stale wetness bake instead. Blender reports the
+    # property edit as an Object geometry update, so keep the record.
+    from . import tethys_bake, validation_state
+    owner = getattr(self, "id_data", None)
+    if owner is not None and getattr(owner, "cloth_next", None) is not None:
+        validation_state.keep_record_through_update(owner)
     tethys_bake.tag_redraw()
 
 
@@ -135,14 +139,14 @@ class CLOTHNEXT_PG_tethys_settings(bpy.types.PropertyGroup):
         name="Wet Roughness", default=0.08, min=0.0, max=1.0, update=_appearance_changed,
         description="Roughness of a surface covered by a water film")
     film_response: bpy.props.FloatProperty(
-        name="Film Response", default=0.3, min=0.001, max=50.0, update=_appearance_changed,
+        name="Film Response", default=0.08, min=0.001, max=50.0, update=_appearance_changed,
         description="Surface water at which the wet look is complete. Unit: mm")
     moisture_response: bpy.props.FloatProperty(
         name="Moisture Response", default=0.25, min=0.001, max=50.0, update=_appearance_changed,
         description="Absorbed water at which the darkening is complete. Unit: mm")
     water_relief: bpy.props.FloatProperty(
         name="Water Relief", default=1.0, min=0.0, max=20.0, update=_appearance_changed,
-        description="Bump strength of beads and rivulets (1 = their physical height)")
+        description="Strength of the water normal of drops and rivulets (1 = their physical shape)")
     appearance_strength: bpy.props.FloatProperty(
         name="Wetness Strength", default=1.0, min=0.0, max=1.0, update=_appearance_changed,
         description="Overall strength of the wet appearance")

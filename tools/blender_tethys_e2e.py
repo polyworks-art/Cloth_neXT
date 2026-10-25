@@ -189,6 +189,7 @@ validation_before = validation_state.store_valid(
 sheet.cloth_next.tethys.enabled = True
 sheet.cloth_next.tethys.debug_channels = True
 sheet.cloth_next.tethys.evaporation = 2000.0  # visible drying within the short shot
+bpy.context.view_layer.update()  # the UI flushes property edits at once; a script must ask
 GATE["open"] = False
 try:
     tethys_bake.prepare(bpy.context, sheet)
@@ -291,9 +292,17 @@ for frame in (1, 40, 51, ARGS.frames):
     with protocol.CacheReader(paths.cache) as reader:
         values = reader.read(frame)
     if "texture" in values.channels:
-        texture = values.channels["texture"].reshape(-1, 2)
-        errors = (float(np.abs(pixels[:, 0] - texture[:, 0]).max()),
-                  float(np.abs(pixels[:, 1] - texture[:, 1]).max()))
+        parts = values.channels["texture"].shape[-1]
+        texture = values.channels["texture"].reshape(-1, parts)
+        errors = tuple(float(np.abs(pixels[:, k] - texture[:, k]).max()) for k in range(2))
+        normal = bpy.data.images.load(str(paths.normal_image(frame)), check_existing=False)
+        normal.colorspace_settings.name = "Non-Color"
+        normal.reload()
+        encoded = np.empty(normal.size[0] * normal.size[1] * 4, np.float32)
+        normal.pixels.foreach_get(encoded)
+        encoded = encoded.reshape(-1, 4)
+        errors += tuple(float(np.abs(2.0 * encoded[:, k] - 1.0 - texture[:, 2 + k]).max()) for k in range(2))
+        bpy.data.images.remove(normal)
     else:
         count = len(sheet.data.polygons)
         errors = (float(np.abs(pixels[:count, 0] - values.channels["surface"]).max()),

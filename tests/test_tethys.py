@@ -473,9 +473,12 @@ def test_detail_and_uv_texture(tmp_path):
         assert reader.texture_size == 64 and reader.detail_level == 4
         frame = reader.read(reader.last_frame)
     texture = frame.channels["texture"]
-    assert texture.shape == (64, 64, 2)
+    # Water height, absorbed water and the water surface's tangent normal (x, y).
+    assert texture.shape == (64, 64, 4) and reader.texture_components == 4
+    assert np.all(np.abs(texture[..., 2:]) <= 1.0) and np.all(texture[..., 0] >= 0)
     # Left columns are cotton (saturated), right columns waterproof (dry inside).
     assert texture[32, 4, 1] > 0.2 and texture[32, 60, 1] < 0.5 * texture[32, 4, 1]
     complete = events[-1]
     total = complete["surface"] + complete["absorbed"] + complete["evaporated"] + complete["drained"]
     assert abs(complete["initial"] + complete["injected"] - total - complete["roundoff"]) <= 1e-12
+

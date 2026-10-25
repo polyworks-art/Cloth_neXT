@@ -94,6 +94,33 @@ def remove_depsgraph_observer(callback) -> None:
         if item is not callback]
 
 
+def keep_record_through_update(obj, *, seconds: float = 30.0) -> None:
+    """Keep `obj`'s current record across the depsgraph update that a
+    change invisible to the cloth solver is about to cause (TETHYS settings,
+    the wetness cell attribute). Blender reports any Object property edit as a
+    geometry update; this restores the record in the first depsgraph
+    evaluation that reports the object, then stops, so a later real edit still
+    demotes it. Scripts may evaluate much later than the UI, hence the long
+    `seconds` fallback after which the observer is dropped unused."""
+    record = record_for(obj)
+    names = {getattr(obj, "name_full", ""), getattr(getattr(obj, "data", None), "name_full", "")}
+    names.discard("")
+    deadline = time.monotonic() + seconds
+
+    def observer(_scene, depsgraph):
+        if time.monotonic() > deadline:
+            remove_depsgraph_observer(observer)
+            return
+        for update in getattr(depsgraph, "updates", ()):
+            original = getattr(getattr(update, "id", None), "original", None)
+            if getattr(original, "name_full", None) in names:
+                restore_record(obj, record)
+                remove_depsgraph_observer(observer)
+                return
+
+    add_depsgraph_observer(observer)
+
+
 # ---------------------------------------------------------------------------
 # Identity: strings only, never a Blender reference.
 

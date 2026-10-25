@@ -54,6 +54,10 @@ class CachePaths:
     def frame_image(self, frame: int) -> Path:
         return self.frames / f"{self.stem}_{frame:04d}.exr"
 
+    def normal_image(self, frame: int) -> Path:
+        # Tangent-space water normal (UV layout only).
+        return self.frames / f"{self.stem}_normal_{frame:04d}.exr"
+
     @property
     def request(self) -> Path:
         return self.root / f"{self.stem}.request.tethysrq"

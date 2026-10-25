@@ -82,8 +82,18 @@ Contract: `docs/polyworks/GAIA_ENTITLEMENT_SERVER_REQUIREMENTS.md`.
 * Fabric direction for anisotropy is the surface direction of increasing U of
   the active render UV map. Without UVs, transport is isotropic and the
   missing-direction count is reported.
-* Virtual refinement below the PPF resolution is **not implemented**. Display
-  resolution is one value per polygon.
+* **Surface Detail** (1, 2, 4, 6, 8; protocol 2) splits every cloth
+  triangle into level² virtual sub-cells on a barycentric lattice inside the
+  engine. Lattice points on a shared cloth edge are shared by both
+  neighbours, so transport crosses cloth edges as before and disconnected
+  sheets stay disconnected; sub-cells inherit polygon and Material Zone and
+  follow the deforming parent with fixed weights. The PPF mesh is never
+  changed. Limit: 4 million sub-cells.
+* **Fabric irregularity:** a deterministic value-noise field (Feature Size,
+  default 4 mm), evaluated at the first-frame positions so it stays on the
+  fabric, scales each cell's retention (×(1 + 0.9·v·η)) and mobility
+  (×(1 − 0.6·v·η)) by the material's Surface Variation v. Runoff gathers in
+  the slick, low-retention paths: streaks and fingered wetting fronts.
 
 ## 3. State, units, equations
 
@@ -106,9 +116,25 @@ Each substep (adaptive; bounded by Quality: 16/64/256 per frame):
    direction-dependent mobilities). The donor is upwind. Submerged film
    (`f`) does not run off. Gravity is the scene/Force gravity vector in world
    space, so rotating cloth changes the flow direction.
+2b. **Rivulets**: on a slope, film across the flow direction is pulled from
+   the thinner into the thicker neighbour (contact-line contraction),
+   `(0.5 + 1.5·repellency) · slope · (1 − along²)` times the same h³ law, so
+   runoff gathers into streaks instead of running as a sheet. Downhill
+   exchange, flat cloth and zone borders are unaffected; it is conservative.
 3. **Drainage** at open edges with the same law against zero outside head.
    Drained water is a ledger sink and is recorded per polygon (Drainage
-   channel) for later drip effects. No droplets are created.
+   channel) for later drip effects.
+3b. **Beads** (repellent fabric, beading = (repellency − 0.35)/0.5 clamped):
+   mobile film above the pinned depth gathers into one bead per cell. A bead
+   whose footprint (0.9·V^(1/3)) exceeds half a cell collects neighbouring
+   beads and film (coalescence). It moves when gravity beats contact-line
+   pinning, V^(2/3)·sin(slope) > 0.155 m · retention · grip, at up to
+   0.3 m/s × mobility, one cell at a time toward the most downhill edge;
+   it tops up the film of the cell it leaves (trail), merges with beads it
+   meets, spreads into wettable or submerged fabric and drips off open edges
+   (drainage). Grip (0.6–1.6) varies deterministically per bead. Beads dry
+   through their cap (1.2·V^(2/3)). They are surface water in the ledger.
+   This is a simplified, conservative bead model, not surface tension.
 4. **Absorption** `S→A`: `k·(1 − r·(1−s))·(1−s)` as an exact exponential
    per step, limited by free capacity (`k` Absorption Rate, `r` Repellency).
 5. **Capillary wicking** of `A` driven by saturation differences:
@@ -218,7 +244,7 @@ Files in the object's cache folder (same folder as its PC2):
 |---|---|
 | `cn_tethys_<id>.tethys` | Header (version, channels, polygons, frame range, FPS, identity JSON), per frame: 16 ledger doubles + float16 channels per polygon, index with SHA-256 per frame, trailer |
 | `cn_tethys_<id>.meta.json` | Sidecar: completion state, fingerprints (settings, sources: PC2 SHA-256 + `.gaia` fingerprint + frames, material rows, topology), cache size and SHA-256, layout, ledger, `metadata_digest` |
-| `cn_tethys_<id>_frames/*.exr` | Per-frame preview images (R surface mm, G saturation, B contact) |
+| `cn_tethys_<id>_frames/*.exr` | Per-frame images, lossless 16-bit ZIP. UV layout: R water height mm, G absorbed mm, plus `_normal_` frames (water normal as normal-map colour). Per face: R surface mm, G absorbed mm, B contact |
 
 Channels: surface water (mm), saturation; with *Debug Channels* also contact
 fraction, drained mm per frame and surface flux vector.
@@ -237,8 +263,28 @@ fraction, drained mm per frame and surface flux vector.
 
 ## 7. Shader integration
 
-Each polygon owns one pixel of the object's EXR sequence. A FACE attribute
-`cnx_tethys_cell` (polygon index + 1, 0 = no data) locates it. Blender plays
+**UV layout (default):** the engine rasterises the sub-cells into the
+object's render UV map at Wetness Texture size (512–2048): R water height
+(mm), G absorbed water (mm), and the tangent-space normal (x, y) of the water
+surface; Blender writes the normal as a second, normal-map coloured EXR
+sequence (`<stem>_normal_####.exr`). Corner values average only cells of the
+same material, so zone borders stay sharp. Everything is texture-only: no
+extra geometry is created.
+
+*Drops and dewetting.* On repellent fabric (beading > 0) the film does not
+stay a sheet. The beading share of the film in each cell of a jittered
+lattice fixed to the fabric (pitch 0.9 × Feature Size, at least 3 texels) is
+drawn as one spherical cap at the lattice point, with a contact angle of
+70° + 55° × beading (bulging drops above 90°). A film that drains, or a
+waterproof zone pulled out of water, therefore leaves a cellular,
+Voronoi-like pattern of drops whose size follows the local film volume and
+which stay at the same places as they shrink. Rolling beads from the solver
+are drawn the same way inside their cell; rivulets come from the film. The
+water normal is the finite-difference gradient of this height field.
+
+The material reads the sequence through a UV Map node. **Per Face:** one pixel per
+polygon, located through the FACE attribute `cnx_tethys_cell` (polygon index
++ 1); this attribute also marks TETHYS objects in both layouts (0 = no data). Blender plays
 the sequence itself (Image Texture, Closest, frame offset = bake start), so
 scrubbing, Eevee and Cycles viewport, F12, animation and background renders
 need no Python per frame, and faces of different zones stay sharp.
@@ -246,8 +292,14 @@ need no Python per frame, and faces of different zones stay sharp.
 For every Principled BSDF in the object's materials the original Base Color,
 Roughness (and Coat Weight when unused) sources are captured. Linked sources
 (textures) are reconnected into the node group **`CNX TETHYS Wetness`**, whose
-outputs feed the BSDF: moisture darkens via `mix(c, c·c, darkening·moisture)`,
-the film lowers roughness toward *Wet Roughness* and raises Coat Weight. With
+outputs feed the BSDF: absorbed water darkens via `mix(c, c·c, darkening·moisture)`
+with moisture = absorbed mm / *Moisture Response* (so a waterproof coat with
+almost no capacity does not darken), the film lowers roughness toward *Wet
+Roughness* and raises Coat Weight. In the UV layout a Normal Map node
+(tangent space, render UV map, strength *Water Relief*) turns the engine's
+water normal into the shading normal; where water covers the fabric (the
+*Film* output) it replaces the fabric's own normal, elsewhere an existing
+normal map is kept. Clear restores it. With
 zero wetness the outputs equal the inputs. Objects that share the material but
 have no TETHYS data stay dry. A material shared by two TETHYS objects is
 refused (make it single-user). Clear restores the exact previous links and
@@ -307,10 +359,12 @@ material setup 0.63 s, engine 0.04 s.
 
 ## 11. Not implemented / limitations
 
-* No droplets, surface tension model, splash wetting or two-way FLIP coupling.
+* Beads are a simplified model (pinning against gravity, cell-to-cell
+  motion); no surface tension, contact-angle dynamics, airborne drops,
+  splash wetting or two-way FLIP coupling.
   No reactive PPF material physics (wet cloth weight/cling is GAIA's own
   Wet Fabric option, unrelated to TETHYS).
-* Virtual refinement below the cloth resolution; display is per polygon.
+* Overlay debug views remain per polygon (the material shows full detail).
 * Cloth objects with animated transform, parent or constraints are refused.
 * Water velocity is not used by the physics.
 * Bake window (Companion) progress for TETHYS, and mid-bake resume.

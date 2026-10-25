@@ -29,7 +29,8 @@ CHANNEL_SATURATION = 1 << 1  # absorbed / capacity per polygon
 CHANNEL_CONTACT = 1 << 2     # mean contact fraction during the frame
 CHANNEL_DRAINED = 1 << 3     # mm drained from open edges during the frame
 CHANNEL_FLOW = 1 << 4        # surface flux density vector, 3 values
-CHANNEL_TEXTURE = 1 << 5     # UV texture: surface mm and saturation per pixel
+CHANNEL_TEXTURE = 1 << 5     # UV texture: surface mm and absorbed mm per pixel
+CHANNEL_RELIEF = 1 << 6      # texture has 4 values: water height mm, absorbed mm, water normal x, y
 MATERIAL_VALUES = 10
 CHANNEL_ORDER = ((CHANNEL_SURFACE, "surface", 1), (CHANNEL_SATURATION, "saturation", 1),
                  (CHANNEL_CONTACT, "contact", 1), (CHANNEL_DRAINED, "drained", 1),
@@ -296,11 +297,13 @@ class CacheReader:
         self.identity = identity.decode("utf-8")
         self.frame_count = count
         self._layout = [(bit, name, width) for bit, name, width in CHANNEL_ORDER if channels & bit]
-        unknown = channels & ~(sum(bit for bit, _, _ in CHANNEL_ORDER) | CHANNEL_TEXTURE)
-        if unknown or not channels & CHANNEL_SURFACE or not channels & CHANNEL_SATURATION:
+        unknown = channels & ~(sum(bit for bit, _, _ in CHANNEL_ORDER) | CHANNEL_TEXTURE | CHANNEL_RELIEF)
+        if unknown or not channels & CHANNEL_SURFACE or not channels & CHANNEL_SATURATION or                 (channels & CHANNEL_RELIEF and not channels & CHANNEL_TEXTURE):
             raise ProtocolError("TETHYS cache channel layout is not supported")
+        # Texture values per pixel: (height, absorbed[, normal x, normal y]).
+        self.texture_components = 4 if channels & CHANNEL_RELIEF else 2
         expected = (8 + 8 * len(LEDGER_FIELDS) + sum(2 * polygons * w for _, _, w in self._layout)
-                    + 4 * texture * texture)
+                    + 2 * self.texture_components * texture * texture)
         expected += (-expected) % 8
         if any(length != expected for _, length, _ in self.entries):
             raise ProtocolError("TETHYS cache frame size does not match its channels")
@@ -330,8 +333,9 @@ class CacheReader:
             position += 2 * count
         if self.texture_size:
             size = self.texture_size
-            pixels = np.frombuffer(data, dtype="<f2", count=size * size * 2, offset=position)
-            result.channels["texture"] = pixels.astype(np.float32).reshape(size, size, 2)
+            parts = self.texture_components
+            pixels = np.frombuffer(data, dtype="<f2", count=size * size * parts, offset=position)
+            result.channels["texture"] = pixels.astype(np.float32).reshape(size, size, parts)
         return result
 
     def close(self):
