@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""TETHYS Dynamic Wetness panels inside GAIA Water Flow, plus zone wetness overrides."""
+"""TETHYS Wetness panels (a Physics panel next to GAIA Water Flow), plus zone wetness overrides."""
 from __future__ import annotations
 
 import bpy
@@ -135,157 +135,171 @@ class _Panel:
                     and obj.cloth_next.role == "CLOTH")
 
 
+def _split(layout):
+    layout.use_property_split = True
+    layout.use_property_decorate = False
+    return layout
+
+
+# The main panel holds what an artist touches: the fabric, the bake and the
+# look. Simulation and shading internals live in collapsed sub-panels.
+
 class CLOTHNEXT_PT_tethys(_Panel, bpy.types.Panel):
-    bl_label = "TETHYS Dynamic Wetness"
+    bl_label = "TETHYS Wetness"
     bl_idname = "CLOTHNEXT_PT_tethys"
-    bl_parent_id = "CLOTHNEXT_PT_water_flow"
     bl_options = {"DEFAULT_CLOSED"}
 
     def draw_header(self, context):
         s = _settings(context)
-        row = self.layout.row()
+        row = self.layout.row(align=True)
         # Switching on needs GAIA; switching off always stays possible.
         row.enabled = not _locked(context) and (s.enabled or tethys_bake.availability().available)
         row.prop(s, "enabled", text="")
+        from . import icon_registry
+        row.label(text="", **icon_registry.icon_kwargs("tethys", "MOD_FLUIDSIM"))
 
     def draw(self, context):
         s = _settings(context)
+        obj = context.object
         layout = self.layout
-        layout.use_property_split = True
-        layout.use_property_decorate = False
         state = tethys_bake.availability()
         if not state.available:
             row = layout.row()
             row.label(text=state.reason, icon="LOCKED")
             if "Preferences" in state.reason or "access" in state.reason:
-                row.operator("clothnext.open_preferences", text="Preferences")
-        column = layout.column()
-        column.enabled = s.enabled and not _locked(context)
-        column.prop(s, "profile")
+                row.operator("clothnext.open_preferences", text="", icon="PREFERENCES")
+        if not s.enabled:
+            layout.label(text="Switch on to let this cloth get wet from the GAIA water.", icon="INFO")
+            return
+
+        # Fabric
+        column = _split(layout.column())
+        column.enabled = not _locked(context)
+        column.prop(s, "profile", text="Fabric")
         if s.profile == profiles.AUTO:
-            label = profiles.profile(tethys_bake.base_profile(context.object)).label
-            column.label(text=f"Using {label}", icon="INFO")
-        sub = column.column(align=True)
-        draw_overrides(sub, context.object, s.overrides, "")
+            label = profiles.profile(tethys_bake.base_profile(obj)).label
+            row = column.row()
+            row.alignment = "RIGHT"
+            row.label(text=f"{label} (from the cloth preset)")
+
+        # Bake
+        box = layout.box()
+        cache_state, message = tethys_bake.cache_status(obj)
+        icon = {"READY": "CHECKMARK", "STALE": "ERROR", "MISSING": "ERROR",
+                "PARTIAL": "ERROR"}.get(cache_state, "INFO")
+        box.label(text=message, icon=icon)
+        row = box.row(align=True)
+        row.scale_y = 1.4
+        bake = row.row(align=True)
+        bake.enabled = state.available and not _locked(context)
+        bake.operator("clothnext.tethys_bake", text="Bake Wetness", icon="MOD_FLUIDSIM")
+        clear = row.row(align=True)
+        clear.enabled = not tethys_bake.is_running() and cache_state != "NONE"
+        clear.operator("clothnext.tethys_clear", text="", icon="TRASH")
+
+        # Look (changes apply at once, no rebake)
+        column = _split(layout.column(align=True))
+        column.prop(s, "appearance_strength", text="Wetness", slider=True)
+        column.prop(s, "darkening", text="Darkening", slider=True)
+        column.prop(s, "wet_roughness", text="Wet Roughness", slider=True)
+        column.prop(s, "water_relief", text="Drop Relief")
+
+
+class CLOTHNEXT_PT_tethys_detail(_Panel, bpy.types.Panel):
+    bl_label = "Detail"
+    bl_idname = "CLOTHNEXT_PT_tethys_detail"
+    bl_parent_id = "CLOTHNEXT_PT_tethys"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    @classmethod
+    def poll(cls, context):
+        return super().poll(context) and _settings(context).enabled
+
+    def draw(self, context):
+        s = _settings(context)
+        layout = _split(self.layout)
+        layout.enabled = not _locked(context)
+        column = layout.column(align=True)
+        column.prop(s, "texture_resolution", text="Texture")
+        column.prop(s, "surface_detail", text="Water Cells")
+        column.prop(s, "feature_size", text="Drop Size (mm)")
+
+
+class CLOTHNEXT_PT_tethys_advanced(_Panel, bpy.types.Panel):
+    bl_label = "Advanced"
+    bl_idname = "CLOTHNEXT_PT_tethys_advanced"
+    bl_parent_id = "CLOTHNEXT_PT_tethys"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    @classmethod
+    def poll(cls, context):
+        return super().poll(context) and _settings(context).enabled
+
+    def draw(self, context):
+        s = _settings(context)
+        layout = _split(self.layout)
+        layout.enabled = not _locked(context)
+        groups = (
+            ("runoff", "Runoff", (("flow_strength", "Flow"), ("retention", "Retention"),
+                                  ("repellency", "Repellency"))),
+            ("soaking", "Soaking and Drying", (("absorption", "Absorption"), ("capillary", "Spreading"),
+                                               ("evaporation", "Evaporation"),
+                                               ("ambient_drying", "Ambient Drying"))),
+            ("contact", "Water Contact", (("immersion_film", "Film"), ("wetting_time", "Wetting Time"),
+                                          ("contact_low", "Contact Start"), ("contact_high", "Full Contact"),
+                                          ("quality", "Quality"))),
+            ("shading", "Shading Response", (("film_response", "Film"), ("moisture_response", "Moisture"))),
+        )
+        for key, title, props in groups:
+            header, body = layout.panel(f"cnx_tethys_{key}", default_closed=True)
+            header.label(text=title)
+            if body is not None:
+                column = body.column(align=True)
+                for prop, text in props:
+                    column.prop(s, prop, text=text)
+
+
+class CLOTHNEXT_PT_tethys_overrides(_Panel, bpy.types.Panel):
+    bl_label = "Fabric Overrides"
+    bl_idname = "CLOTHNEXT_PT_tethys_overrides"
+    bl_parent_id = "CLOTHNEXT_PT_tethys"
+    bl_options = {"DEFAULT_CLOSED"}
+
+    @classmethod
+    def poll(cls, context):
+        return super().poll(context) and _settings(context).enabled
+
+    def draw(self, context):
+        s = _settings(context)
+        layout = self.layout
+        layout.enabled = not _locked(context)
+        draw_overrides(layout.column(align=True), context.object, s.overrides, "")
         zones = context.object.cloth_next.material_zones
         if zones:
-            column.label(text=f"{len(zones)} Material Zone(s): wetness overrides are in each zone",
+            layout.label(text=f"Each of the {len(zones)} Material Zones has its own wetness settings",
                          icon="MOD_MASK")
 
 
-class CLOTHNEXT_PT_tethys_flow(_Panel, bpy.types.Panel):
-    bl_label = "Surface Flow"
-    bl_idname = "CLOTHNEXT_PT_tethys_flow"
-    bl_parent_id = "CLOTHNEXT_PT_tethys"
-    bl_options = {"DEFAULT_CLOSED"}
-
-    def draw(self, context):
-        s = _settings(context)
-        layout = self.layout
-        layout.use_property_split = True
-        layout.use_property_decorate = False
-        layout.enabled = s.enabled and not _locked(context)
-        column = layout.column(align=True)
-        column.prop(s, "flow_strength")
-        column.prop(s, "retention")
-        column.prop(s, "repellency")
-        layout.prop(s, "quality")
-        column = layout.column(align=True)
-        column.prop(s, "surface_detail")
-        column.prop(s, "feature_size")
-        column.prop(s, "texture_resolution")
-        column = layout.column(align=True)
-        column.prop(s, "immersion_film")
-        column.prop(s, "wetting_time")
-        column = layout.column(align=True)
-        column.prop(s, "contact_low")
-        column.prop(s, "contact_high")
-
-
-class CLOTHNEXT_PT_tethys_drying(_Panel, bpy.types.Panel):
-    bl_label = "Absorption and Drying"
-    bl_idname = "CLOTHNEXT_PT_tethys_drying"
-    bl_parent_id = "CLOTHNEXT_PT_tethys"
-    bl_options = {"DEFAULT_CLOSED"}
-
-    def draw(self, context):
-        s = _settings(context)
-        layout = self.layout
-        layout.use_property_split = True
-        layout.use_property_decorate = False
-        layout.enabled = s.enabled and not _locked(context)
-        column = layout.column(align=True)
-        column.prop(s, "absorption")
-        column.prop(s, "capillary")
-        column = layout.column(align=True)
-        column.prop(s, "evaporation")
-        column.prop(s, "ambient_drying")
-
-
-class CLOTHNEXT_PT_tethys_bake(_Panel, bpy.types.Panel):
-    bl_label = "Wetness Cache"
-    bl_idname = "CLOTHNEXT_PT_tethys_bake"
-    bl_parent_id = "CLOTHNEXT_PT_tethys"
-
-    def draw(self, context):
-        s = _settings(context)
-        layout = self.layout
-        layout.enabled = s.enabled
-        state, message = tethys_bake.cache_status(context.object)
-        icon = {"READY": "CHECKMARK", "STALE": "ERROR", "MISSING": "ERROR", "PARTIAL": "ERROR"}.get(state, "INFO")
-        layout.label(text=message, icon=icon)
-        if s.status and s.status != message:
-            layout.label(text=s.status)
-        row = layout.row(align=True)
-        row.scale_y = 1.2
-        row.enabled = tethys_bake.availability().available and not _locked(context)
-        row.operator("clothnext.tethys_bake", icon="MOD_FLUIDSIM")
-        row = layout.row()
-        row.enabled = not tethys_bake.is_running()
-        row.operator("clothnext.tethys_clear", icon="TRASH")
-
-
-class CLOTHNEXT_PT_tethys_appearance(_Panel, bpy.types.Panel):
-    bl_label = "Wet Appearance"
-    bl_idname = "CLOTHNEXT_PT_tethys_appearance"
-    bl_parent_id = "CLOTHNEXT_PT_tethys"
-    bl_options = {"DEFAULT_CLOSED"}
-
-    def draw(self, context):
-        s = _settings(context)
-        layout = self.layout
-        layout.use_property_split = True
-        layout.use_property_decorate = False
-        layout.enabled = s.enabled
-        column = layout.column(align=True)
-        column.prop(s, "appearance_strength")
-        column.prop(s, "darkening")
-        column.prop(s, "wet_roughness")
-        column.prop(s, "film_response")
-        column.prop(s, "moisture_response")
-        column.prop(s, "water_relief")
-
-
 class CLOTHNEXT_PT_tethys_debug(_Panel, bpy.types.Panel):
-    bl_label = "Debug Visualization"
+    bl_label = "Debug"
     bl_idname = "CLOTHNEXT_PT_tethys_debug"
     bl_parent_id = "CLOTHNEXT_PT_tethys"
     bl_options = {"DEFAULT_CLOSED"}
 
+    @classmethod
+    def poll(cls, context):
+        return super().poll(context) and _settings(context).enabled
+
     def draw(self, context):
         s = _settings(context)
-        layout = self.layout
-        layout.use_property_split = True
-        layout.use_property_decorate = False
-        layout.enabled = s.enabled
-        layout.prop(s, "preview_mode")
+        layout = _split(self.layout)
+        layout.prop(s, "preview_mode", text="Preview")
         if s.preview_mode in {"SURFACE", "ABSORBED", "DRAINAGE", "FLOW"}:
-            layout.prop(s, "preview_scale")
+            layout.prop(s, "preview_scale", text="Range")
         if s.preview_mode in {"FLOW", "CONTACT", "DRAINAGE"} and not s.debug_channels:
             layout.label(text="Enable Debug Channels and bake again", icon="INFO")
         layout.prop(s, "debug_channels")
 
 
-CLASSES = (CLOTHNEXT_OT_tethys_override, CLOTHNEXT_PT_tethys, CLOTHNEXT_PT_tethys_flow,
-           CLOTHNEXT_PT_tethys_drying, CLOTHNEXT_PT_tethys_bake, CLOTHNEXT_PT_tethys_appearance,
-           CLOTHNEXT_PT_tethys_debug)
+CLASSES = (CLOTHNEXT_OT_tethys_override, CLOTHNEXT_PT_tethys, CLOTHNEXT_PT_tethys_detail,
+           CLOTHNEXT_PT_tethys_advanced, CLOTHNEXT_PT_tethys_overrides, CLOTHNEXT_PT_tethys_debug)

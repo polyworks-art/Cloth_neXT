@@ -901,15 +901,24 @@ class CLOTHNEXT_PT_water_flow(bpy.types.Panel):
         layout = layout.column()
         layout.enabled = s.water_flow_enabled and not shared_controller.snapshot().active
         _registry, native = _native_registry()
+        # Where the water comes from.
         source = layout.column(align=True)
         provider = source.split(factor=0.4, align=True)
         name = provider.row()
         name.alignment = 'RIGHT'
-        name.label(text='Provider')
+        name.label(text='Source')
         provider.menu('CLOTHNEXT_MT_water_source_provider', text='FLIP Fluids')
-        source.prop(s, 'water_flow_domain')
-        source.operator('cloth_next.enable_flip_velocity_export', text='Enable Velocity Export')
-        layout.separator()
+        domain = source.row(align=True)
+        domain.prop(s, 'water_flow_domain', text='Domain')
+        domain.operator('cloth_next.enable_flip_velocity_export', text='', icon='EXPORT')
+        # The prepared fluid cache the cloth bake reads.
+        box = layout.box()
+        ready = bool(s.water_flow_container) and Path(bpy.path.abspath(s.water_flow_container)).is_file()
+        box.label(text='Fluid cache ready' if ready else 'Fluid cache not prepared yet',
+                  icon='CHECKMARK' if ready else 'INFO')
+        row = box.row()
+        row.scale_y = 1.3
+        row.operator('cloth_next.prepare_water_flow', text='Prepare Fluid Cache', icon='FILE_REFRESH')
         response = layout.column(align=True)
         if not native:
             response.prop(s, 'water_flow_velocity_scale', text='Velocity Scale')
@@ -947,7 +956,7 @@ class CLOTHNEXT_PT_water_pressure(_WaterFlowSubpanel, bpy.types.Panel):
 
 
 class CLOTHNEXT_PT_wet_fabric(_WaterFlowSubpanel, bpy.types.Panel):
-    bl_label = 'Wet Fabric'
+    bl_label = 'Wet Fabric Physics'
     bl_idname = 'CLOTHNEXT_PT_wet_fabric'
     bl_parent_id = 'CLOTHNEXT_PT_water_pressure'
     bl_options = {'DEFAULT_CLOSED'}
@@ -962,6 +971,9 @@ class CLOTHNEXT_PT_wet_fabric(_WaterFlowSubpanel, bpy.types.Panel):
     def draw(self, context):
         s, layout = self._body(context)
         layout.active = bool(s.water_hydrodynamic_pressure and s.water_wet_fabric)
+        hint = layout.row()
+        hint.alignment = 'RIGHT'
+        hint.label(text='Weight and cling of soaked cloth')
         column = layout.column(align=True)
         column.prop(s, 'water_fiber_density')
         column.prop(s, 'water_absorption', text='Absorption')
@@ -974,8 +986,9 @@ class CLOTHNEXT_PT_wet_fabric(_WaterFlowSubpanel, bpy.types.Panel):
 
 
 class CLOTHNEXT_PT_water_cache(_WaterFlowSubpanel, bpy.types.Panel):
-    bl_label = 'Fluid Cache'
+    bl_label = 'Fluid Cache Settings'
     bl_idname = 'CLOTHNEXT_PT_water_cache'
+    bl_options = {'DEFAULT_CLOSED'}
     def draw(self, context):
         s, layout = self._body(context)
         layout.prop(s, 'water_flow_resolution')
@@ -985,7 +998,6 @@ class CLOTHNEXT_PT_water_cache(_WaterFlowSubpanel, bpy.types.Panel):
         if info and info.get('budget_adjusted'):
             layout.label(text=f"Grid reduced to {info['effective_resolution']} to fit memory.", icon='INFO')
         layout.prop(s, 'water_flow_container', text='.gaia File')
-        layout.operator('cloth_next.prepare_water_flow', text='Prepare Fluid Cache')
 
 
 class CLOTHNEXT_PT_water_flow_display(bpy.types.Panel):

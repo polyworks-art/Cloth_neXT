@@ -338,12 +338,16 @@ topology untouched); the cloth's validation record is kept.
 
 ## 8. UI
 
-Physics → Cloth NeXt → **GAIA Water Flow → TETHYS Dynamic Wetness**
-(header checkbox = Enable TETHYS): Wetness Profile and overrides, *Surface
-Flow*, *Absorption and Drying*, *Wetness Cache* (Bake Wetness, Clear Wetness
-Cache, status), *Wet Appearance*, *Debug Visualization* (Surface Water,
-Absorbed Moisture, Saturation, Water Flow Direction, Material Zone
-Boundaries, Water Contact, Drainage/Runoff). The debug overlay is a GPU draw
+Physics → **TETHYS Wetness**, its own panel right after GAIA Water Flow
+(header checkbox = Enable TETHYS; switching on needs GAIA). Up front only
+what an artist touches: *Fabric* (wetness profile, showing the profile taken
+from the cloth preset), the cache status with **Bake Wetness** and a clear
+button, and the look (Wetness, Darkening, Wet Roughness, Drop Relief; no
+rebake). Collapsed: *Detail* (Texture, Water Cells, Drop Size), *Advanced*
+(groups Runoff, Soaking and Drying, Water Contact, Shading Response),
+*Fabric Overrides* and *Debug* (Surface Water, Absorbed Moisture,
+Saturation, Water Flow Direction, Material Zone Boundaries, Water Contact,
+Drainage/Runoff). The debug overlay is a GPU draw
 handler that exists only while a preview is active; it reads the cache and
 never changes data or fingerprints.
 
