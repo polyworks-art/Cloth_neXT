@@ -1,10 +1,10 @@
 # Server requirements: installation-bound GAIA entitlements (for TETHYS)
 
-Status (2026-10-25): binding contract. Server code is adapted but not yet
-deployed to production; public-key comparison and the joint integration test
-are pending. Client and engine implement this contract; the engine verifies
-but does **not** enforce (`kEnforceGaiaEntitlement = false`). The add-on uses
-only `POST /v1/account/gaia-entitlement` for this flow (neither
+Status (2026-10-25): binding contract, deployed in production. Public key `k1`
+matches the engine. Live client tests passed (issuance, renewal, engine
+verdict `valid`, revocation of a test account → token deleted, engine
+`missing`). Enforcement is **on** (`kEnforceGaiaEntitlement = true`). The
+add-on uses only `POST /v1/account/gaia-entitlement` for this flow (neither
 `/v1/entitlements/gaia` nor `/v1/entitlements/check-in`).
 
 ## Purpose

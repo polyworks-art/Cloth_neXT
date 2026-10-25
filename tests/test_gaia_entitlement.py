@@ -73,10 +73,14 @@ def _engine_verdict(account_root, executable):
     result = subprocess.run([str(executable), "run", str(request)], capture_output=True, text=True,
                             timeout=60, env=environment)
     events = [json.loads(line[7:]) for line in result.stdout.splitlines() if line.startswith("TETHYS ")]
-    start = next(e for e in events if e["event"] == "start")
-    assert result.returncode == 0, events          # never blocks while enforcement is off
-    assert start["enforced"] is False
-    return start["gaia_entitlement"]
+    start = next((e for e in events if e["event"] == "start"), None)
+    if start is not None:
+        assert result.returncode == 0 and start["enforced"] is True, events
+        return start["gaia_entitlement"]
+    # Enforced: the engine refuses before reading any input and names the reason.
+    error = events[-1]
+    assert result.returncode == 2 and error["code"] == "TETHYS-E140", events
+    return error["message"].split("(")[1].split(")")[0]
 
 
 def _test_engine():

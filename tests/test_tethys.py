@@ -130,7 +130,53 @@ def test_locate_rejects_tampered_or_foreign_binaries(tmp_path):
 
 # ----------------------------------------------------------- engine round trips
 
+TEST_KID = "tethys-test"   # trusted only by test builds of the engine (seed 00..1f)
+
+
+def write_gaia_account(root: Path, *, installation="inst_tethys_test", **claims) -> Path:
+    """PolyWorks account folder with a GAIA entitlement signed by the test key."""
+    import base64
+    import time
+    crypto = pytest.importorskip("cryptography.hazmat.primitives.asymmetric.ed25519")
+    key = crypto.Ed25519PrivateKey.from_private_bytes(bytes(range(32)))
+    now = int(time.time())
+    payload = {"typ": "polyworks.feature-entitlement", "v": 1, "kid": TEST_KID, "sub": "usr_test",
+               "inst": installation, "prd": "cloth-next", "feat": ["gaia"], "iat": now - 5,
+               "exp": now + 7 * 86400, **claims}
+    raw = json.dumps(payload, separators=(",", ":")).encode()
+    b64 = lambda data: base64.urlsafe_b64encode(data).decode().rstrip("=")
+    root.mkdir(parents=True, exist_ok=True)
+    (root / "installation-id").write_text(installation, encoding="utf-8")
+    (root / "gaia-entitlement").write_text(b64(raw) + "." + b64(key.sign(raw)), encoding="utf-8")
+    return root
+
+
+@pytest.fixture(autouse=True)
+def gaia_account(tmp_path_factory, monkeypatch):
+    """Every engine run in this module has GAIA access (the engine enforces it)."""
+    root = write_gaia_account(tmp_path_factory.mktemp("polyworks") / "account")
+    monkeypatch.setenv("CLOTH_NEXT_ACCOUNT_ROOT", str(root))
+    return root
+
+
+def _test_engine_path():
+    import os
+    explicit = os.environ.get("CLOTH_NEXT_TETHYS_TEST_ENGINE", "")
+    name = "tethys-engine-test.exe" if os.name == "nt" else "tethys-engine-test"
+    platform_dir = "windows-x64" if os.name == "nt" else "linux-x64"
+    path = Path(explicit) if explicit else ROOT.parent / "TETHYS-Engine" / "build" / platform_dir / name
+    return path if path.is_file() else None
+
+
 def _engine():
+    """Test build of the engine: it also trusts the test signing key."""
+    path = _test_engine_path()
+    if path is None:
+        pytest.skip("No TETHYS test engine build (CLOTH_NEXT_TETHYS_TEST_ENGINE)")
+    return path
+
+
+def _production_engine():
     try:
         return engine.locate()
     except engine.EngineUnavailable:
@@ -369,3 +415,27 @@ def test_killed_engine_leaves_cloth_cache_intact(tmp_path):
     partial = tmp_path / "out.tethys.partial"
     if partial.exists():
         partial.unlink()
+
+
+def test_engine_refuses_without_gaia_entitlement(tmp_path, monkeypatch):
+    """The shipped engine itself enforces GAIA access; Python cannot bypass it."""
+    executable = _production_engine()
+    request, pc2, _owners = _scenario(tmp_path)
+    for account in (tmp_path / "empty-account",
+                    write_gaia_account(tmp_path / "test-key-account")):   # test key: not trusted
+        monkeypatch.setenv("CLOTH_NEXT_ACCOUNT_ROOT", str(account))
+        code, events = _run(executable, request)
+        assert code == 2 and events[-1]["code"] == "TETHYS-E140", events
+        assert not (tmp_path / "out.tethys").exists()
+
+
+def test_test_engine_rejects_bad_entitlements(tmp_path, monkeypatch):
+    executable = _engine()
+    request, _pc2, _owners = _scenario(tmp_path)
+    for claims, status in (({"feat": ["cloud"]}, "no_gaia_feature"), ({"prd": "other"}, "wrong_product"),
+                           ({"typ": "polyworks.entitlement"}, "wrong_type"),
+                           ({"inst": "inst_elsewhere"}, "wrong_installation"), ({"iat": 900, "exp": 1000}, "expired")):
+        root = write_gaia_account(tmp_path / status, **claims)
+        monkeypatch.setenv("CLOTH_NEXT_ACCOUNT_ROOT", str(root))
+        code, events = _run(executable, request)
+        assert code == 2 and events[-1]["code"] == "TETHYS-E140" and status in events[-1]["message"], events

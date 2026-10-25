@@ -34,13 +34,15 @@ def parse():
     parser.add_argument("--frames", type=int, default=72)
     parser.add_argument("--resolution", type=int, default=24)
     parser.add_argument("--engine", type=Path, help="engine binary when none is staged in the add-on")
+    parser.add_argument("--account", type=Path,
+                        help="PolyWorks account folder holding a GAIA entitlement the engine trusts")
     return parser.parse_args(sys.argv[sys.argv.index("--") + 1:])
 
 
 ARGS = parse()
 ARGS.output = ARGS.output.resolve()
 ARGS.output.mkdir(parents=True, exist_ok=False)
-os.environ["CLOTH_NEXT_ACCOUNT_ROOT"] = str(ARGS.output / "account")
+os.environ["CLOTH_NEXT_ACCOUNT_ROOT"] = str((ARGS.account or ARGS.output / "account").resolve())
 if ARGS.engine:
     os.environ["CLOTH_NEXT_TETHYS_ENGINE"] = str(ARGS.engine.resolve())
 sys.path.insert(0, str(ARGS.repo.resolve()))
