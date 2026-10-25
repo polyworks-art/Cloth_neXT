@@ -1,11 +1,11 @@
 # Server requirements: installation-bound GAIA entitlements (for TETHYS)
 
-Status: **client and engine implemented, server not implemented.** The
-production backend (`api.cloth-next.de`, code at `/opt/cloth-next/` on the
-backend host) is not in a repository Claude can reach. This document is the
-contract for whoever implements the server side. The add-on already calls
-the endpoint and tolerates its absence; the native engine verifies the token
-but does **not** enforce it (`kEnforceGaiaEntitlement = false`).
+Status (2026-10-25): binding contract. Server code is adapted but not yet
+deployed to production; public-key comparison and the joint integration test
+are pending. Client and engine implement this contract; the engine verifies
+but does **not** enforce (`kEnforceGaiaEntitlement = false`). The add-on uses
+only `POST /v1/account/gaia-entitlement` for this flow (neither
+`/v1/entitlements/gaia` nor `/v1/entitlements/check-in`).
 
 ## Purpose
 
@@ -46,13 +46,14 @@ Responses (contract error envelope as elsewhere):
 | GAIA decision `granted` | `200 {"status":"granted","mode":…,"entitlement":"<token>"}` |
 | `pending`, `declined`, none | `200 {"status":"pending"/"declined"/null,"mode":…,"entitlement":null}` |
 | Account suspended/disabled | `403 account_suspended` (or `account_disabled`) |
-| Not signed in | `401 not_authenticated` |
+| Not signed in / session ended | `401 not_authenticated` |
 | Rate limit | `429 rate_limited` with `Retry-After` |
 
-The client deletes its stored GAIA entitlement on every non-granted answer and
-on `account_suspended` / `account_disabled` / `gaia_access_required`; it keeps
-it on network errors and 5xx; on `404 not_found` it treats the feature as not
-yet deployed and changes nothing.
+The same call issues and renews. The client deletes its stored GAIA
+entitlement on every non-granted answer and on `401 not_authenticated`,
+`403 account_suspended` / `account_disabled` / `gaia_access_required`. It keeps
+it on network errors, 5xx, 429 and `404` (endpoint not yet deployed), but still
+deletes a kept token once its `exp` has passed.
 
 Suggested limit: 30 requests per 15 minutes per account (the add-on asks only
 when it checks GAIA access: Blender start, Check Access, access request,
@@ -73,7 +74,8 @@ duplicate keys):
 ```
 
 * `typ` must differ from `polyworks.entitlement`; a licence entitlement is
-  never accepted as GAIA proof (the engine checks `typ`).
+  never accepted as GAIA proof (the engine checks `typ`). `prd` is mandatory.
+  There is no `purpose` claim. `kid` is `k1` (the only key in shipped builds).
 * `exp - iat` = **7 days** (604,800 s). Each call issues a fresh token.
 * `src` is informational (support), not checked by the engine.
 * Never include e-mail addresses or licence data.

@@ -466,22 +466,25 @@ class AccountService:
         """Fetch or renew the installation-bound GAIA entitlement for TETHYS.
 
         Returns "stored", "removed" (access no longer granted: revoked,
-        declined, account suspended), "unavailable" (the server does not
-        offer the endpoint yet) or "kept" (offline; the stored token stays
-        until its own expiry). Never blocks GAIA or Cloth NeXt use.
+        declined, signed out by the server, account suspended or disabled),
+        "unavailable" (endpoint not deployed yet) or "kept" (network, 5xx,
+        429). A kept token is still dropped once its own expiry has passed.
+        Never blocks GAIA or Cloth NeXt use.
         """
         token = self._require_token()
         installation_id = self.installation_id()
         try:
             result = self.api.gaia_entitlement(token, installation_id)
         except ApiError as exc:
-            if exc.code in {"not_found", "feature_disabled"} or exc.status == 404:
-                return "unavailable"
-            if exc.code in {"account_suspended", "account_disabled", "gaia_access_required", "forbidden"}:
+            if exc.code in {"not_authenticated", "account_suspended", "account_disabled",
+                            "gaia_access_required"} or exc.status == 401:
                 self.store.delete_gaia_entitlement()
                 return "removed"
-            if exc.code in {"network_unavailable", "service_unavailable", "server_error", "rate_limited"}:
-                return "kept"
+            if exc.code in {"not_found", "feature_disabled"} or exc.status == 404:
+                return self._drop_expired_gaia_entitlement(installation_id, "unavailable")
+            if exc.code in {"network_unavailable", "service_unavailable", "server_error",
+                            "rate_limited"} or exc.status == 429 or exc.status >= 500:
+                return self._drop_expired_gaia_entitlement(installation_id, "kept")
             raise ServiceError(exc.code, request_id=exc.request_id) from None
         if result["status"] != "granted":
             self.store.delete_gaia_entitlement()
@@ -493,6 +496,17 @@ class AccountService:
             raise ServiceError("untrusted_entitlement") from exc
         self.store.write_gaia_entitlement(result["entitlement"])
         return "stored"
+
+    def _drop_expired_gaia_entitlement(self, installation_id: str, outcome: str) -> str:
+        stored = self.store.read_gaia_entitlement()
+        if stored:
+            try:
+                verify_gaia(stored, trust=self.trust, installation_id=installation_id, now=self.clock())
+            except EntitlementError as exc:
+                if exc.code == "expired":
+                    self.store.delete_gaia_entitlement()
+                    return "expired"
+        return outcome
 
     def request_gaia_access(self, message: str = "") -> str:
         token = self._require_token()

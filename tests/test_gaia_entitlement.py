@@ -164,6 +164,25 @@ def test_transition_phase_never_blocks(backend, tmp_path):
     assert (root / GAIA_ENTITLEMENT_FILE).exists()
 
 
+def test_signed_out_by_server_and_expiry_drop_the_token(backend, tmp_path):
+    root = tmp_path / "account"
+    service = _service(backend, root)
+    backend.gaia_access[service.user] = "granted"
+    assert service.refresh_gaia_entitlement() == "stored"
+    backend.end_sessions(service.user)                       # 401 not_authenticated
+    assert service.refresh_gaia_entitlement() == "removed"
+    assert not (root / GAIA_ENTITLEMENT_FILE).exists()
+
+    other = _service(backend, tmp_path / "account2")
+    backend.gaia_access[other.user] = "granted"
+    assert other.refresh_gaia_entitlement() == "stored"
+    backend.offline = True
+    real_clock = other.clock
+    other.clock = lambda: real_clock() + 8 * 86400           # past the 7-day lifetime
+    assert other.refresh_gaia_entitlement() == "expired"
+    assert not (tmp_path / "account2" / GAIA_ENTITLEMENT_FILE).exists()
+
+
 def test_installation_binding_and_licence_tokens_are_refused(backend, tmp_path):
     root = tmp_path / "account"
     service = _service(backend, root)
