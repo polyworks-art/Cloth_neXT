@@ -1,0 +1,35 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.49",
+  "title": "What's New in Cloth NeXt 2.9.49",
+  "subtitle": "TETHYS: cloth that gets wet.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/check.png",
+      "title": "TETHYS Wetness under GAIA",
+      "description": "Bake Wetness from a GAIA water simulation: fabrics soak, darken, dry and shed water by material, with each Material Zone behaving on its own."
+    },
+    {
+      "icon": "icons/refresh.png",
+      "title": "Real drops and runoff",
+      "description": "Water beads into drops of every size, runners leave trails, rivulets form on slopes, and a sheet pulled out of water tears into holes before it breaks into drops."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Texture only, render ready",
+      "description": "Wetness and a water normal map play as image sequences in your materials. No extra geometry; Clear Wetness restores the material exactly."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}

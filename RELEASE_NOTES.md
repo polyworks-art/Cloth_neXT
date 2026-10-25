@@ -1,4 +1,8 @@
-# Cloth NeXt 2.9.48
+# Cloth NeXt 2.9.49
+
+TETHYS Wetness arrives under GAIA: cloth now gets wet from a GAIA water simulation. Fabrics soak, darken, dry and shed water according to their material, and every Material Zone behaves on its own. On waterproof fabric water beads into drops of every size, running drops leave trails, rivulets form on slopes, and a water sheet pulled out of water tears into holes before it breaks into drops. Everything plays as image sequences and a water normal map in your materials, without extra geometry.
+
+## 2.9.48
 
 The Cloud Jobs list cleans itself up: jobs that no longer exist on the server and discarded uploads disappear, and a Clean Up button does it on request. Downloaded results stay. Uploads wait politely when the Cloud asks them to slow down.
 

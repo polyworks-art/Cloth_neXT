@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.9.49 - 2026-10-25
+
+- TETHYS Wetness (requires GAIA): Bake Wetness turns a GAIA water simulation into surface water and absorbed moisture on the cloth, per Material Zone, computed by the bundled native TETHYS Engine (Windows and Linux). The engine verifies the installation-bound GAIA entitlement itself.
+- Rivulets on slopes, runners with trails and cleared lanes, close-packed drops of varied size hanging as teardrops, raindrop impacts as single drops, and water sheets that tear into an organic hole network before breaking into drops.
+- Texture only: a UV wetness EXR sequence (water height, absorbed water) plus a water normal-map sequence feed the CNX TETHYS Wetness group and a Normal Map node; Clear Wetness restores materials exactly. EXRs are written losslessly.
+- Wetness settings no longer demote a valid cloth validation record.
+
 ## 2.9.48 - 2026-10-24
 
 - Cloud Jobs list: jobs the server no longer has and discarded (never sent) uploads are removed at start-up and with the new Clean Up button; jobs with a downloaded result stay.

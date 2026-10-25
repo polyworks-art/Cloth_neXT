@@ -453,13 +453,20 @@ def test_vendored_engine_binaries_match_their_manifest(tmp_path):
         data = (vendor / platform / entry["filename"]).read_bytes()
         assert entry["filename"] == engine.FILENAMES[platform]
         assert len(data) == entry["file_size"] and hashlib.sha256(data).hexdigest() == entry["sha256"]
+    import platform as _platform
+    import sys
     from cloth_next.platform_support import platform_spec
     from tools import stage_tethys
-    host = platform_spec().blender_platform
+    # The machine this test runs on, ignoring CLOTH_NEXT_PLATFORM_OVERRIDE
+    # (CI packages for Windows on Linux runners): only it can run the probe.
+    spec = platform_spec(sys_platform=sys.platform, machine=_platform.machine())
+    host = spec.blender_platform
     extension = tmp_path / "extension"
     (extension / "bin").mkdir(parents=True)
-    staged = stage_tethys.stage(vendor / host / engine.FILENAMES[host], extension)   # probes --version
-    assert engine.locate(extension) == staged
+    staged = stage_tethys.stage(vendor / host / engine.FILENAMES[host], extension, platform=spec, probe=False)
+    line = subprocess.run([str(staged), "--version"], capture_output=True, text=True, timeout=30).stdout
+    assert line.strip().endswith(f"protocol {protocol.PROTOCOL_VERSION}")
+    assert engine.locate(extension, platform=spec) == staged
 
 
 def test_detail_and_uv_texture(tmp_path):
