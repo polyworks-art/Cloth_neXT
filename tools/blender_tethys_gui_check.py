@@ -21,6 +21,7 @@ ARGS = argparse.ArgumentParser()
 ARGS.add_argument("--repo", type=Path, required=True)
 ARGS.add_argument("--output", type=Path, required=True)
 ARGS = ARGS.parse_args(sys.argv[sys.argv.index("--") + 1:])
+ARGS.output = ARGS.output.resolve()
 ARGS.output.mkdir(parents=True, exist_ok=True)
 sys.path.insert(0, str(ARGS.repo.resolve()))
 addon_utils.enable("cloth_next", default_set=True)
@@ -75,6 +76,7 @@ def panel_shot():
 
 def plan():
     sheet = bpy.data.objects["WetSheet"]
+    STEPS.append(setup)          # shading and camera first; the next redraw shows them
     for frame in FRAMES:
         STEPS.append(lambda f=frame: bpy.context.scene.frame_set(f))
         STEPS.append(lambda f=frame: shot(f"material_preview_f{f:03d}"))
