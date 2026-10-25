@@ -288,9 +288,23 @@ hangs as a teardrop (stretched downhill, round at the bottom, tapered at the
 top, more for large drops on steep slopes), using the downhill direction of
 the triangle in UV space.
 
+*Sheet breakup.* A repellent area that is no longer submerged does not
+turn into drops at once. Round holes open at nuclei fixed to the fabric on
+three scales (spacing ~2.5 cm, 1.1 cm, 0.5 cm at the default Feature Size;
+sizes strongly randomised, small holes only where the sheet is still
+intact), each after its own delay and at its own pace. Holes press against
+each other along curved borders (relative depth distance/radius), the
+remaining water forms smooth rims and ridges that web out where three holes
+meet, hole floors keep a mist of tiny drops. 2.5 s after exposure the
+network breaks up and the drops form where the ridges and pools were. Spots
+up to ~2 cm across (rain impacts) skip this and become one drop. Drops use
+four seed scales with a skewed size spread, a per-drop tilt and stretch and
+a wobbly contact line; the whole relief is smoothed over ~0.25 mm within
+each material before normals are derived.
+
 *Runners.* Beads that moved this frame are drawn on their own at the end of
 a rivulet: every bead hop is drawn along the downhill direction (removing
-the cell-to-cell zigzag) with a gentle meander, blurred into a smooth
+the cell-to-cell zigzag) with a meander, varying width and swelling, blurred into a smooth
 rounded water line, and sweeps a lane in which the small drops are gone.
 Rivulets fade with a 6 s time constant, lanes refill with 12 s. Drops never
 open up under water (submerged cells keep a sheet). The water normal is the

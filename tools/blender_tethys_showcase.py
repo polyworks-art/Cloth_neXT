@@ -225,7 +225,7 @@ scene.view_settings.view_transform = "AgX" if "AgX" in {
 scene.render.resolution_x, scene.render.resolution_y = 1280, 860
 scene.render.image_settings.file_format = "PNG"
 renders = []
-for camera, frames in ((wide, (22, 40, 62, 90)), (close, (40, 62, 90))):
+for camera, frames in ((wide, (22, 40, 62, 90)), (close, (37, 40, 44, 62, 90))):
     scene.camera = camera
     for frame in frames:
         if frame > ARGS.frames:
