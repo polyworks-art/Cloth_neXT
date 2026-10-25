@@ -129,7 +129,7 @@ def verify(token: str, *, trust: TrustStore, installation_id: str,
     return entitlement
 
 
-GAIA_PURPOSE = "gaia-access"
+FEATURE_ENTITLEMENT_TYPE = "polyworks.feature-entitlement"
 GAIA_FEATURE = "gaia"
 
 
@@ -166,14 +166,11 @@ def verify_gaia(token: str, *, trust: TrustStore, installation_id: str,
         raise EntitlementError("unknown_key", "no pinned key for this kid")
     if len(signature) != 64 or not ed25519.verify(key, payload_bytes, signature):
         raise EntitlementError("bad_signature", "signature does not verify")
-    if payload.get("typ") != ENTITLEMENT_TYPE:
-        raise EntitlementError("malformed", "unexpected typ")
+    if payload.get("typ") != FEATURE_ENTITLEMENT_TYPE:
+        raise EntitlementError("malformed", "not a feature entitlement")
     if payload.get("v") != 1 or type(payload.get("v")) is not int:
         raise EntitlementError("unsupported_version", "unknown entitlement version")
-    if payload.get("purpose") != GAIA_PURPOSE:
-        # A licence entitlement has the same typ but no GAIA purpose.
-        raise EntitlementError("malformed", "not a GAIA entitlement")
-    if "prd" in payload and payload.get("prd") != PRODUCT_ID:
+    if payload.get("prd") != PRODUCT_ID:
         raise EntitlementError("wrong_product", "issued for another product")
     if payload.get("inst") != installation_id:
         raise EntitlementError("wrong_installation", "issued for another installation")
