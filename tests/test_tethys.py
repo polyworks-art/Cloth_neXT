@@ -114,7 +114,7 @@ def test_locate_rejects_tampered_or_foreign_binaries(tmp_path):
     binary = tmp_path / "bin" / "TETHYS Engine.exe"
     binary.write_bytes(b"engine")
     manifest = {"schema_version": 1, "filename": "TETHYS Engine.exe", "platform": "windows-x64",
-                "file_size": 6, "sha256": hashlib.sha256(b"engine").hexdigest(), "protocol": 1}
+                "file_size": 6, "sha256": hashlib.sha256(b"engine").hexdigest(), "protocol": protocol.PROTOCOL_VERSION}
     (tmp_path / engine.MANIFEST).write_text(json.dumps(manifest), encoding="utf-8")
     assert engine.locate(tmp_path, platform=WINDOWS_X64) == binary
     binary.write_bytes(b"engin3")
@@ -201,7 +201,7 @@ def _write_pc2(path, frames):
         stream.write(frames.tobytes())
 
 
-def _scenario(tmp_path, *, zones=True, water=True, frames=24, version=None):
+def _scenario(tmp_path, *, zones=True, water=True, frames=24, version=None, detail=1, texture=0):
     vertices, triangles, polygon_of = _sheet(9, 9, 0.02)
     polygons = int(polygon_of.max()) + 1
     # Sheet descends into water (z < 0) and comes back out.
@@ -227,7 +227,9 @@ def _scenario(tmp_path, *, zones=True, water=True, frames=24, version=None):
         triangles=triangles, polygon_of=polygon_of, polygon_count=polygons,
         material_of=np.array(material_of), materials=rows, matrix_world=np.eye(4),
         pc2_path=str(pc2), env_path=str(env) if water else "", output_path=str(tmp_path / "out.tethys"),
-        cancel_path=str(tmp_path / "cancel"), identity=json.dumps({"test": True}))
+        cancel_path=str(tmp_path / "cancel"), identity=json.dumps({"test": True}),
+        detail_level=detail, texture_size=texture,
+        uv=(vertices[:, [0, 2]] / vertices[:, [0, 2]].max())[triangles].reshape(-1, 6) if texture else None)
     data = protocol.encode_request(request)
     if version is not None:
         data = data[:8] + struct.pack("<I", version) + data[12:]
@@ -279,7 +281,7 @@ def test_engine_output_is_deterministic(tmp_path):
 
 def test_engine_rejects_protocol_mismatch(tmp_path):
     executable = _engine()
-    request, _pc2, _owners = _scenario(tmp_path, version=2)
+    request, _pc2, _owners = _scenario(tmp_path, version=protocol.PROTOCOL_VERSION + 1)
     code, events = _run(executable, request)
     assert code == 2 and events[-1]["code"] == "TETHYS-E100"
     assert not (tmp_path / "out.tethys").exists()
@@ -458,3 +460,22 @@ def test_vendored_engine_binaries_match_their_manifest(tmp_path):
     (extension / "bin").mkdir(parents=True)
     staged = stage_tethys.stage(vendor / host / engine.FILENAMES[host], extension)   # probes --version
     assert engine.locate(extension) == staged
+
+
+def test_detail_and_uv_texture(tmp_path):
+    executable = _engine()
+    request, _pc2, owners = _scenario(tmp_path, detail=4, texture=64)
+    code, events = _run(executable, request)
+    assert code == 0, events
+    start = next(e for e in events if e["event"] == "start")
+    assert start["detail"] == 4 and start["texture"] == 64 and start["triangles"] == 128 * 16
+    with protocol.CacheReader(tmp_path / "out.tethys", verify_all=True) as reader:
+        assert reader.texture_size == 64 and reader.detail_level == 4
+        frame = reader.read(reader.last_frame)
+    texture = frame.channels["texture"]
+    assert texture.shape == (64, 64, 2)
+    # Left columns are cotton (saturated), right columns waterproof (dry inside).
+    assert texture[32, 4, 1] > 0.2 and texture[32, 60, 1] < 0.5 * texture[32, 4, 1]
+    complete = events[-1]
+    total = complete["surface"] + complete["absorbed"] + complete["evaporated"] + complete["drained"]
+    assert abs(complete["initial"] + complete["injected"] - total - complete["roundoff"]) <= 1e-12

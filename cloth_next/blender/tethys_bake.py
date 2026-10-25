@@ -195,6 +195,7 @@ def settings_record(obj, context=None) -> dict:
             "multipliers": [s.flow_strength, s.absorption, s.capillary, s.evaporation, s.repellency,
                             s.retention, s.ambient_drying, s.quality, s.immersion_film, s.wetting_time,
                             s.contact_low, s.contact_high, bool(s.debug_channels)],
+            "detail": [s.surface_detail, s.texture_resolution, round(s.feature_size, 6)],
             "fps": fps}
 
 
@@ -289,13 +290,21 @@ def prepare(context, obj) -> BakePlan:
         polygon_count=len(obj.data.polygons), material_of=np.asarray(material_of),
         materials=rows, matrix_world=np.array(obj.matrix_world, dtype=float), pc2_path=str(cloth.pc2_path),
         env_path=str(staging.environment), output_path=str(staging.cache), cancel_path=str(staging.cancel),
-        identity=identity_json, uv=uv)
+        identity=identity_json, uv=uv, detail_level=int(settings.tethys.surface_detail),
+        texture_size=int(settings.tethys.texture_resolution) if uv is not None else 0,
+        feature_scale=settings.tethys.feature_size * 1e-3, seed=_seed(obj))
     partial = {"object": identity["object"], "object_name": obj.name, "identity_json": identity_json,
                "fingerprints": identity["fingerprints"], "settings_fingerprint": tcache.fingerprints(
                    settings=record)["combined"], "frames": [first, last],
                "sources": {"pc2_file": cloth.pc2_path.name, "water_file": contact.path.name}}
+    size = (request.texture_size, request.texture_size) if request.texture_size else image_size(len(obj.data.polygons))
     return BakePlan(obj.name, request, contact, cloth, final, staging, partial, executable,
-                    len(obj.data.polygons), image_size(len(obj.data.polygons)))
+                    len(obj.data.polygons), size)
+
+
+def _seed(obj) -> int:
+    import zlib
+    return zlib.crc32(object_uuid(obj).encode()) or 1
 
 
 def settings_fingerprint(obj, context=None) -> str:
@@ -402,6 +411,11 @@ class _Cancelled(Exception):
 def write_images(plan: BakePlan, frames, *, image_name="__CNX_TETHYS_EXPORT"):
     """Convert cache frames to EXR images (R surface mm, G saturation, B contact)."""
     width, height = plan.image_size
+    textured = bool(plan.request.texture_size)
+    # Each polygon owns one wetness material: capacity in mm per polygon.
+    capacity_mm = np.zeros(plan.polygon_count, np.float32)
+    rows = np.asarray(plan.request.materials, float)
+    capacity_mm[np.asarray(plan.request.polygon_of)] = rows[np.asarray(plan.request.material_of), 1] * 1000.0
     pixels = np.zeros((height * width, 4), np.float32)
     pixels[:, 3] = 1.0
     image = bpy.data.images.new(image_name, width, height, alpha=True, float_buffer=True)
@@ -411,10 +425,15 @@ def write_images(plan: BakePlan, frames, *, image_name="__CNX_TETHYS_EXPORT"):
         with protocol.CacheReader(plan.staging.cache) as reader:
             for frame in frames:
                 data = reader.read(frame)
-                count = plan.polygon_count
-                pixels[:count, 0] = data.channels["surface"]
-                pixels[:count, 1] = data.channels["saturation"]
-                pixels[:count, 2] = data.channels.get("contact", 0.0)
+                if textured:
+                    texture = data.channels["texture"].reshape(-1, 2)
+                    pixels[:, 0] = texture[:, 0]
+                    pixels[:, 1] = texture[:, 1]
+                else:
+                    count = plan.polygon_count
+                    pixels[:count, 0] = data.channels["surface"]
+                    pixels[:count, 1] = data.channels["saturation"] * capacity_mm
+                    pixels[:count, 2] = data.channels.get("contact", 0.0)
                 image.pixels.foreach_set(pixels.reshape(-1))
                 path = plan.staging.frame_image(frame)
                 image.filepath_raw = str(path)
@@ -428,7 +447,8 @@ def publish(plan: BakePlan) -> dict:
     final, staging = plan.final, plan.staging
     partial = tcache.write_partial(staging, plan.record)
     images = {"directory": final.frames.name, "width": plan.image_size[0], "height": plan.image_size[1],
-              "format": "OPEN_EXR", "channels": ["surface_mm", "saturation", "contact"]}
+              "format": "OPEN_EXR", "layout": "UV" if plan.request.texture_size else "FACE",
+              "channels": ["surface_mm", "absorbed_mm", "contact"]}
     staged = tcache.write_complete(staging, partial, images=images, result=_ledger(plan))
     # Replace only this object's owned files; the cloth cache is untouched.
     tcache.remove(final, stage="TETHYS_REPLACE")
@@ -457,8 +477,9 @@ def finalize(plan: BakePlan, obj, job: BakeJob) -> str:
     plan.record["gaia_entitlement"] = job.gaia_entitlement
     sealed = publish(plan)
     from . import tethys_overlay, tethys_shader
+    tethys_shader.detach(obj, keep_attribute=True)   # the layout (UV or per face) may have changed
     notes = tethys_shader.attach(obj, plan.final, plan.image_size, plan.request.first_frame,
-                                 plan.request.last_frame)
+                                 plan.request.last_frame, uv_layout=bool(plan.request.texture_size))
     s = obj.cloth_next.tethys
     s.cache_stem, s.cache_root = plan.final.stem, str(plan.final.root)
     s.baked_fingerprint = plan.record["settings_fingerprint"]

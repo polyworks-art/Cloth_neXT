@@ -91,6 +91,22 @@ class CLOTHNEXT_PG_tethys_settings(bpy.types.PropertyGroup):
                ("STANDARD", "Standard", "Up to 64 substeps per frame"),
                ("HIGH", "High", "Up to 256 substeps per frame")),
         description="Upper limit of solver substeps per frame. Fewer substeps only matter for fast, thick films")
+    surface_detail: bpy.props.EnumProperty(
+        name="Surface Detail", default="4", update=_tethys_changed,
+        items=(("1", "Cloth Resolution", "One water cell per cloth triangle"),
+               ("2", "2 x 2", "Four water cells per cloth triangle"),
+               ("4", "4 x 4", "Sixteen water cells per cloth triangle"),
+               ("6", "6 x 6", "36 water cells per cloth triangle"),
+               ("8", "8 x 8", "64 water cells per cloth triangle")),
+        description="Water cells per cloth triangle. Finer cells show streaks and beads; the cloth mesh is not changed")
+    texture_resolution: bpy.props.EnumProperty(
+        name="Wetness Texture", default="1024", update=_tethys_changed,
+        items=(("0", "Per Face", "One wetness value per face, no UV texture"),
+               ("512", "512 px", ""), ("1024", "1024 px", ""), ("2048", "2048 px", "")),
+        description="Resolution of the baked wetness texture in the object's UV layout")
+    feature_size: bpy.props.FloatProperty(
+        name="Feature Size", default=4.0, min=0.2, max=200.0, precision=1, update=_tethys_changed,
+        description="Size of the fabric's surface irregularities that steer streaks. Unit: mm")
     immersion_film: bpy.props.FloatProperty(
         name="Immersion Film", default=1.0, min=0.0, max=50.0, precision=2, update=_tethys_changed,
         description="Surface water a fully submerged face holds. Unit: mm")
@@ -121,6 +137,12 @@ class CLOTHNEXT_PG_tethys_settings(bpy.types.PropertyGroup):
     film_response: bpy.props.FloatProperty(
         name="Film Response", default=0.3, min=0.001, max=50.0, update=_appearance_changed,
         description="Surface water at which the wet look is complete. Unit: mm")
+    moisture_response: bpy.props.FloatProperty(
+        name="Moisture Response", default=0.25, min=0.001, max=50.0, update=_appearance_changed,
+        description="Absorbed water at which the darkening is complete. Unit: mm")
+    water_relief: bpy.props.FloatProperty(
+        name="Water Relief", default=1.0, min=0.0, max=20.0, update=_appearance_changed,
+        description="Bump strength of beads and rivulets (1 = their physical height)")
     appearance_strength: bpy.props.FloatProperty(
         name="Wetness Strength", default=1.0, min=0.0, max=1.0, update=_appearance_changed,
         description="Overall strength of the wet appearance")

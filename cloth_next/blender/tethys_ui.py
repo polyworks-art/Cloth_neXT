@@ -191,6 +191,10 @@ class CLOTHNEXT_PT_tethys_flow(_Panel, bpy.types.Panel):
         column.prop(s, "repellency")
         layout.prop(s, "quality")
         column = layout.column(align=True)
+        column.prop(s, "surface_detail")
+        column.prop(s, "feature_size")
+        column.prop(s, "texture_resolution")
+        column = layout.column(align=True)
         column.prop(s, "immersion_film")
         column.prop(s, "wetting_time")
         column = layout.column(align=True)
@@ -258,6 +262,8 @@ class CLOTHNEXT_PT_tethys_appearance(_Panel, bpy.types.Panel):
         column.prop(s, "darkening")
         column.prop(s, "wet_roughness")
         column.prop(s, "film_response")
+        column.prop(s, "moisture_response")
+        column.prop(s, "water_relief")
 
 
 class CLOTHNEXT_PT_tethys_debug(_Panel, bpy.types.Panel):

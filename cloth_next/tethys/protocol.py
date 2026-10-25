@@ -17,7 +17,7 @@ import uuid
 
 import numpy as np
 
-PROTOCOL_VERSION = 1
+PROTOCOL_VERSION = 2
 REQUEST_MAGIC = b"TETHYSRQ"
 ENV_MAGIC = b"TETHYSEV"
 CACHE_MAGIC = b"TETHYSWC"
@@ -29,6 +29,8 @@ CHANNEL_SATURATION = 1 << 1  # absorbed / capacity per polygon
 CHANNEL_CONTACT = 1 << 2     # mean contact fraction during the frame
 CHANNEL_DRAINED = 1 << 3     # mm drained from open edges during the frame
 CHANNEL_FLOW = 1 << 4        # surface flux density vector, 3 values
+CHANNEL_TEXTURE = 1 << 5     # UV texture: surface mm and saturation per pixel
+MATERIAL_VALUES = 10
 CHANNEL_ORDER = ((CHANNEL_SURFACE, "surface", 1), (CHANNEL_SATURATION, "saturation", 1),
                  (CHANNEL_CONTACT, "contact", 1), (CHANNEL_DRAINED, "drained", 1),
                  (CHANNEL_FLOW, "flow", 3))
@@ -91,6 +93,10 @@ class EngineRequest:
     cancel_path: str
     identity: str
     uv: np.ndarray | None = None     # (T, 6) float or None
+    detail_level: int = 1            # virtual sub-cells per cloth triangle edge
+    texture_size: int = 0            # UV wetness texture edge in pixels (0: none)
+    feature_scale: float = 0.004     # m, size of the fabric's surface irregularities
+    seed: int = 1
 
 
 def _section(tag: bytes, payload: bytes) -> bytes:
@@ -115,7 +121,7 @@ def encode_request(request: EngineRequest) -> bytes:
     if polygon_of.shape != (count,) or material_of.shape != (count,):
         raise ProtocolError("TETHYS triangle tables have the wrong size")
     rows = np.asarray(request.materials, dtype="<f8")
-    if rows.ndim != 2 or rows.shape[1] != 9 or not len(rows) or not np.isfinite(rows).all():
+    if rows.ndim != 2 or rows.shape[1] != MATERIAL_VALUES or not len(rows) or not np.isfinite(rows).all():
         raise ProtocolError("TETHYS material table is invalid")
     matrix = np.asarray(request.matrix_world, dtype="<f8")
     if matrix.shape != (4, 4) or not np.isfinite(matrix).all():
@@ -127,7 +133,9 @@ def encode_request(request: EngineRequest) -> bytes:
                                       request.pc2_first_sample, 0)),
         _section(b"MESH", struct.pack("<IIII", request.vertex_count, count, request.polygon_count, 0)
                  + triangles.tobytes() + polygon_of.tobytes() + material_of.tobytes()),
-        _section(b"MATL", struct.pack("<II", len(rows), 9) + rows.tobytes()),
+        _section(b"MATL", struct.pack("<II", len(rows), MATERIAL_VALUES) + rows.tobytes()),
+        _section(b"DETL", struct.pack("<IIdII", int(request.detail_level), int(request.texture_size),
+                                      float(request.feature_scale), int(request.seed) & 0xFFFFFFFF, 0)),
         _section(b"XFRM", matrix.tobytes()),  # row-major
         _section(b"PATH", _string(request.pc2_path) + _string(request.env_path)
                  + _string(request.output_path) + _string(request.cancel_path)),
@@ -246,13 +254,15 @@ class CacheReader:
         stream.seek(0, 2)
         size = stream.tell()
         stream.seek(0)
-        header = stream.read(40)
-        if len(header) != 40 or header[:8] != CACHE_MAGIC:
+        header = stream.read(48)
+        if len(header) != 48 or header[:8] != CACHE_MAGIC:
             raise ProtocolError("Not a TETHYS wetness cache")
-        version, channels, polygons, first, last, identity_length, fps = struct.unpack("<IIIiiId", header[8:40])
+        version, channels, polygons, first, last, identity_length, texture, detail, fps = struct.unpack(
+            "<IIIiiIIId", header[8:48])
         if version != PROTOCOL_VERSION:
             raise ProtocolError(f"Unsupported TETHYS cache version {version}")
-        if polygons <= 0 or last < first or identity_length > (1 << 20) or not fps > 0:
+        if (polygons <= 0 or last < first or identity_length > (1 << 20) or not fps > 0
+                or texture > 8192 or not 1 <= detail <= 16 or bool(texture) != bool(channels & CHANNEL_TEXTURE)):
             raise ProtocolError("TETHYS cache header is invalid")
         identity = stream.read(identity_length)
         if len(identity) != identity_length:
@@ -280,14 +290,17 @@ class CacheReader:
             self.entries.append((offset, length, digest))
         self.channels = channels
         self.polygon_count = polygons
+        self.texture_size = texture
+        self.detail_level = detail
         self.first_frame, self.last_frame, self.fps = first, last, fps
         self.identity = identity.decode("utf-8")
         self.frame_count = count
         self._layout = [(bit, name, width) for bit, name, width in CHANNEL_ORDER if channels & bit]
-        unknown = channels & ~sum(bit for bit, _, _ in CHANNEL_ORDER)
+        unknown = channels & ~(sum(bit for bit, _, _ in CHANNEL_ORDER) | CHANNEL_TEXTURE)
         if unknown or not channels & CHANNEL_SURFACE or not channels & CHANNEL_SATURATION:
             raise ProtocolError("TETHYS cache channel layout is not supported")
-        expected = 8 + 8 * len(LEDGER_FIELDS) + sum(2 * polygons * w for _, _, w in self._layout)
+        expected = (8 + 8 * len(LEDGER_FIELDS) + sum(2 * polygons * w for _, _, w in self._layout)
+                    + 4 * texture * texture)
         expected += (-expected) % 8
         if any(length != expected for _, length, _ in self.entries):
             raise ProtocolError("TETHYS cache frame size does not match its channels")
@@ -315,6 +328,10 @@ class CacheReader:
             array = np.frombuffer(data, dtype="<f2", count=count, offset=position).astype(np.float32)
             result.channels[name] = array.reshape(-1, 3) if width == 3 else array
             position += 2 * count
+        if self.texture_size:
+            size = self.texture_size
+            pixels = np.frombuffer(data, dtype="<f2", count=size * size * 2, offset=position)
+            result.channels["texture"] = pixels.astype(np.float32).reshape(size, size, 2)
         return result
 
     def close(self):

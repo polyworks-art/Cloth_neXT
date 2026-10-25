@@ -103,31 +103,38 @@ def cell_group():
 
 def wetness_group():
     tree = bpy.data.node_groups.get(GROUP)
-    if tree is not None:
+    if tree is not None and "Absorbed Water" in tree.interface.items_tree:
         return tree
+    if tree is not None:          # older development layout: rebuild under the same name
+        tree.name = GROUP + " (old)"
     tree = bpy.data.node_groups.new(GROUP, "ShaderNodeTree")
     _socket(tree, "Base Color", "INPUT", "NodeSocketColor", (0.8, 0.8, 0.8, 1.0))
     _socket(tree, "Roughness", "INPUT", "NodeSocketFloat", 0.5, 0.0, 1.0)
     _socket(tree, "Coat Weight", "INPUT", "NodeSocketFloat", 0.0, 0.0, 1.0)
     _socket(tree, "Surface Water", "INPUT", "NodeSocketFloat", 0.0, 0.0)
-    _socket(tree, "Saturation", "INPUT", "NodeSocketFloat", 0.0, 0.0, 1.0)
+    _socket(tree, "Absorbed Water", "INPUT", "NodeSocketFloat", 0.0, 0.0)
     _socket(tree, "Valid", "INPUT", "NodeSocketFloat", 0.0, 0.0, 1.0)
     _socket(tree, "Darkening", "INPUT", "NodeSocketFloat", 0.6, 0.0, 1.0)
     _socket(tree, "Wet Roughness", "INPUT", "NodeSocketFloat", 0.08, 0.0, 1.0)
     _socket(tree, "Film Response", "INPUT", "NodeSocketFloat", 0.3, 0.001)
+    _socket(tree, "Moisture Response", "INPUT", "NodeSocketFloat", 0.25, 0.001)
     _socket(tree, "Strength", "INPUT", "NodeSocketFloat", 1.0, 0.0, 1.0)
     _socket(tree, "Base Color", "OUTPUT", "NodeSocketColor")
     _socket(tree, "Roughness", "OUTPUT", "NodeSocketFloat")
     _socket(tree, "Coat Weight", "OUTPUT", "NodeSocketFloat")
     _socket(tree, "Film", "OUTPUT", "NodeSocketFloat")
     _socket(tree, "Moisture", "OUTPUT", "NodeSocketFloat")
+    _socket(tree, "Water Height", "OUTPUT", "NodeSocketFloat")
     i = tree.nodes.new("NodeGroupInput")
     o = tree.nodes.new("NodeGroupOutput")
     i.location, o.location = (-900, 0), (700, 0)
     gate = _math(tree, "MULTIPLY", i.outputs["Valid"], i.outputs["Strength"], (-700, -300))
     film = _math(tree, "MULTIPLY", _math(tree, "DIVIDE", i.outputs["Surface Water"], i.outputs["Film Response"],
                                          (-700, 100), clamp=True), gate, (-500, 100), clamp=True)
-    moisture = _math(tree, "MULTIPLY", _math(tree, "MINIMUM", i.outputs["Saturation"], 1.0, (-700, -100)),
+    # Darkening follows the water actually held in the fibres (mm), so a
+    # waterproof coat with almost no capacity never darkens like cotton.
+    moisture = _math(tree, "MULTIPLY", _math(tree, "DIVIDE", i.outputs["Absorbed Water"],
+                                             i.outputs["Moisture Response"], (-700, -100), clamp=True),
                      gate, (-500, -100), clamp=True)
     # Moisture darkens and deepens the original color: mix(c, c*c, k).
     darken = _math(tree, "MULTIPLY", moisture, i.outputs["Darkening"], (-300, 300))
@@ -151,6 +158,8 @@ def wetness_group():
     tree.links.new(coat, o.inputs["Coat Weight"])
     tree.links.new(film, o.inputs["Film"])
     tree.links.new(moisture, o.inputs["Moisture"])
+    # Surface water (mm) as relief for beads and rivulets; zero where invalid.
+    tree.links.new(_math(tree, "MULTIPLY", i.outputs["Surface Water"], gate, (150, -450)), o.inputs["Water Height"])
     return tree
 
 
@@ -166,6 +175,7 @@ def _restore_validation_after(obj, write):
     import time
     from . import validation_state
     record = validation_state.record_for(obj)
+    names = {obj.name_full, obj.data.name_full}
     write()
     deadline = time.monotonic() + 2.0
 
@@ -174,11 +184,12 @@ def _restore_validation_after(obj, write):
             # Never let a late, unrelated edit inherit the old record.
             validation_state.remove_depsgraph_observer(observer)
             return
+        # Blender may report the write in more than one update; compare by
+        # name (evaluated copies are different Python objects).
         for update in getattr(depsgraph, "updates", ()):
             original = getattr(getattr(update, "id", None), "original", None)
-            if original is obj or original is obj.data:
+            if getattr(original, "name_full", None) in names:
                 validation_state.restore_record(obj, record)
-                validation_state.remove_depsgraph_observer(observer)
                 return
 
     validation_state.add_depsgraph_observer(observer)
@@ -288,7 +299,13 @@ def _feed(tree, captured, target):
         target.default_value = captured["default"]
 
 
-def _insert(material, obj, image, size, first, last):
+def _uv_name(obj) -> str:
+    layers = obj.data.uv_layers
+    layer = next((l for l in layers if l.active_render), None) or layers.active
+    return layer.name if layer is not None else ""
+
+
+def _insert(material, obj, image, size, first, last, uv_layout=False):
     tree = material.node_tree
     settings = obj.cloth_next.tethys
     for principled in [n for n in tree.nodes if n.bl_idname == "ShaderNodeBsdfPrincipled" and not n.get(OWNED)]:
@@ -306,7 +323,8 @@ def _insert(material, obj, image, size, first, last):
             continue
         base, rough = principled.inputs["Base Color"], principled.inputs["Roughness"]
         coat = principled.inputs.get("Coat Weight")
-        record = {"base": _capture(base), "rough": _capture(rough)}
+        normal = principled.inputs["Normal"]
+        record = {"base": _capture(base), "rough": _capture(rough), "normal": _capture(normal)}
         coat_free = coat is not None and not coat.is_linked and float(coat.default_value) == 0.0
         if coat_free:
             record["coat"] = _capture(coat)
@@ -329,16 +347,30 @@ def _insert(material, obj, image, size, first, last):
         cell.inputs["Width"].default_value, cell.inputs["Height"].default_value = size
         texture = add("ShaderNodeTexImage", (-800, -500))
         _configure_texture(texture, image, first, last)
+        if uv_layout:
+            # Streaks and beads live in the UV wetness texture; the cell
+            # attribute only tells TETHYS objects apart from others.
+            texture.interpolation = "Linear"
+            uv = add("ShaderNodeUVMap", (-1000, -700))
+            uv.uv_map = _uv_name(obj)
         split = add("ShaderNodeSeparateColor", (-520, -500))
         group = add("ShaderNodeGroup", (-300, -250))
         group.node_tree = wetness_group()
         group.label = "TETHYS Wetness"
         group[RECORD] = json.dumps(record)
         tree.links.new(attribute.outputs["Fac"], cell.inputs["Cell"])
-        tree.links.new(cell.outputs["Vector"], texture.inputs["Vector"])
+        tree.links.new(uv.outputs["UV"] if uv_layout else cell.outputs["Vector"], texture.inputs["Vector"])
         tree.links.new(texture.outputs["Color"], split.inputs[0])
         tree.links.new(split.outputs[0], group.inputs["Surface Water"])
-        tree.links.new(split.outputs[1], group.inputs["Saturation"])
+        tree.links.new(split.outputs[1], group.inputs["Absorbed Water"])
+        # Beads and rivulets catch the light: bump from the water height,
+        # chained onto any existing normal map so it is kept.
+        bump = add("ShaderNodeBump", (-100, -600))
+        bump.inputs["Strength"].default_value = 1.0
+        bump.inputs["Distance"].default_value = 0.001 * settings.water_relief
+        tree.links.new(group.outputs["Water Height"], bump.inputs["Height"])
+        _feed(tree, record["normal"], bump.inputs["Normal"])
+        tree.links.new(bump.outputs["Normal"], normal)
         tree.links.new(cell.outputs["Valid"], group.inputs["Valid"])
         _feed(tree, record["base"], group.inputs["Base Color"])
         _feed(tree, record["rough"], group.inputs["Roughness"])
@@ -367,9 +399,10 @@ def _apply_appearance(group, settings):
     group.inputs["Wet Roughness"].default_value = settings.wet_roughness
     group.inputs["Film Response"].default_value = settings.film_response
     group.inputs["Strength"].default_value = settings.appearance_strength
+    group.inputs["Moisture Response"].default_value = settings.moisture_response
 
 
-def attach(obj, paths, size, first, last) -> list[str]:
+def attach(obj, paths, size, first, last, uv_layout=False) -> list[str]:
     """Connect every material of `obj`; returns notes for materials left unchanged."""
     notes = []
     materials = _materials(obj)
@@ -388,7 +421,7 @@ def attach(obj, paths, size, first, last) -> list[str]:
         if not any(n.bl_idname == "ShaderNodeBsdfPrincipled" for n in material.node_tree.nodes):
             notes.append(f"{material.name}: no Principled BSDF")
             continue
-        _insert(material, obj, image, size, first, last)
+        _insert(material, obj, image, size, first, last, uv_layout)
     if not materials:
         notes.append("no material slots")
     return notes
@@ -404,9 +437,11 @@ def update_appearance(obj) -> None:
             if node.get(OWNED) and node.bl_idname == "ShaderNodeGroup" and node.node_tree and \
                     node.node_tree.name == GROUP:
                 _apply_appearance(node, settings)
+            elif node.get(OWNED) and node.bl_idname == "ShaderNodeBump":
+                node.inputs["Distance"].default_value = 0.001 * settings.water_relief
 
 
-def detach(obj) -> None:
+def detach(obj, keep_attribute=False) -> None:
     """Restore every material exactly and remove all TETHYS nodes and the image."""
     for material in _materials(obj):
         tree = material.node_tree
@@ -420,6 +455,8 @@ def detach(obj) -> None:
             record = json.loads(group[RECORD])
             _restore(tree, principled.inputs["Base Color"], record["base"])
             _restore(tree, principled.inputs["Roughness"], record["rough"])
+            if "normal" in record:
+                _restore(tree, principled.inputs["Normal"], record["normal"])
             if "coat" in record and principled.inputs.get("Coat Weight") is not None:
                 _restore(tree, principled.inputs["Coat Weight"], record["coat"])
         for node in owned:
@@ -428,5 +465,7 @@ def detach(obj) -> None:
     if image is not None and image.get(OWNED):
         bpy.data.images.remove(image)
     mesh = obj.data
+    if keep_attribute:
+        return
     if mesh.attributes.get(ATTRIBUTE) is not None and mesh.users == 1 and not mesh.library:
         _restore_validation_after(obj, lambda: mesh.attributes.remove(mesh.attributes[ATTRIBUTE]))

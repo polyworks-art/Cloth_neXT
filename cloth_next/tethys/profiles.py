@@ -48,6 +48,8 @@ PARAMETERS = (
               "Film thickness held in place before water starts to run off or drip"),
     Parameter("flow_anisotropy", "Flow Anisotropy", "", 1.0, 0.05, 20.0,
               "Flow along the fabric's U direction relative to across it (1 is even)"),
+    Parameter("surface_variation", "Surface Variation", "", 1.0, 0.0, 1.0,
+              "Irregularity of the weave or coating: gathers runoff into streaks (0 is perfectly even)"),
 )
 PARAMETER_BY_KEY = MappingProxyType({p.key: p for p in PARAMETERS})
 
@@ -66,6 +68,7 @@ class WetnessProfile:
     boundary_permeability: float
     surface_retention: float
     flow_anisotropy: float
+    surface_variation: float
 
     def values(self) -> dict[str, float]:
         return {p.key: float(getattr(self, p.key)) for p in PARAMETERS}
@@ -83,28 +86,28 @@ def _profile(identifier, label, description, *values):
     return WetnessProfile(identifier, label, description, *map(float, values))
 
 
-#                       absorb  cap mm  mobil  repel  wick  evap  perm  retain  aniso
+#                       absorb  cap mm  mobil  repel  wick  evap  perm  retain  aniso  variation
 PROFILES = MappingProxyType({p.identifier: p for p in (
     _profile("COTTON", "Cotton", "Strong absorption and wicking, holds moisture long",
-             4.0, 0.35, 0.05, 0.05, 8.0, 1.0, 1.0, 0.15, 1.0),
+             4.0, 0.35, 0.05, 0.05, 8.0, 1.0, 1.0, 0.15, 1.0, 0.3),
     _profile("WOOL", "Wool", "Resists first wetting, then absorbs; slow to dry",
-             0.4, 0.30, 0.03, 0.5, 3.0, 0.7, 0.8, 0.30, 1.0),
+             0.4, 0.30, 0.03, 0.5, 3.0, 0.7, 0.8, 0.30, 1.0, 0.45),
     _profile("SILK", "Silk", "Moderate wetting, spreads along the weave, sheds water",
-             1.5, 0.10, 0.15, 0.2, 5.0, 1.2, 0.9, 0.05, 3.0),
+             1.5, 0.10, 0.15, 0.2, 5.0, 1.2, 0.9, 0.05, 3.0, 0.35),
     _profile("LEATHER", "Leather (treated)", "Low absorption, moderate runoff, slow exchange",
-             0.05, 0.20, 0.12, 0.6, 0.3, 0.4, 0.3, 0.08, 1.0),
+             0.05, 0.20, 0.12, 0.6, 0.3, 0.4, 0.3, 0.08, 1.0, 0.55),
     _profile("WATERPROOF", "Waterproof Nylon / Coated", "Minimal absorption, strong runoff",
-             0.01, 0.002, 1.0, 0.95, 0.02, 1.5, 0.1, 0.03, 1.0),
+             0.01, 0.002, 1.0, 0.95, 0.02, 1.5, 0.1, 0.03, 1.0, 0.7),
     _profile("RUBBER", "Rubber / Latex", "No internal moisture; water only on the surface",
-             0.0, 0.0, 1.5, 1.0, 0.0, 1.5, 0.0, 0.02, 1.0),
+             0.0, 0.0, 1.5, 1.0, 0.0, 1.5, 0.0, 0.02, 1.0, 0.5),
     _profile("ABSORBENT_LINING", "Absorbent Lining", "Terry-like lining that soaks and wicks quickly",
-             8.0, 0.80, 0.02, 0.0, 12.0, 0.9, 1.0, 0.20, 1.0),
+             8.0, 0.80, 0.02, 0.0, 12.0, 0.9, 1.0, 0.20, 1.0, 0.2),
     _profile("DENIM", "Denim", "Heavy cotton twill: absorbent, wicks along the twill",
-             2.5, 0.45, 0.04, 0.1, 6.0, 0.8, 0.9, 0.20, 1.6),
+             2.5, 0.45, 0.04, 0.1, 6.0, 0.8, 0.9, 0.20, 1.6, 0.4),
     _profile("SYNTHETIC", "Synthetic Weave", "Uncoated polyester or nylon: little uptake, quick drying",
-             0.8, 0.05, 0.25, 0.4, 4.0, 1.3, 0.8, 0.06, 1.2),
+             0.8, 0.05, 0.25, 0.4, 4.0, 1.3, 0.8, 0.06, 1.2, 0.5),
     _profile("GENERIC", "Generic Fabric", "Neutral woven fabric",
-             2.0, 0.25, 0.08, 0.2, 4.0, 1.0, 1.0, 0.10, 1.0),
+             2.0, 0.25, 0.08, 0.2, 4.0, 1.0, 1.0, 0.10, 1.0, 0.3),
 )})
 DEFAULT_PROFILE = "GENERIC"
 AUTO = "AUTO"

@@ -290,11 +290,15 @@ for frame in (1, 40, 51, ARGS.frames):
     pixels = pixels.reshape(-1, 4)
     with protocol.CacheReader(paths.cache) as reader:
         values = reader.read(frame)
-    count = len(sheet.data.polygons)
-    errors = (float(np.abs(pixels[:count, 0] - values.channels["surface"]).max()),
-              float(np.abs(pixels[:count, 1] - values.channels["saturation"]).max()))
-    details.append((frame, loaded.colorspace_settings.name, loaded.size[:], errors,
-                    pixels[:3, :2].tolist(), values.channels["surface"][:3].tolist()))
+    if "texture" in values.channels:
+        texture = values.channels["texture"].reshape(-1, 2)
+        errors = (float(np.abs(pixels[:, 0] - texture[:, 0]).max()),
+                  float(np.abs(pixels[:, 1] - texture[:, 1]).max()))
+    else:
+        count = len(sheet.data.polygons)
+        errors = (float(np.abs(pixels[:count, 0] - values.channels["surface"]).max()),
+                  float(np.abs(pixels[:count, 1] - values.channels["saturation"]).max()))
+    details.append((frame, loaded.size[:], errors))
     mismatch = max(mismatch, *errors)
     bpy.data.images.remove(loaded)
 check("exr_frames_match_cache", mismatch < 1e-3, details)
