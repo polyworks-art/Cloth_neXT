@@ -20,6 +20,7 @@ import bpy
 import numpy as np
 
 GROUP = "CNX TETHYS Wetness"
+GROUP_VERSION = 3
 CELL_GROUP = "CNX TETHYS Cell"
 ATTRIBUTE = "cnx_tethys_cell"
 OWNED = "cnx_tethys_owned"
@@ -103,11 +104,12 @@ def cell_group():
 
 def wetness_group():
     tree = bpy.data.node_groups.get(GROUP)
-    if tree is not None and "Water Normal" in tree.interface.items_tree:
+    if tree is not None and tree.get("cnx_tethys_version") == GROUP_VERSION:
         return tree
     if tree is not None:          # older development layout: rebuild under the same name
         tree.name = GROUP + " (old)"
     tree = bpy.data.node_groups.new(GROUP, "ShaderNodeTree")
+    tree["cnx_tethys_version"] = GROUP_VERSION
     _socket(tree, "Base Color", "INPUT", "NodeSocketColor", (0.8, 0.8, 0.8, 1.0))
     _socket(tree, "Roughness", "INPUT", "NodeSocketFloat", 0.5, 0.0, 1.0)
     _socket(tree, "Coat Weight", "INPUT", "NodeSocketFloat", 0.0, 0.0, 1.0)
@@ -138,8 +140,11 @@ def wetness_group():
     moisture = _math(tree, "MULTIPLY", _math(tree, "DIVIDE", i.outputs["Absorbed Water"],
                                              i.outputs["Moisture Response"], (-700, -100), clamp=True),
                      gate, (-500, -100), clamp=True)
-    # Moisture darkens and deepens the original color: mix(c, c*c, k).
-    darken = _math(tree, "MULTIPLY", moisture, i.outputs["Darkening"], (-300, 300))
+    # Moisture darkens and deepens the original color: mix(c, c*c, k). Water
+    # standing on the fabric (drops, film) darkens it a little too: less light
+    # scatters back out of fibres under a water layer.
+    wet = _math(tree, "MAXIMUM", moisture, _math(tree, "MULTIPLY", film, 0.45, (-500, 300)), (-400, 300))
+    darken = _math(tree, "MULTIPLY", wet, i.outputs["Darkening"], (-300, 300))
     mix = tree.nodes.new("ShaderNodeMix")
     mix.data_type = "RGBA"
     mix.blend_type = "MULTIPLY"

@@ -3,15 +3,15 @@
     "linux-x64": {
       "file_size": 1211656,
       "filename": "tethys-engine",
-      "sha256": "12576aaad334501736ed1960e705c149bb7ba26d5a36fd03829cd8df1fbad85d"
+      "sha256": "a5357ab73319cdf9eafa757805996f571524225684f83350777b8a1a33cba086"
     },
     "windows-x64": {
       "file_size": 452608,
       "filename": "TETHYS Engine.exe",
-      "sha256": "366a414a6aef272d646e35c706b8d0c16119e8930f067b9067c31c4857437333"
+      "sha256": "c31d90045fe50f05a8271ec4d1b5e91d71e41cc07f4a0d397243b53ec413a980"
     }
   },
-  "engine_commit": "1f5d0adfb27aed4a5c6434ca6056c32a6c0e69c2",
+  "engine_commit": "924531431985cefca455aa4db294b33a5955e65c",
   "engine_repository": "polyworks-art/THETYS",
   "protocol": 2,
   "schema_version": 1

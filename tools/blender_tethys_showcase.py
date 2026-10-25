@@ -93,9 +93,9 @@ zone.name = "Waterproof"
 material_zones.write_owners(sheet, tuple(zone.token if p.center.x > 0.0 else 0 for p in sheet.data.polygons))
 zone.wetness_profile = "WATERPROOF"
 
-# Synthetic GAIA water around the hanging sheet (1.5 cm cells).
+# Synthetic GAIA water around the hanging sheet (1 cm cells).
 lo, hi = (-0.45, -0.15, 0.15), (0.45, 0.15, 1.05)
-dims = tuple(int(round((b - a) / 0.015)) + 1 for a, b in zip(lo, hi))
+dims = tuple(int(round((b - a) / 0.01)) + 1 for a, b in zip(lo, hi))
 x = np.linspace(lo[0], hi[0], dims[0])
 y = np.linspace(lo[1], hi[1], dims[1])
 z = np.linspace(lo[2], hi[2], dims[2])
@@ -117,7 +117,7 @@ def fields():
         inside = (Z < level) if 6 <= frame <= 36 else np.zeros(X.shape, bool)
         for start, cx, cz in DROPS:
             if start <= frame <= start + 1:
-                inside |= (X - cx) ** 2 + (Y + 0.004) ** 2 + (Z - cz) ** 2 < 0.016 ** 2
+                inside |= (X - cx) ** 2 + (Y + 0.004) ** 2 + (Z - cz) ** 2 < 0.012 ** 2
         if 50 <= frame <= 75:
             for cx, cz in TRICKLES:
                 inside |= (X - cx) ** 2 + (Y + 0.004) ** 2 + (Z - cz) ** 2 < 0.012 ** 2
@@ -177,9 +177,11 @@ def area(name, location, rotation, size, energy, color=(1.0, 1.0, 1.0)):
 
 
 # Soft key from the front left, cool fill, warm rim from behind for the droplet highlights.
-area("Key", (-1.0, -1.3, 1.5), (math.radians(55), 0.0, math.radians(-38)), 1.4, 260.0)
-area("Fill", (1.3, -1.0, 0.7), (math.radians(80), 0.0, math.radians(52)), 1.6, 70.0, (0.85, 0.92, 1.0))
-area("Rim", (0.4, 1.0, 1.4), (math.radians(-50), 0.0, math.radians(160)), 0.8, 140.0, (1.0, 0.93, 0.85))
+area("Key", (-1.0, -1.3, 1.5), (math.radians(55), 0.0, math.radians(-38)), 1.0, 70.0)
+area("Fill", (1.3, -1.0, 0.7), (math.radians(80), 0.0, math.radians(52)), 1.6, 14.0, (0.85, 0.92, 1.0))
+area("Rim", (0.4, 1.0, 1.4), (math.radians(-50), 0.0, math.radians(160)), 0.8, 40.0, (1.0, 0.93, 0.85))
+# Small, bright source: crisp glints on drops and wet film.
+area("Glint", (0.6, -0.9, 1.3), (math.radians(50), 0.0, math.radians(35)), 0.12, 25.0)
 backdrop = bpy.data.materials.new("Backdrop")
 backdrop.use_nodes = True
 next(n for n in backdrop.node_tree.nodes if n.bl_idname == "ShaderNodeBsdfPrincipled").inputs[
@@ -192,7 +194,7 @@ world = bpy.data.worlds.new("World")
 world.use_nodes = True
 background = world.node_tree.nodes["Background"]
 background.inputs["Color"].default_value = (0.55, 0.6, 0.68, 1.0)
-background.inputs["Strength"].default_value = 0.35
+background.inputs["Strength"].default_value = 0.15
 scene.world = world
 engines = {e.identifier for e in bpy.types.RenderSettings.bl_rna.properties["engine"].enum_items}
 if ARGS.eevee:
