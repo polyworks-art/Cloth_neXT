@@ -54,8 +54,49 @@ def snapshot() -> GaiaState:
         return _state["value"]
 
 
+LOCAL_ENTITLEMENT_SECONDS = 30.0
+_local = {"key": None, "time": 0.0, "value": False}
+
+
+def local_entitlement_valid() -> bool:
+    """A signed, unexpired GAIA entitlement for this installation is stored.
+
+    The same token the TETHYS Engine verifies itself; read from disk at most
+    every few seconds (panels call this while drawing).
+    """
+    from ..polyworks.storage import LocalStore
+    now = time.monotonic()
+    store = LocalStore()
+    try:
+        stat = store.path("gaia-entitlement").stat()
+        key = (stat.st_size, stat.st_mtime_ns)
+    except OSError:
+        key = None
+    if key == _local["key"] and now - _local["time"] < LOCAL_ENTITLEMENT_SECONDS:
+        return _local["value"]
+    value = False
+    if key is not None:
+        try:
+            from ..polyworks.entitlements import verify_gaia
+            from ..polyworks.trust import load_trust
+            token = store.read_gaia_entitlement()
+            installation = store.read_installation_id()
+            if token and installation:
+                verify_gaia(token, trust=load_trust(), installation_id=installation)
+                value = True
+        except Exception:  # noqa: BLE001 - any doubt means no local proof
+            value = False
+    _local.update(key=key, time=now, value=value)
+    return value
+
+
 def access_granted() -> bool:
-    return snapshot().access == "granted"
+    """Online decision; while that is unknown (offline, check skipped) the
+    stored signed GAIA entitlement counts, exactly as the TETHYS Engine sees it."""
+    access = snapshot().access
+    if access == "granted":
+        return True
+    return access is None and local_entitlement_valid()
 
 
 def _update(**changes) -> None:
@@ -397,11 +438,15 @@ CLASSES = (CLOTHNEXT_OT_polyworks_connect, CLOTHNEXT_OT_polyworks_disconnect,
            CLOTHNEXT_OT_gaia_redeem_invite, CLOTHNEXT_OT_gaia_install, CLOTHNEXT_OT_gaia_cancel)
 
 
+INITIAL_RETRY_SECONDS = 30.0
+
+
 def _initial_check():
     # Interactive sessions only; the job itself sends nothing without a stored session.
-    if not getattr(bpy.app, "background", False):
-        refresh()
-    return None
+    # A Bake or another account step can block the first try: retry until it starts.
+    if getattr(bpy.app, "background", False) or refresh():
+        return None
+    return INITIAL_RETRY_SECONDS
 
 
 def register() -> None:

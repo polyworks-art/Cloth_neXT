@@ -85,10 +85,14 @@ def hydrodynamic_bounds(context, targets, first, last, progress=None):
 WATER_SOURCE_OPTIONS = (
     ('FLIP_FLUIDS','FLIP Fluids',True,
      'Use a baked FLIP Fluids domain with particle velocity export enabled.'),
-    ('MANTAFLOW','Mantaflow',False,'Blenders Fluidsolver'),
-    ('HOUDINI','Houdini FX',False,'You should know how to export particle Data'),
-    ('LIQUIGEN','LiquiGen',False,
-     'Export liquid particles as Alembic with Export velocity enabled.'),
+    ('MANTAFLOW','Mantaflow',True,
+     'Use a baked Blender Mantaflow Liquid domain: Data cache in OpenVDB, Mesh baked.'),
+    ('HOUDINI','Houdini FX',True,
+     'Export the FLIP particles with their v attribute as Alembic (and the liquid mesh for '
+     'Hydrodynamic Pressure), then import them into Blender.'),
+    ('LIQUIGEN','LiquiGen',True,
+     'Export liquid particles as Alembic with Export velocity enabled (and the liquid mesh for '
+     'Hydrodynamic Pressure), then import them into Blender.'),
 )
 
 
@@ -300,12 +304,67 @@ class FLIPWaterFlowProvider:
         finally:bpy.data.objects.remove(temporary,do_unlink=True)
 
 
+def water_provider(context, obj, frames, *, hash_sources=True):
+    """The Water Flow source of ``obj`` (FLIP Fluids or Mantaflow)."""
+    s = obj.cloth_next
+    kind = getattr(s, 'water_flow_provider', 'FLIP_FLUIDS')
+    if kind == 'MANTAFLOW':
+        from .water_mantaflow import MantaflowWaterFlowProvider
+        return MantaflowWaterFlowProvider(context, s.water_flow_domain, frames,
+                                          container=s.water_flow_container, hash_sources=hash_sources)
+    if kind in PARTICLE_PROVIDERS:
+        from .water_particles import ParticleWaterFlowProvider
+        return ParticleWaterFlowProvider(
+            context, s.water_flow_domain, frames, container=s.water_flow_container,
+            surface=s.water_flow_surface, provider=PARTICLE_PROVIDERS[kind], hash_sources=hash_sources,
+            need_surface=bool(getattr(s, 'water_hydrodynamic_pressure', False)))
+    return FLIPWaterFlowProvider(context, s.water_flow_domain, frames, hash_sources=hash_sources)
+
+
+PARTICLE_PROVIDERS = {'HOUDINI': 'Houdini FX', 'LIQUIGEN': 'LiquiGen'}
+
+
+def mantaflow_hint(domain):
+    """One line on what a Mantaflow domain still needs, or '' when it is usable."""
+    from .water_mantaflow import fluid_domain
+    settings = fluid_domain(domain) if domain is not None else None
+    if settings is None or settings.domain_type != 'LIQUID':
+        return 'Pick a Mantaflow Liquid Domain'
+    if settings.cache_data_format != 'OPENVDB':
+        return 'Set Cache > Data format to OpenVDB, then bake'
+    if not settings.use_mesh:
+        return 'Enable Mesh on the Domain, then bake'
+    if not (settings.has_cache_baked_data and settings.has_cache_baked_mesh):
+        return 'Bake the Mantaflow Data and Mesh'
+    return ''
+
+
 def water_settings_record(obj):
     s = obj.cloth_next
     if not getattr(s, 'water_flow_enabled', False): return None
     domain = s.water_flow_domain
     source = None
-    if domain is not None and hasattr(domain, 'flip_fluid') and domain.flip_fluid.object_type == 'TYPE_DOMAIN':
+    if getattr(s, 'water_flow_provider', 'FLIP_FLUIDS') == 'MANTAFLOW' and domain is not None:
+        from .water_mantaflow import cache_folder, fluid_domain
+        settings = fluid_domain(domain)
+        if settings is not None:
+            cache = cache_folder(settings)
+            data = cache / 'data'
+            source = {'provider': 'MANTAFLOW', 'cache': str(cache),
+                      'matrix': [list(row) for row in domain.matrix_world],
+                      'bake_stat': ([data.stat().st_mtime_ns, len(list(data.glob('*.vdb')))]
+                                    if data.is_dir() else None)}
+    elif getattr(s, 'water_flow_provider', 'FLIP_FLUIDS') in PARTICLE_PROVIDERS and domain is not None:
+        from .water_particles import _cache_files
+        files = []
+        for item in (domain, getattr(s, 'water_flow_surface', None)):
+            for cache in (_cache_files(item) if item is not None else ()):
+                path = Path(bpy.path.abspath(cache.filepath))
+                files.append([str(path), path.stat().st_mtime_ns if path.is_file() else None])
+        source = {'provider': s.water_flow_provider, 'files': files,
+                  'surface': getattr(getattr(s, 'water_flow_surface', None), 'name', None),
+                  'matrix': [list(row) for row in domain.matrix_world]}
+    elif domain is not None and hasattr(domain, 'flip_fluid') and domain.flip_fluid.object_type == 'TYPE_DOMAIN':
         cache = Path(domain.flip_fluid.domain.cache.get_cache_abspath())
         stats = cache / 'flipstats.data'
         source = {'cache': str(cache), 'matrix': [list(row) for row in domain.matrix_world],
@@ -374,7 +433,7 @@ def prepare_container(context, obj, first, last):
     if Path(bpy.path.abspath(s.water_flow_container)) != path:
         s.water_flow_container = str(path)
     frames = range(int(first), int(last)+1)
-    provider = FLIPWaterFlowProvider(context, s.water_flow_domain, frames)
+    provider = water_provider(context, obj, frames)
     fps = context.scene.render.fps / context.scene.render.fps_base
     layout = water_grid_plan(provider,s)
     dims = layout['dimensions']
@@ -785,10 +844,15 @@ class CLOTHNEXT_OT_select_water_source(bpy.types.Operator):
         return next((tooltip for identifier,_name,_enabled,tooltip in WATER_SOURCE_OPTIONS
                      if identifier==properties.provider),'This fluid provider is not supported yet.')
 
-    def execute(self, _context):
-        if self.provider != 'FLIP_FLUIDS':
+    def execute(self, context):
+        supported = {identifier for identifier,_name,enabled,_tip in WATER_SOURCE_OPTIONS if enabled}
+        if self.provider not in supported:
             self.report({'ERROR'}, 'This fluid provider is not supported yet.')
             return {'CANCELLED'}
+        s = getattr(getattr(context, 'object', None), 'cloth_next', None)
+        if s is not None and s.water_flow_provider != self.provider:
+            s.water_flow_provider = self.provider
+            s.water_flow_domain = None  # a domain of the other kind cannot stay
         return {'FINISHED'}
 
 
@@ -800,8 +864,10 @@ class CLOTHNEXT_MT_water_source_provider(bpy.types.Menu):
         for identifier,label,supported,_tooltip in WATER_SOURCE_OPTIONS:
             row=self.layout.row()
             row.enabled=supported
+            current=getattr(getattr(_context,'object',None),'cloth_next',None)
+            chosen=getattr(current,'water_flow_provider','FLIP_FLUIDS')==identifier
             op=row.operator('cloth_next.select_water_source',text=label,
-                            icon='CHECKMARK' if supported else 'NONE')
+                            icon='CHECKMARK' if chosen else 'NONE')
             op.provider=identifier
 
 
@@ -907,10 +973,24 @@ class CLOTHNEXT_PT_water_flow(bpy.types.Panel):
         name = provider.row()
         name.alignment = 'RIGHT'
         name.label(text='Source')
-        provider.menu('CLOTHNEXT_MT_water_source_provider', text='FLIP Fluids')
+        kind = s.water_flow_provider
+        mantaflow = kind == 'MANTAFLOW'
+        label = next(name for identifier,name,_ok,_tip in WATER_SOURCE_OPTIONS if identifier==kind)
+        provider.menu('CLOTHNEXT_MT_water_source_provider', text=label)
         domain = source.row(align=True)
-        domain.prop(s, 'water_flow_domain', text='Domain')
-        domain.operator('cloth_next.enable_flip_velocity_export', text='', icon='EXPORT')
+        if kind in PARTICLE_PROVIDERS:
+            domain.prop(s, 'water_flow_domain', text='Particles')
+            source.prop(s, 'water_flow_surface', text='Surface')
+            if s.water_hydrodynamic_pressure and s.water_flow_surface is None:
+                source.label(text='Pick the liquid mesh for Hydrodynamic Pressure', icon='INFO')
+        else:
+            domain.prop(s, 'water_flow_domain', text='Domain')
+        if kind == 'FLIP_FLUIDS':
+            domain.operator('cloth_next.enable_flip_velocity_export', text='', icon='EXPORT')
+        elif mantaflow:
+            hint = mantaflow_hint(s.water_flow_domain)
+            if hint:
+                source.label(text=hint, icon='INFO')
         # The prepared fluid cache the cloth bake reads.
         box = layout.box()
         ready = bool(s.water_flow_container) and Path(bpy.path.abspath(s.water_flow_container)).is_file()

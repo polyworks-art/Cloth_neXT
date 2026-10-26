@@ -966,8 +966,18 @@ class CLOTHNEXT_PG_object_settings(bpy.types.PropertyGroup):
     water_wet_damping: bpy.props.FloatProperty(name="Wet Damping",
         description="Extra deformation damping of soaked fabric (added to Shape Damping at full saturation). Calms the springy rebound after fabric leaves the water; 0 disables",
         default=0.1, min=0., soft_max=0.5, max=5., update=_on_shared_water_update)
-    water_flow_domain: bpy.props.PointerProperty(name="FLIP Domain", type=bpy.types.Object,
-        description="Baked FLIP Fluids domain. Bake it with particle velocities enabled (Enable Velocity Export)",
+    water_flow_provider: bpy.props.EnumProperty(name="Fluid Source",
+        items=(("FLIP_FLUIDS", "FLIP Fluids", "A baked FLIP Fluids domain with particle velocity export"),
+               ("MANTAFLOW", "Mantaflow", "A baked Blender Mantaflow Liquid domain (Data in OpenVDB, with Mesh)"),
+               ("HOUDINI", "Houdini FX", "Liquid particles with velocity imported from Houdini (Alembic)"),
+               ("LIQUIGEN", "LiquiGen", "Liquid particles with velocity imported from LiquiGen (Alembic)")),
+        default="FLIP_FLUIDS", update=_on_shared_water_update)
+    water_flow_domain: bpy.props.PointerProperty(name="Fluid Domain", type=bpy.types.Object,
+        description="Baked fluid domain (FLIP Fluids with particle velocities, or Mantaflow Liquid with "
+                    "Mesh), or the imported liquid particles with a velocity attribute (Houdini, LiquiGen)",
+        update=_on_shared_water_update)
+    water_flow_surface: bpy.props.PointerProperty(name="Liquid Surface", type=bpy.types.Object,
+        description="Imported liquid surface mesh (Houdini, LiquiGen). Needed for Hydrodynamic Pressure",
         update=_on_shared_water_update)
     water_flow_influence: bpy.props.FloatProperty(name="Influence", description="How strongly the water drives this object; 0 ignores the water", default=1., min=0., max=1., update=_on_settings_update)
     water_flow_coupling_strength: bpy.props.FloatProperty(name="Coupling Strength", description="How quickly the cloth takes on the water velocity, in 1/s; does not scale the fluid velocity", default=1., min=0., max=1000., update=_on_shared_water_update)

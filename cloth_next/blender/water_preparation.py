@@ -81,6 +81,26 @@ def pressure_source_end(objects, first, last):
     end = int(last) + 1
     for obj in objects:
         domain = getattr(obj.cloth_next, 'water_flow_domain', None)
+        if getattr(obj.cloth_next, 'water_flow_provider', 'FLIP_FLUIDS') in ('HOUDINI', 'LIQUIGEN'):
+            # Imported caches have no lookahead convention; the surface folder
+            # is written for exactly the prepared frames.
+            if getattr(obj.cloth_next, 'water_flow_surface', None) is None:
+                raise ValueError('Hydrodynamic Pressure needs the liquid surface: pick the Surface mesh '
+                                 'in GAIA Water Flow')
+            continue
+        if getattr(obj.cloth_next, 'water_flow_provider', 'FLIP_FLUIDS') == 'MANTAFLOW':
+            from .water_mantaflow import fluid_domain
+            settings = fluid_domain(domain) if domain is not None else None
+            if settings is None:
+                continue
+            # The Mantaflow cache range decides; its surfaces are written by preparation.
+            if int(settings.cache_frame_end) < int(last):
+                raise ValueError(
+                    f'Hydrodynamic Pressure needs Mantaflow frames {first}-{last}; the cache ends at '
+                    f'{settings.cache_frame_end}. Bake Mantaflow over the Cloth Bake range.')
+            if int(settings.cache_frame_end) < end:
+                end = int(last)
+            continue
         flip = getattr(getattr(domain, 'flip_fluid', None), 'domain', None)
         if flip is None:
             continue
@@ -238,7 +258,7 @@ def _finish(state, *, cancelled=False, error=None):
 
 
 def _pump():
-    from .water_flow import FLIPWaterFlowProvider, water_settings_record, water_grid_plan
+    from .water_flow import water_provider, water_settings_record, water_grid_plan
     state = _job
     if state is None: return None
     worker = state['worker']
@@ -268,8 +288,7 @@ def _pump():
         if worker is None:
             obj = state['objects'][state['index']]
             frames = range(state['first'], state['last']+1)
-            provider = FLIPWaterFlowProvider(state['context'], obj.cloth_next.water_flow_domain,
-                                             frames, hash_sources=False)
+            provider = water_provider(state['context'], obj, frames, hash_sources=False)
             layout = water_grid_plan(provider,obj.cloth_next)
             dims = layout['dimensions']
             # Prepared animation stays on disk. Runtime validates its bounded
