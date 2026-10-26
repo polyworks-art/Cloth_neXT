@@ -129,10 +129,10 @@ try:
         def row(self):return ProviderRow()
     CLOTHNEXT_MT_water_source_provider.draw(SimpleNamespace(layout=ProviderLayout()),context)
     assert [(name,enabled) for name,enabled,_ in providers]==[
-        ('FLIP Fluids',True),('Mantaflow',False),
-        ('Houdini FX',False),('LiquiGen',False)]
-    assert CLOTHNEXT_OT_select_water_source.description(context,SimpleNamespace(provider='MANTAFLOW'))=='Blenders Fluidsolver'
-    assert CLOTHNEXT_OT_select_water_source.description(context,SimpleNamespace(provider='HOUDINI'))=='You should know how to export particle Data'
+        ('FLIP Fluids',True),('Mantaflow',True),
+        ('Houdini FX',True),('LiquiGen',True)]
+    assert 'Mantaflow Liquid' in CLOTHNEXT_OT_select_water_source.description(context,SimpleNamespace(provider='MANTAFLOW'))
+    assert 'Alembic' in CLOTHNEXT_OT_select_water_source.description(context,SimpleNamespace(provider='HOUDINI'))
     assert 'Export velocity' in CLOTHNEXT_OT_select_water_source.description(context,SimpleNamespace(provider='LIQUIGEN'))
     assert bpy.ops.cloth_next.select_water_source(provider='FLIP_FLUIDS')=={'FINISHED'}
     print('WATER FLOW UI PASS: registered Physics panel, RNA controls, preparation and FLIP export operators')
