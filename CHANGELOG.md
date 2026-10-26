@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.9.52 - 2026-10-26
+
+- TETHYS Wetness at real-world size: drops, sheet holes and rivulets are sized in millimetres from the scene (Feature Size, capillary length) instead of texture pixels, and water heights are physical (films level off softly towards about 1.2 mm, sheet ridges towards 1.5 mm, drops at most what water can hold on fabric, flattening into puddles). Details finer than the wetness texture show as wetness instead of large blobs.
+- TETHYS Engine 1.2: uses several CPU cores (three quarters of them, always leaving two free) for the wetness texture and writes its cache in the background; about five times faster on a 2048 px bake, with identical results.
+- The TETHYS Engine program carries the TETHYS logo and its file details (product, version, description) in Windows.
+
 ## 2.9.51 - 2026-10-26
 
 - GAIA Water Flow sources: Mantaflow (a baked Liquid domain, Data in OpenVDB with Mesh) and Houdini FX / LiquiGen (imported liquid points with a velocity attribute, plus the liquid mesh as Surface for Hydrodynamic Pressure). Their liquid surface is prepared next to the .gaia file, so Hydrodynamic Pressure works with every source.

@@ -1,4 +1,8 @@
-# Cloth NeXt 2.9.51
+# Cloth NeXt 2.9.52
+
+Wetness now has real-world proportions: drops, holes and rivulets keep their millimetre sizes on every garment and texture resolution, and the water stays as thin as real water on fabric. The TETHYS Engine also uses several CPU cores and bakes wetness about five times faster.
+
+## 2.9.51
 
 GAIA Water Flow takes more water: a baked Mantaflow liquid straight from Blender, or liquid particles imported from Houdini or LiquiGen. Hydrodynamic Pressure works with all of them. Bake Wetness now shows its progress in the Bake window, and on Windows the Cloth NeXt Companion lives quietly in the tray and keeps your licence current.
 

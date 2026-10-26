@@ -1,0 +1,35 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.52",
+  "title": "What's New in Cloth NeXt 2.9.52",
+  "subtitle": "Wetness at real-world size, five times faster.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/check.png",
+      "title": "Real-world proportions",
+      "description": "Drops, holes and rivulets are sized in millimetres from your scene, and water stays as thin as real water on fabric, at any texture resolution."
+    },
+    {
+      "icon": "icons/refresh.png",
+      "title": "Five times faster wetness",
+      "description": "The TETHYS Engine uses several CPU cores and always leaves two free for Blender."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "TETHYS Engine with its logo",
+      "description": "The engine program now shows the TETHYS logo and its file details in Windows."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}
