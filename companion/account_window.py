@@ -220,8 +220,16 @@ class WelcomeCard(tk.Canvas):
 
 class AccountWindow:
     def __init__(self, parent=None, *, service: AccountService | None = None,
-                 content_root: Path | None = None):
+                 content_root: Path | None = None, owns_presence: bool = True):
         self.owns_root = parent is None
+        # The tray publishes presence itself while it lives; its window must not.
+        self.owns_presence = owns_presence
+        if self.owns_root:
+            try:  # before the first window, or the taskbar keeps the default icon
+                from companion.app import _windows_identity
+                _windows_identity()
+            except ImportError:
+                pass
         self.root = parent or tk.Tk()
         if self.owns_root:
             self.root.withdraw()
@@ -267,7 +275,11 @@ class AccountWindow:
         window.title("PolyWorks Account — Cloth NeXt")
         window.configure(bg=BG)
         try:
-            from companion.app import _match_windows_title_bar
+            from companion.app import _asset, _match_windows_title_bar
+            # Square app icon as in the Bake window (the wide logo shows as default).
+            icon = tk.PhotoImage(file=str(_asset("cloth_next.png")))
+            self._app_icon = icon
+            window.iconphoto(True, icon)
             _match_windows_title_bar(window, light=False, background_color=0x00000000)
         except (ImportError, tk.TclError, AttributeError):
             pass
@@ -311,7 +323,6 @@ class AccountWindow:
             logo = tk.PhotoImage(file=str(self.content_root / "assets/cloth-next-logo-ui-crisp.png"))
             self._images.append(logo)
             header.create_image(4, 5, image=logo, anchor="nw")
-            window.iconphoto(True, logo)
         except (OSError, tk.TclError):
             pass
         header.create_text(66, 12, text="PolyWorks Account", anchor="nw", fill=FG,
@@ -841,6 +852,8 @@ class AccountWindow:
 
     # Periodic work -------------------------------------------------------------------------
     def _heartbeat(self):
+        if not self.owns_presence:
+            return
         try:
             self.service.store.write_json(PRESENCE_FILE, {
                 "pid": os.getpid(), "mode": "account", "heartbeat_at": time.time()})
@@ -869,10 +882,11 @@ class AccountWindow:
             except tk.TclError:
                 pass
         self.pool.shutdown(wait=False, cancel_futures=True)
-        try:
-            self.service.store.path(PRESENCE_FILE).unlink(missing_ok=True)
-        except OSError:
-            pass
+        if self.owns_presence:
+            try:
+                self.service.store.path(PRESENCE_FILE).unlink(missing_ok=True)
+            except OSError:
+                pass
         try:
             self.window.destroy()
             if self.owns_root:
@@ -900,4 +914,154 @@ def run_account_sync(*, client_name="Cloth NeXt") -> int:
     except StorageError:
         LOG.warning("PolyWorks sync could not use local account storage")
         return 3
+    return 0
+
+
+# Background tray -----------------------------------------------------------------------------
+OPEN_REQUEST_FILE = "companion-open.request"  # Blender asks a running tray to open the window
+TRAY_POLL_MS = 400
+
+
+class AccountTray:
+    """Background Companion: licence check-ins on a worker thread, a tray icon,
+    and the account window on demand. No console and no window until asked.
+
+    Exits with its Blender (``blender_pid``) or from the tray menu.
+    """
+
+    def __init__(self, *, service: AccountService, content_root: Path | None,
+                 blender_pid: int = 0):
+        from companion import tray
+        from companion.app import _asset, _windows_identity
+        _windows_identity()
+        self.tray_module = tray
+        self.service = service
+        self.content_root = content_root
+        self.blender_pid = blender_pid
+        self.root = tk.Tk()
+        self.root.withdraw()
+        self.pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="polyworks-sync")
+        self.events: queue.Queue = queue.Queue()
+        self.window: AccountWindow | None = None
+        self.closed = False
+        self.icon = tray.TrayIcon(
+            str(_asset("cloth_next.ico")), "Cloth NeXt Companion · PolyWorks Account",
+            on_open=lambda: self.events.put("open"), on_quit=lambda: self.events.put("quit")).start()
+        if self.icon.error:
+            LOG.warning("tray icon unavailable: %s", self.icon.error)
+        self._heartbeat()
+        self.root.after(10_000, self._sync)
+        self.root.after(TRAY_POLL_MS, self._poll)
+
+    @staticmethod
+    def other_tray_running(store) -> bool:
+        from cloth_next.polyworks.status import presence_running
+        from companion import tray
+        try:
+            presence = store.read_json(PRESENCE_FILE)
+        except (OSError, ValueError, StorageError):
+            return False
+        return bool(isinstance(presence, dict) and presence.get("mode") == "tray"
+                    and presence.get("pid") != os.getpid()
+                    and presence_running(presence, time.time())
+                    and tray.process_alive(int(presence.get("pid") or 0)))
+
+    def _heartbeat(self):
+        if self.closed:
+            return
+        try:
+            self.service.store.write_json(PRESENCE_FILE, {
+                "pid": os.getpid(), "mode": "tray", "heartbeat_at": time.time()})
+        except OSError:
+            pass
+        self.root.after(HEARTBEAT_MS, self._heartbeat)
+
+    def _sync(self):
+        """The licence check-in, off the Tk thread."""
+        if self.closed:
+            return
+
+        def check():
+            try:
+                with self.service.operation():
+                    self.service.sync_if_due()
+            except ServiceError as exc:
+                LOG.info("PolyWorks sync finished: %s", exc.code)
+            except StorageError:
+                LOG.warning("PolyWorks sync could not use local account storage")
+        if self.window is None or self.window.closed:  # an open window checks in itself
+            self.pool.submit(check)
+        self.root.after(SYNC_CHECK_MS, self._sync)
+
+    def open_window(self):
+        if self.window is not None and not self.window.closed:
+            window = self.window.window
+            window.deiconify()
+            window.lift()
+            window.focus_force()
+            return
+        self.window = AccountWindow(self.root, service=self.service,
+                                    content_root=self.content_root, owns_presence=False)
+
+    def _poll(self):
+        if self.closed:
+            return
+        request = self.service.store.path(OPEN_REQUEST_FILE)
+        try:
+            if request.exists():
+                request.unlink()
+                self.events.put("open")
+        except OSError:
+            pass
+        if self.blender_pid and not self.tray_module.process_alive(self.blender_pid):
+            self.events.put("quit")
+        while True:
+            try:
+                event = self.events.get_nowait()
+            except queue.Empty:
+                break
+            if event == "open":
+                self.open_window()
+            elif event == "quit":
+                return self.close()
+        self.root.after(TRAY_POLL_MS, self._poll)
+
+    def close(self):
+        if self.closed:
+            return
+        self.closed = True
+        if self.window is not None:
+            self.window.close()
+        self.icon.stop()
+        self.pool.shutdown(wait=False, cancel_futures=True)
+        try:
+            presence = self.service.store.read_json(PRESENCE_FILE)
+            if isinstance(presence, dict) and presence.get("pid") == os.getpid():
+                self.service.store.path(PRESENCE_FILE).unlink(missing_ok=True)
+        except (OSError, ValueError, StorageError):
+            pass
+        try:
+            self.root.destroy()
+        except tk.TclError:
+            pass
+
+    def run(self):
+        self.root.mainloop()
+
+
+def run_account_tray(content_root: Path | None = None, *, client_name="Cloth NeXt",
+                     blender_pid: int = 0, open_window: bool = False) -> int:
+    """Resident background Companion (Windows tray). Only one runs per account folder."""
+    service = AccountService(client_name=client_name)
+    if AccountTray.other_tray_running(service.store):
+        if open_window:
+            try:
+                service.store.path(OPEN_REQUEST_FILE).write_text("open", encoding="utf-8")
+            except OSError:
+                pass
+        return 0
+    tray = AccountTray(service=service, content_root=content_root, blender_pid=blender_pid)
+    if open_window:
+        tray.events.put("open")
+    tray.run()
     return 0

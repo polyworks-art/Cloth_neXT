@@ -15,7 +15,7 @@ def _settings(context):
 
 def _locked(context) -> bool:
     from ..bake.controller import shared_controller
-    return shared_controller.snapshot().active or tethys_bake.is_running()
+    return tethys_bake.is_running() or shared_controller.snapshot().active
 
 
 def _target(obj, identity):
@@ -168,6 +168,9 @@ class CLOTHNEXT_PT_tethys(_Panel, bpy.types.Panel):
             row.label(text=state.reason, icon="LOCKED")
             if "Preferences" in state.reason or "access" in state.reason:
                 row.operator("clothnext.open_preferences", text="", icon="PREFERENCES")
+        elif _locked(context) and tethys_bake._window_session is None:
+            # Say why everything is greyed out: another Cloth NeXt job owns the Bake.
+            layout.label(text="Waiting for the running Cloth NeXt Bake to finish", icon="LOCKED")
         if not s.enabled:
             layout.label(text="Switch on to let this cloth get wet from the GAIA water.", icon="INFO")
             return
@@ -185,9 +188,16 @@ class CLOTHNEXT_PT_tethys(_Panel, bpy.types.Panel):
         # Bake
         box = layout.box()
         cache_state, message = tethys_bake.cache_status(obj)
-        icon = {"READY": "CHECKMARK", "STALE": "ERROR", "MISSING": "ERROR",
-                "PARTIAL": "ERROR"}.get(cache_state, "INFO")
-        box.label(text=message, icon=icon)
+        running = tethys_bake.progress_display()
+        if running is not None:
+            factor, text = running
+            row = box.row(align=True)
+            row.progress(factor=factor, type="BAR", text=text)
+            row.operator("clothnext.tethys_cancel", text="", icon="CANCEL")
+        else:
+            icon = {"READY": "CHECKMARK", "STALE": "ERROR", "MISSING": "ERROR",
+                    "PARTIAL": "ERROR"}.get(cache_state, "INFO")
+            box.label(text=message, icon=icon)
         row = box.row(align=True)
         row.scale_y = 1.4
         bake = row.row(align=True)

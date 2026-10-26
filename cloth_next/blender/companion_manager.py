@@ -26,6 +26,8 @@ from . import modal_lock
 
 STARTUP_TIMEOUT_SECONDS = 7.0
 _TERMINAL_GRACE = {BakeState.FINISHED: 1.5, BakeState.CANCELLED: 1.0}
+_WINDOW_JOBS = {BakeJobKind.BAKE, BakeJobKind.WATER_FIELD, BakeJobKind.VEYRA,
+                BakeJobKind.WETNESS}
 
 _process = None
 _server = None
@@ -161,16 +163,14 @@ def _publish(snapshot) -> None:
         except (OSError, TypeError, ValueError) as exc:
             _log("transport", "Bake status publication failed",
                  error_type=type(exc).__name__, error=str(exc)[:2048])
-    if (_production_session and snapshot.job_kind in {BakeJobKind.BAKE, BakeJobKind.WATER_FIELD,
-                                                       BakeJobKind.VEYRA}
+    if (_production_session and snapshot.job_kind in _WINDOW_JOBS
             and snapshot.state is BakeState.ERROR):
         modal_lock.release(snapshot.job_id)
         _log("error","Companion remains open for user acknowledgement",
              job_id=snapshot.job_id,
              error_code=getattr(snapshot,"error_code","") or "CNX-E199")
         return
-    if (_production_session and snapshot.job_kind in {BakeJobKind.BAKE, BakeJobKind.WATER_FIELD,
-                                                       BakeJobKind.VEYRA}
+    if (_production_session and snapshot.job_kind in _WINDOW_JOBS
             and snapshot.state in _TERMINAL_GRACE
             and _terminal_deadline is None):
         modal_lock.release(snapshot.job_id)

@@ -40,6 +40,7 @@ class BakeJobKind(str, Enum):
     BAKE = "BAKE"
     VEYRA = "VEYRA"
     WATER_FIELD = "WATER_FIELD"
+    WETNESS = "WETNESS"  # TETHYS wetness bake
 
 class BakeActivity(str, Enum):
     IDLE="IDLE"; VALIDATING="VALIDATING"; CAPTURING_GEOMETRY="CAPTURING_GEOMETRY"

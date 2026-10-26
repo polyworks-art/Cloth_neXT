@@ -10422,8 +10422,8 @@ def cancel_pending_startup() -> None:
 
 
 def request_cancel() -> None:
-    from . import water_preparation
-    if water_preparation.cancel():
+    from . import tethys_bake, water_preparation
+    if water_preparation.cancel() or tethys_bake.cancel_from_window():
         return
     # Latch first. Export/startup ownership can move between controller,
     # pending-plan and worker state during this call; no branch may lose the

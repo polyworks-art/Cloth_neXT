@@ -42,7 +42,36 @@ def tag_redraw() -> None:
                 area.tag_redraw()
 
 
+_last_tick = 0.0  # last modal tick of the Bake Wetness operator
+ORPHAN_SECONDS = 15.0
+
+
+def _orphaned() -> bool:
+    """A bake whose operator vanished (file load, closed window) without cancel():
+    its engine thread is done and no modal tick came for a while."""
+    if _job is None and _window_session is None:
+        return False
+    return (_job is None or _job.done) and time.monotonic() - _last_tick > ORPHAN_SECONDS
+
+
+def _release_orphan():
+    global _job
+    if not _orphaned():
+        return None
+    _job = None
+    if _window_session is not None:
+        _window_session.end_cancelled()
+    tag_redraw()
+    return None
+
+
 def is_running() -> bool:
+    if _orphaned():
+        # Never leave the panel (and every Cloth NeXt Bake) locked forever;
+        # state changes leave the draw callback through a timer.
+        if not bpy.app.timers.is_registered(_release_orphan):
+            bpy.app.timers.register(_release_orphan, first_interval=0.0)
+        return False
     return _job is not None
 
 
@@ -327,6 +356,11 @@ class BakeJob:
         self.engine: engine.EngineJob | None = None
         self.wet_frames = 0
         self.gaia_entitlement = ""
+        # Panel progress: the stage the artist sees and its own done/total.
+        self.stage = "CONTACT"
+        self.done_steps = 0
+        self.total_steps = max(1, plan.request.last_frame - plan.request.first_frame + 1)
+        self.stage_started = time.monotonic()
         self._cancel = threading.Event()
         self._thread = threading.Thread(target=self._run, name="TETHYS bake", daemon=True)
         self._thread.start()
@@ -334,6 +368,29 @@ class BakeJob:
     def _check_cancel(self):
         if self._cancel.is_set():
             raise _Cancelled()
+
+    def _contact_step(self):
+        self._check_cancel()
+        self.done_steps = min(self.total_steps, self.done_steps + 1)
+        self.progress = self.done_steps / self.total_steps
+
+    def enter_stage(self, stage: str, phase: str, total: int) -> None:
+        self.stage, self.phase = stage, phase
+        self.done_steps, self.total_steps = 0, max(1, total)
+        self.progress = 0.0
+        self.stage_started = time.monotonic()
+
+    def overall(self) -> float:
+        """0..1 over the whole bake: contact 10 %, engine 80 %, preview images 10 %."""
+        start, width = _STAGE_SPAN.get(self.stage, (0.0, 1.0))
+        return min(1.0, start + width * min(1.0, self.progress))
+
+    def remaining_seconds(self) -> float | None:
+        """Rough time left in the current stage, once a few steps have run."""
+        if self.done_steps < 2 or self.progress >= 1.0:
+            return None
+        elapsed = time.monotonic() - self.stage_started
+        return elapsed / self.done_steps * (self.total_steps - self.done_steps)
 
     def _run(self):
         plan = self.plan
@@ -343,12 +400,12 @@ class BakeJob:
             self.wet_frames = contact_export.export_contact(
                 plan.staging.environment, plan.contact, plan.cloth.pc2_path, plan.cloth.vertex_count,
                 plan.request.matrix_world, plan.request.first_frame, plan.request.last_frame, 0,
-                check_cancel=self._check_cancel)
+                check_cancel=self._contact_step)
             protocol.write_atomic_bytes(plan.staging.request, protocol.encode_request(plan.request))
             self._check_cancel()
-            self.phase = "Simulating wetness"
-            self.engine = engine.EngineJob(plan.executable, plan.staging.request, plan.staging.cancel)
             total = max(1, plan.request.last_frame - plan.request.first_frame)
+            self.enter_stage("ENGINE", "Simulating wetness", total)
+            self.engine = engine.EngineJob(plan.executable, plan.staging.request, plan.staging.cancel)
             while True:
                 for event in self.engine.take_events():
                     kind = event.get("event")
@@ -356,7 +413,8 @@ class BakeJob:
                         # Native GAIA entitlement verdict (reported; not enforced yet).
                         self.gaia_entitlement = str(event.get("gaia_entitlement", ""))
                     elif kind == "progress":
-                        self.progress = float(event.get("done", 0)) / total
+                        self.done_steps = int(event.get("done", 0))
+                        self.progress = self.done_steps / total
                     elif kind == "complete":
                         self.result = event
                     elif kind == "error":
@@ -398,12 +456,44 @@ class BakeJob:
         self._cancel.set()
 
     @property
+    def cancel_requested(self) -> bool:
+        return self._cancel.is_set()
+
+    @property
     def done(self) -> bool:
         return not self._thread.is_alive()
 
 
 class _Cancelled(Exception):
     pass
+
+
+_STAGE_SPAN = {"CONTACT": (0.0, 0.1), "ENGINE": (0.1, 0.8), "IMAGES": (0.9, 0.1)}
+
+
+def _duration(seconds: float) -> str:
+    seconds = int(round(seconds))
+    if seconds < 60:
+        return f"{seconds} s"
+    minutes, seconds = divmod(seconds, 60)
+    if minutes < 60:
+        return f"{minutes} min {seconds:02d} s"
+    hours, minutes = divmod(minutes, 60)
+    return f"{hours} h {minutes:02d} min"
+
+
+def progress_display() -> tuple[float, str] | None:
+    """(overall fraction, label) of the running wetness bake, or None when idle."""
+    job = _job
+    if job is None:
+        return None
+    if job.cancel_requested:
+        return job.overall(), "Cancelling…"
+    text = f"{job.phase} {min(job.done_steps, job.total_steps)}/{job.total_steps}"
+    left = job.remaining_seconds()
+    if left is not None:
+        text += f" · about {_duration(left)} left"
+    return job.overall(), text
 
 
 # ---------------------------------------------------------------- publish
@@ -532,7 +622,8 @@ def finalize(plan: BakePlan, obj, job: BakeJob) -> str:
     return message
 
 
-def bake_blocking(context, obj, *, cancel_after: float | None = None) -> tuple[str, BakeJob]:
+def bake_blocking(context, obj, *, cancel_after: float | None = None,
+                  on_tick=None) -> tuple[str, BakeJob]:
     """Run a whole wetness bake without the modal operator (scripts and tests)."""
     global _job
     plan = prepare(context, obj)
@@ -543,6 +634,8 @@ def bake_blocking(context, obj, *, cancel_after: float | None = None) -> tuple[s
         while not job.done:
             if cancel_after is not None and time.monotonic() - started >= cancel_after:
                 job.cancel()
+            if on_tick is not None:
+                on_tick(job)
             time.sleep(0.02)
         if job.cancelled or job.error:
             tcache.remove(plan.staging, stage="TETHYS_ABORT")
@@ -561,6 +654,172 @@ def bake_blocking(context, obj, *, cancel_after: float | None = None) -> tuple[s
 
 # --------------------------------------------------------------- operators
 
+class _WindowSession:
+    """Mirrors one wetness bake into the shared Bake state and the Bake window.
+
+    The window shows phase, frames, time left and Cancel exactly like a cloth
+    bake; its Cancel arrives through ``cancel_from_window``.
+    """
+
+    PUBLISH_SECONDS = 0.25
+
+    def __init__(self, context, obj, plan: BakePlan):
+        from ..bake.controller import shared_controller
+        from ..bake.status import BakeJobKind, BakeState
+        from . import modal_lock
+        self.controller = shared_controller
+        owner = shared_controller.snapshot()
+        if owner.active:
+            raise TethysBakeError("A Cloth NeXt Bake is already running")
+        if owner.state is not BakeState.IDLE:
+            shared_controller.reset()
+        first, last = plan.request.first_frame, plan.request.last_frame
+        self.job_id = shared_controller.transition(
+            BakeState.PREPARING, job_kind=BakeJobKind.WETNESS, status_title=TITLE,
+            status_message="Preparing wetness bake", active_object_name=obj.name,
+            frame_start=first, frame_end=last).job_id
+        if not modal_lock.reserve(self.job_id):
+            shared_controller.fail("Another Cloth NeXt Bake owns the window")
+            raise TethysBakeError("Another Cloth NeXt Bake owns the window")
+        self.started = time.monotonic()
+        self.waiting = _bake_window_enabled(context)
+        self.deadline = 0.0
+        self._sent = 0.0
+        self._published_stage = ""
+        if self.waiting:
+            from ..bake.transport import EnterBakeMode
+            from . import companion_manager
+            shared_controller.transition(BakeState.STARTING_COMPANION, status_title=TITLE)
+            ok, message = companion_manager.begin_bake_mode(EnterBakeMode(
+                job_id=self.job_id, blender_process_id=os.getpid(), frame_start=first,
+                frame_end=last, preset_label=TITLE))
+            if not ok:
+                self.end_error(message)
+                raise TethysBakeError(message)
+            shared_controller.transition(BakeState.WAITING_FOR_COMPANION, status_title=TITLE,
+                                         status_message="Opening the Bake window")
+            self.deadline = time.monotonic() + companion_manager.STARTUP_TIMEOUT_SECONDS
+        else:
+            shared_controller.transition(BakeState.STARTING_RUN, status_title=TITLE)
+
+    def owns(self) -> bool:
+        return self.controller.snapshot().job_id == self.job_id
+
+    def cancel_requested(self) -> bool:
+        from ..bake.status import BakeState
+        snapshot = self.controller.snapshot()
+        return snapshot.job_id != self.job_id or snapshot.state in {BakeState.CANCELLING,
+                                                                    BakeState.CANCELLED}
+
+    def window_ready(self) -> bool:
+        """True once the window answered; raises TethysBakeError on a failed start."""
+        from ..bake.status import BakeState
+        from . import companion_manager
+        if not self.waiting:
+            return True
+        status, message = companion_manager.startup_status(self.job_id)
+        if status != "READY":
+            if status in {"ERROR", "CANCELLED"} or time.monotonic() >= self.deadline:
+                raise TethysBakeError(message or "The Bake window did not open")
+            return False
+        if not companion_manager.consume_ready(self.job_id):
+            return False
+        self.controller.transition(BakeState.COMPANION_READY, status_title=TITLE)
+        self.controller.transition(BakeState.STARTING_RUN, status_title=TITLE)
+        self.waiting = False
+        return True
+
+    def publish(self, job: BakeJob, *, force=False) -> None:
+        from ..bake.status import BakeState
+        if self.cancel_requested():
+            return
+        state = {"CONTACT": BakeState.EXPORTING, "ENGINE": BakeState.SIMULATING,
+                 "IMAGES": BakeState.IMPORTING}[job.stage]
+        now = time.monotonic()
+        if job.stage == self._published_stage and not force and now - self._sent < self.PUBLISH_SECONDS:
+            return
+        if job.stage != self._published_stage:
+            if state is BakeState.SIMULATING and self.controller.snapshot().state is BakeState.EXPORTING:
+                self.controller.transition(BakeState.STARTING_SOLVER, status_title=TITLE)
+            self._published_stage = job.stage
+        first = job.plan.request.first_frame
+        frame = first + job.done_steps if job.stage != "CONTACT" else None
+        left = job.remaining_seconds()
+        label = f"{job.phase} · {min(job.done_steps, job.total_steps)} / {job.total_steps}"
+        if left is not None:
+            label += f" · {_duration(left)} left"
+        self.controller.transition(
+            state, status_title=TITLE, status_message=job.phase, activity_label=label,
+            progress_current=int(round(job.overall() * 1000)), progress_total=1000,
+            current_frame=frame, estimated_remaining_seconds=left,
+            elapsed_seconds=now - self.started)
+        self._sent = now
+
+    def end_finished(self, message: str) -> None:
+        from ..bake.status import BakeState
+        if not self.cancel_requested():
+            self.controller.transition(
+                BakeState.FINISHED, status_title="Wetness baked", status_message=message,
+                activity_label="Wetness baked", progress_current=1000, progress_total=1000,
+                estimated_remaining_seconds=None, elapsed_seconds=time.monotonic() - self.started)
+        self._release()
+
+    def end_cancelled(self) -> None:
+        from ..bake.status import BakeState
+        from . import companion_manager
+        if self.owns():
+            companion_manager.cancel_startup(self.job_id, "Wetness bake cancelled")
+            snapshot = self.controller.snapshot()
+            if snapshot.state is not BakeState.CANCELLED:
+                if snapshot.state is not BakeState.CANCELLING:
+                    self.controller.request_cancel()
+                self.controller.transition(BakeState.CANCELLED, status_title="Wetness bake cancelled",
+                                           status_message="The previous wetness result stays",
+                                           activity_label="Wetness cancelled")
+        self._release()
+
+    def end_error(self, message: str) -> None:
+        from ..bake.status import BakeState
+        from . import companion_manager
+        if self.owns() and self.controller.snapshot().state is not BakeState.ERROR:
+            self.controller.fail(message, "Stage: TETHYS wetness bake\n"
+                                 "What to do: Check the message, adjust the wetness settings, then bake again.")
+            companion_manager.persist_bake_error(self.controller.snapshot())
+        self._release()
+
+    def _release(self) -> None:
+        global _window_session
+        from . import modal_lock
+        modal_lock.release(self.job_id)
+        if _window_session is self:
+            _window_session = None
+
+
+TITLE = "TETHYS Wetness"
+_window_session: _WindowSession | None = None
+
+
+def _bake_window_enabled(context) -> bool:
+    from .addon_identity import addon_preferences
+    try:
+        return bool(addon_preferences(context, __package__).auto_launch_bake_window)
+    except (KeyError, AttributeError):
+        return True
+
+
+def cancel_from_window() -> bool:
+    """Cancel pressed in the Bake window; True when it was meant for TETHYS."""
+    session = _window_session
+    if session is None or not session.owns():
+        return False
+    if _job is not None:
+        _job.cancel()
+    from ..bake.status import BakeState
+    if session.controller.snapshot().state not in {BakeState.CANCELLING, BakeState.CANCELLED}:
+        session.controller.request_cancel()
+    return True
+
+
 class CLOTHNEXT_OT_tethys_bake(bpy.types.Operator):
     bl_idname = "clothnext.tethys_bake"
     bl_label = "Bake Wetness"
@@ -570,6 +829,7 @@ class CLOTHNEXT_OT_tethys_bake(bpy.types.Operator):
 
     _timer = None
     _job: BakeJob | None = None
+    _session: _WindowSession | None = None
     _frames: list
     _stage = ""
 
@@ -577,24 +837,25 @@ class CLOTHNEXT_OT_tethys_bake(bpy.types.Operator):
     def poll(cls, context):
         obj = getattr(context, "object", None)
         return bool(obj and getattr(obj, "cloth_next", None) and obj.cloth_next.role == "CLOTH"
-                    and obj.cloth_next.tethys.enabled and _job is None)
+                    and obj.cloth_next.tethys.enabled and _job is None and _window_session is None)
 
     def invoke(self, context, _event):
         return self.execute(context)
 
     def execute(self, context):
-        global _job
+        global _window_session
         obj = context.object
         try:
-            plan = prepare(context, obj)
+            self._plan = prepare(context, obj)
+            self._session = _window_session = _WindowSession(context, obj, self._plan)
         except TethysBakeError as exc:
             obj.cloth_next.tethys.status = str(exc)
             self.report({"ERROR"}, str(exc))
             return {"CANCELLED"}
-        self._job = BakeJob(plan)
-        _job = self._job
         self._object_name = obj.name
-        self._stage = "ENGINE"
+        self._stage = "WINDOW"
+        global _last_tick
+        _last_tick = time.monotonic()
         obj.cloth_next.tethys.status = "Baking wetness…"
         self._timer = context.window_manager.event_timer_add(0.1, window=context.window)
         context.window_manager.modal_handler_add(self)
@@ -606,6 +867,12 @@ class CLOTHNEXT_OT_tethys_bake(bpy.types.Operator):
         if self._timer is not None:
             context.window_manager.event_timer_remove(self._timer)
             self._timer = None
+        if level == "INFO":
+            self._session.end_finished(message)
+        elif level == "WARNING":
+            self._session.end_cancelled()
+        else:
+            self._session.end_error(message)
         obj = bpy.data.objects.get(self._object_name)
         if obj is not None:
             obj.cloth_next.tethys.status = message
@@ -614,48 +881,70 @@ class CLOTHNEXT_OT_tethys_bake(bpy.types.Operator):
         self.report({level}, message)
         return {"FINISHED"} if level == "INFO" else {"CANCELLED"}
 
+    def _abort(self, context, message, level):
+        try:
+            tcache.remove(self._plan.staging, stage="TETHYS_ABORT")
+        except OSError:
+            pass
+        return self._finish(context, message, level)
+
     def modal(self, context, event):
+        global _job, _last_tick
+        _last_tick = time.monotonic()
         job = self._job
-        if event.type == "ESC" and event.value == "PRESS":
+        cancel = ((event.type == "ESC" and event.value == "PRESS")
+                  or bpy.data.objects.get(self._object_name) is None
+                  or self._session.cancel_requested())
+        if cancel and job is not None:
             job.cancel()
-        if event.type != "TIMER":
+        if event.type != "TIMER" and not cancel:
             return {"PASS_THROUGH"}
         obj = bpy.data.objects.get(self._object_name)
-        if obj is None:
-            job.cancel()
+        tag_redraw()
+        if self._stage == "WINDOW":
+            if cancel:
+                return self._finish(context, "Wetness bake cancelled", "WARNING")
+            try:
+                if not self._session.window_ready():
+                    return {"RUNNING_MODAL"}
+            except TethysBakeError as exc:
+                return self._finish(context, str(exc), "ERROR")
+            self._job = _job = BakeJob(self._plan)
+            self._stage = "ENGINE"
+            return {"RUNNING_MODAL"}
         if self._stage == "ENGINE":
             context.workspace.status_text_set(
-                f"TETHYS · {job.phase} · {job.progress * 100:.0f}% · Esc to cancel")
+                f"TETHYS · {job.phase} · {job.overall() * 100:.0f}% · Esc to cancel")
             if not job.done:
+                self._session.publish(job)
                 return {"RUNNING_MODAL"}
             plan = job.plan
             if job.cancelled or job.error:
                 message = "Wetness bake cancelled" if job.cancelled else f"{job.code} {job.error}".strip()
-                try:
-                    tcache.remove(plan.staging, stage="TETHYS_ABORT")
-                except OSError:
-                    pass
-                return self._finish(context, message, "WARNING" if job.cancelled else "ERROR")
+                return self._abort(context, message, "WARNING" if job.cancelled else "ERROR")
             self._frames = list(range(plan.request.first_frame, plan.request.last_frame + 1))
             self._stage = "IMAGES"
+            job.enter_stage("IMAGES", "Writing wetness frames", len(self._frames))
+            self._session.publish(job, force=True)
             plan.staging.frames.mkdir(parents=True, exist_ok=True)
             return {"RUNNING_MODAL"}
         if self._stage == "IMAGES":
             plan = job.plan
+            if job.cancel_requested:
+                return self._abort(context, "Wetness bake cancelled", "WARNING")
             try:
                 batch, self._frames = self._frames[:8], self._frames[8:]
                 write_images(plan, batch)
-                done = plan.request.last_frame - plan.request.first_frame + 1 - len(self._frames)
-                context.workspace.status_text_set(f"TETHYS · Writing wetness frames {done}")
+                job.done_steps = job.total_steps - len(self._frames)
+                job.progress = job.done_steps / job.total_steps
+                self._session.publish(job)
+                context.workspace.status_text_set(
+                    f"TETHYS · Writing wetness frames {job.done_steps}/{job.total_steps} · Esc to cancel")
                 if self._frames:
                     return {"RUNNING_MODAL"}
                 return self._finish(context, finalize(plan, obj, job))
             except Exception as exc:  # noqa: BLE001 - keep the previous result, report clearly
-                try:
-                    tcache.remove(plan.staging, stage="TETHYS_ABORT")
-                except OSError:
-                    pass
-                return self._finish(context, f"Wetness bake could not be published: {exc}", "ERROR")
+                return self._abort(context, f"Wetness bake could not be published: {exc}", "ERROR")
         return {"RUNNING_MODAL"}
 
     def cancel(self, context):
@@ -663,6 +952,8 @@ class CLOTHNEXT_OT_tethys_bake(bpy.types.Operator):
             self._job.cancel()
         global _job
         _job = None
+        if self._session is not None:
+            self._session.end_cancelled()
         if self._timer is not None:
             context.window_manager.event_timer_remove(self._timer)
             self._timer = None
@@ -712,7 +1003,24 @@ def cache_status(obj) -> tuple[str, str]:
     return "READY", f"Wetness frames {s.baked_first}–{s.baked_last}"
 
 
-CLASSES = (CLOTHNEXT_OT_tethys_bake, CLOTHNEXT_OT_tethys_clear)
+class CLOTHNEXT_OT_tethys_cancel(bpy.types.Operator):
+    bl_idname = "clothnext.tethys_cancel"
+    bl_label = "Cancel Wetness Bake"
+    bl_description = "Stop the running wetness bake. The previous wetness result stays"
+    bl_options = {"INTERNAL"}
+
+    @classmethod
+    def poll(cls, _context):
+        return _job is not None and not _job.cancel_requested
+
+    def execute(self, _context):
+        if _job is not None:
+            _job.cancel()
+        tag_redraw()
+        return {"FINISHED"}
+
+
+CLASSES = (CLOTHNEXT_OT_tethys_bake, CLOTHNEXT_OT_tethys_clear, CLOTHNEXT_OT_tethys_cancel)
 
 
 def shutdown() -> None:

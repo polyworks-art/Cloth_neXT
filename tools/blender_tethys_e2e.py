@@ -201,10 +201,24 @@ GATE["open"] = True
 
 # 3. Wetness bake.
 started = time.monotonic()
-message, job = tethys_bake.bake_blocking(bpy.context, sheet)
+seen_progress = []
+message, job = tethys_bake.bake_blocking(
+    bpy.context, sheet, on_tick=lambda _job: seen_progress.append(tethys_bake.progress_display()))
 REPORT["measurements"]["wetness_bake_seconds"] = time.monotonic() - started
 REPORT["measurements"]["engine"] = job.result
 check("wetness_bake_completes", job.result is not None and "Wetness baked" in message, message)
+fractions = [p[0] for p in seen_progress if p is not None]
+check("progress_visible_while_baking",
+      fractions and all(b >= a for a, b in zip(fractions, fractions[1:]))
+      and any(0.1 < f <= 0.9 for f in fractions)
+      and any("Simulating wetness" in p[1] for p in seen_progress if p is not None),
+      seen_progress[-3:])
+check("progress_cleared_after_bake", tethys_bake.progress_display() is None)
+# An operator that vanished without cancel() (file load) must not lock the panel forever.
+tethys_bake._job, tethys_bake._last_tick = job, 0.0
+orphan_unlocked = not tethys_bake.is_running()
+tethys_bake._release_orphan()
+check("orphaned_bake_unlocks", orphan_unlocked and tethys_bake._job is None)
 paths = tethys_bake.final_paths(sheet)
 state, record = tcache.inspect(paths, None, full=True)
 check("wetness_cache_ready", state is tcache.CacheState.READY, state)

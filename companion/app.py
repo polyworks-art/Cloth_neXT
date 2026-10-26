@@ -273,6 +273,11 @@ def progress_display_text(snapshot: BakeSnapshot) -> str:
     """Render frame text only when the snapshot carries a real frame."""
     if cloud_display(snapshot):
         return cloud_progress_text(snapshot)
+    if wetness_display(snapshot):
+        if snapshot.state is BakeState.FINISHED: return 'Wetness baked'
+        if snapshot.state is BakeState.CANCELLED: return 'Wetness cancelled'
+        if snapshot.state is BakeState.ERROR: return 'Wetness bake failed'
+        return f'Wetness · {snapshot.progress_fraction:.0%}' if snapshot.progress_total else 'Preparing wetness'
     if water_preparation_display(snapshot):
         if snapshot.state is BakeState.FINISHED: return 'Water Flow ready'
         if snapshot.state is BakeState.CANCELLED: return 'Water Flow cancelled'
@@ -290,6 +295,11 @@ def progress_display_text(snapshot: BakeSnapshot) -> str:
 def water_preparation_display(snapshot):
     return (snapshot.job_kind is BakeJobKind.WATER_FIELD
             or snapshot.state is BakeState.PREPARING_WATER)
+
+
+def wetness_display(snapshot):
+    """TETHYS wetness bake: overall progress, no PPF solver details."""
+    return snapshot.job_kind is BakeJobKind.WETNESS
 
 def _asset(name: str) -> Path:
     base=Path(getattr(sys,"_MEIPASS",Path(__file__).resolve().parent))
@@ -602,6 +612,7 @@ class BakeWindow:
 
     def _set_window_title(self,mode):
         title=("Cloth NeXt Veyra" if mode is CompanionMode.VEYRA
+               else "TETHYS Wetness" if getattr(self, '_wetness_display', False)
                else "GAIA Flow" if getattr(self, '_water_display', False)
                else "Cloth NeXt Bake")
         self.root.title(title)
@@ -1132,7 +1143,8 @@ class BakeWindow:
                 self._details_visible = False
                 self.details_panel.grid_remove()
                 self._fit_window_to_content()
-            self.status_tooltip.text = 'Water Flow preparation progress'
+            self.status_tooltip.text = ('Wetness bake progress' if getattr(self, '_wetness_display', False)
+                                        else 'Water Flow preparation progress')
         elif previous:
             self.details_button.configure(text='Details')
             self.details_button.pack(side='left')
@@ -1222,6 +1234,9 @@ class BakeWindow:
             getattr(self, '_water_display', False)
             and self._last_snapshot.job_id == snapshot.job_id
             and snapshot.state in {BakeState.CANCELLING, BakeState.CANCELLED, BakeState.ERROR})
+        wetness = wetness_display(snapshot)
+        self._wetness_display = wetness
+        water_display = water_display or wetness
         self._set_water_display(water_display)
         self._last_snapshot=snapshot
         cloud=cloud_display(snapshot)
@@ -1249,6 +1264,9 @@ class BakeWindow:
                                and snapshot.state not in {
                                    BakeState.FINISHED,BakeState.CANCELLED,
                                    BakeState.ERROR}))
+        elif wetness:
+            self._frame_progress_state=FrameProgress(
+                snapshot.progress_fraction, indeterminate=not bool(snapshot.progress_total))
         elif water_display:
             total = snapshot.preparation_total
             fraction = min(1., max(0., snapshot.preparation_current/total)) if total else 0.
@@ -1265,7 +1283,8 @@ class BakeWindow:
                   else snapshot.progress_fraction)
         self._progress_fraction=fraction
         self.progress.coords(self.progress_fill,0,0,width*fraction,22)
-        modal = (snapshot.job_kind in {BakeJobKind.BAKE, BakeJobKind.VEYRA, BakeJobKind.WATER_FIELD}
+        modal = (snapshot.job_kind in {BakeJobKind.BAKE, BakeJobKind.VEYRA, BakeJobKind.WATER_FIELD,
+                                       BakeJobKind.WETNESS}
                  and snapshot.active and not cloud
                  and self._job_modal)
         if modal != self._job_modal:
@@ -1412,10 +1431,14 @@ def _account_client_name(args) -> str:
 
 def _run_account_mode(args):
     """PolyWorks account window, or Blender's headless licence renewal."""
-    from companion.account_window import run_account_sync, run_account_window
+    from companion.account_window import run_account_sync, run_account_tray, run_account_window
     client_name=_account_client_name(args)
     if args.mode=="account-sync":
         raise SystemExit(run_account_sync(client_name=client_name))
+    if args.mode=="account-tray":
+        raise SystemExit(run_account_tray(
+            Path(args.content_root) if args.content_root else None, client_name=client_name,
+            blender_pid=args.blender_pid or 0, open_window=args.open_window))
     try:
         run_account_window(Path(args.content_root) if args.content_root else None,
                            client_name=client_name)
@@ -1425,7 +1448,7 @@ def _run_account_mode(args):
 
 def main(argv=None):
     parser=argparse.ArgumentParser(); parser.add_argument("--port",type=int); parser.add_argument("--token"); parser.add_argument("--session-root")
-    parser.add_argument("--mode",choices=("bake","veyra","welcome","whats-new","account","account-sync"),default="bake")
+    parser.add_argument("--mode",choices=("bake","veyra","welcome","whats-new","account","account-sync","account-tray"),default="bake")
     parser.add_argument("--version")
     parser.add_argument("--content-root")
     parser.add_argument("--splash-ms",type=int,default=0)
@@ -1433,8 +1456,12 @@ def main(argv=None):
     parser.add_argument("--preference-path")
     parser.add_argument("--preference-token")
     parser.add_argument("--blender-version")
+    parser.add_argument("--blender-pid",type=int)
+    parser.add_argument("--open-window",action="store_true")
     args=parser.parse_args(argv)
-    if args.mode in {"account","account-sync"}:
+    if (args.blender_pid or args.open_window) and args.mode!="account-tray":
+        parser.error("--blender-pid and --open-window belong to --mode account-tray")
+    if args.mode in {"account","account-sync","account-tray"}:
         if args.port or args.token or args.session_root or args.preference_path or args.preference_token:
             parser.error("account modes do not accept Bake or onboarding transport arguments")
         _run_account_mode(args)

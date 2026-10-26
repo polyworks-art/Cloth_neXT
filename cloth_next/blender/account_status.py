@@ -10,14 +10,18 @@ Blender never contacts the PolyWorks API, never opens the session vault and
 never changes account or licence state. A persistent timer stats the
 Companion-published files every few seconds (no reads in draw callbacks); on a
 change, one short-lived worker thread reads them and verifies the signed
-entitlement locally. Renewal is delegated to a headless Companion run
+entitlement locally. On Windows a resident background Companion
+(``--mode account-tray``, no console, tray icon) does the check-ins and opens
+the account window from its tray icon; elsewhere renewal is a headless run
 (``--mode account-sync``) that Blender may launch when a check-in is due and
 no Bake is active.
 """
 from __future__ import annotations
 
 import logging
+import os
 import subprocess
+import sys
 import threading
 import time
 from pathlib import Path
@@ -34,6 +38,10 @@ FULL_REFRESH_SECONDS = 30.0
 SYNC_START_DELAY_SECONDS = 8.0
 SYNC_MIN_SPACING_SECONDS = 600.0
 SYNC_TIMEOUT_SECONDS = 120.0
+TRAY_RETRY_SECONDS = 60.0
+TRAY = sys.platform == "win32"
+_HIDDEN = {"stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL,
+           "creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0)}
 
 _stale_timers = globals().get("_stale_timers", []) + [
     callback for name in ("_tick",) if callable(callback := globals().get(name))]
@@ -41,6 +49,7 @@ _state = {
     "view": None, "signature": None, "last_full": 0.0, "generation": 0,
     "worker": None, "redraw": False, "registered_at": 0.0, "last_sync": None,
     "sync_process": None, "sync_started": 0.0, "windows": [],
+    "tray_process": None, "tray_attempt": None,
 }
 
 
@@ -137,11 +146,36 @@ def _maybe_sync() -> None:
     try:
         _state["sync_process"] = subprocess.Popen(
             _companion_command("account-sync"), cwd=Path(__file__).resolve().parents[2],
-            shell=False, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+            shell=False, **_HIDDEN)
         _state["sync_started"] = now
     except (OSError, ValueError, KeyError) as exc:
         LOG.info("PolyWorks renewal skipped; Companion unavailable: %s", type(exc).__name__)
+
+
+def _tray_command(*, open_window: bool = False) -> list[str]:
+    command = _companion_command("account-tray") + ["--blender-pid", str(os.getpid())]
+    return command + (["--open-window"] if open_window else [])
+
+
+def _maybe_start_tray() -> None:
+    """Keep one background Companion with its tray icon running (Windows)."""
+    process = _state["tray_process"]
+    if process is not None and process.poll() is None:
+        return
+    view = _state["view"]
+    now = time.monotonic()
+    if (not TRAY or getattr(bpy.app, "background", False) or view is None
+            or view.companion_running or _bake_active()
+            or now - _state["registered_at"] < SYNC_START_DELAY_SECONDS
+            or (_state["tray_attempt"] is not None
+                and now - _state["tray_attempt"] < TRAY_RETRY_SECONDS)):
+        return
+    _state["tray_attempt"] = now
+    try:
+        _state["tray_process"] = subprocess.Popen(
+            _tray_command(), cwd=Path(__file__).resolve().parents[2], shell=False, **_HIDDEN)
+    except (OSError, ValueError, KeyError) as exc:
+        LOG.info("Cloth NeXt tray skipped; Companion unavailable: %s", type(exc).__name__)
 
 
 def _tick():
@@ -153,6 +187,7 @@ def _tick():
         if _state["redraw"]:
             _tag_redraw()
         _reap()
+        _maybe_start_tray()
         _maybe_sync()
     except Exception as exc:
         LOG.warning("PolyWorks status timer error: %s", type(exc).__name__)
@@ -161,14 +196,25 @@ def _tick():
 
 def open_companion() -> tuple[bool, str]:
     """Open the Companion account window. Local launch only; no account action."""
+    root = Path(__file__).resolve().parents[2]
+    if TRAY:
+        # The tray Companion shows it: a running one is asked to, else this one stays as the tray.
+        try:
+            process = subprocess.Popen(_tray_command(open_window=True), cwd=root, shell=False,
+                                       **_HIDDEN)
+        except (OSError, ValueError, KeyError) as exc:
+            return False, f"Cloth NeXt Companion could not be opened: {exc}"
+        tray = _state["tray_process"]
+        if tray is None or tray.poll() is not None:
+            _state["tray_process"] = process
+        return True, "Cloth NeXt Companion opened."
     view = _state["view"]
     if view is not None and view.companion_running:
         return True, "Cloth NeXt Companion is already open."
     if any(p.poll() is None for p in _state["windows"]):
         return True, "Cloth NeXt Companion is already open."
     try:
-        command = _companion_command("account")
-        process = subprocess.Popen(command, cwd=Path(__file__).resolve().parents[2], shell=False)
+        process = subprocess.Popen(_companion_command("account"), cwd=root, shell=False, **_HIDDEN)
     except (OSError, ValueError, KeyError) as exc:
         return False, f"Cloth NeXt Companion could not be opened: {exc}"
     _state["windows"].append(process)
@@ -194,14 +240,15 @@ def unregister() -> None:
     if worker is not None and worker.is_alive():
         worker.join(timeout=2.0)
     _state["worker"] = None
-    for process in [_state["sync_process"], *_state["windows"]]:
+    for process in [_state["sync_process"], _state["tray_process"], *_state["windows"]]:
         if process is not None and process.poll() is None:
             try:
                 process.terminate()
                 process.wait(timeout=2)
             except (OSError, subprocess.TimeoutExpired):
                 pass
-    _state.update(sync_process=None, windows=[], view=None, signature=None)
+    _state.update(sync_process=None, tray_process=None, tray_attempt=None, windows=[],
+                  view=None, signature=None)
 
 
 class CLOTHNEXT_OT_open_account_companion(bpy.types.Operator):

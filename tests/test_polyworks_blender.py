@@ -211,6 +211,7 @@ def test_operators_in_account_section_cannot_mutate_accounts(blender_env):
 
 def test_open_companion_launches_account_mode_only(blender_env, account_root, monkeypatch):
     module = account_module(blender_env)
+    monkeypatch.setattr(module, "TRAY", False)  # macOS/Linux path
     launched = []
 
     class Process:
@@ -235,6 +236,7 @@ def test_open_companion_launches_account_mode_only(blender_env, account_root, mo
 
 def test_headless_sync_only_when_due_signed_in_idle_and_interactive(blender_env, signed, monkeypatch):
     module = account_module(blender_env)
+    monkeypatch.setattr(module, "TRAY", False)  # macOS/Linux path
     spawned = []
 
     class Process:
@@ -291,3 +293,41 @@ def test_companion_unavailable_never_raises(blender_env, signed, monkeypatch):
     run_read(module)
     assert module.open_companion()[0] is False
     module.unregister()
+
+
+def test_windows_tray_starts_hidden_once_and_never_during_a_bake(blender_env, signed, monkeypatch):
+    module = account_module(blender_env)
+    monkeypatch.setattr(module, "TRAY", True)
+    spawned = []
+
+    class Process:
+        def poll(self):
+            return None
+
+        def terminate(self):
+            spawned.append("terminated")
+
+        def wait(self, timeout=None):
+            return 0
+    monkeypatch.setattr(module, "_companion_command", lambda mode: ["companion", "--mode", mode])
+    monkeypatch.setattr(module.subprocess, "Popen",
+                        lambda command, **kw: spawned.append((command, kw)) or Process())
+    module.register()
+    module._state["registered_at"] -= 60
+    signed()
+    blender_env.bpy.app.background = False
+    monkeypatch.setattr(module, "_bake_active", lambda: True)
+    run_read(module)
+    assert spawned == []  # no account work while a Bake runs
+    monkeypatch.setattr(module, "_bake_active", lambda: False)
+    module._tick()
+    (command, options), = spawned
+    assert command[:3] == ["companion", "--mode", "account-tray"] and "--blender-pid" in command
+    assert options["creationflags"] == getattr(module.subprocess, "CREATE_NO_WINDOW", 0)
+    assert options["stdout"] is module.subprocess.DEVNULL
+    module._tick()
+    assert len(spawned) == 1  # the running tray is kept, no second one
+    ok, _message = module.open_companion()
+    assert ok and spawned[-1][0][-1] == "--open-window"
+    module.unregister()
+    assert spawned[-1] == "terminated"
