@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.9.51 - 2026-10-26
+
+- GAIA Water Flow sources: Mantaflow (a baked Liquid domain, Data in OpenVDB with Mesh) and Houdini FX / LiquiGen (imported liquid points with a velocity attribute, plus the liquid mesh as Surface for Hydrodynamic Pressure). Their liquid surface is prepared next to the .gaia file, so Hydrodynamic Pressure works with every source.
+- Bake Wetness runs in the Bake window (title TETHYS Wetness, progress, frames, time left, Cancel) and shows a progress bar with Cancel in the TETHYS panel; the panel says why it is locked while another Cloth NeXt job runs.
+- GAIA access: the start-up check is retried when it was blocked, and while the online state is unknown the stored signed GAIA entitlement counts. Fixes Bake Wetness staying disabled until Preferences were opened.
+- Windows: the Cloth NeXt Companion runs in the background without a console, with a tray icon that opens the PolyWorks Account window and doing the licence check-ins itself. The account window shows the Cloth NeXt icon.
+
 ## 2.9.50 - 2026-10-25
 
 - TETHYS Wetness is its own Physics panel next to GAIA Water Flow, with the TETHYS logo. Up front: Fabric, cache status, Bake Wetness and clear, and the look (Wetness, Darkening, Wet Roughness, Drop Relief). Collapsed: Detail, Advanced (Runoff, Soaking and Drying, Water Contact, Shading Response), Fabric Overrides, Debug.

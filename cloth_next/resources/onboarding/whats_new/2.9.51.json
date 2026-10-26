@@ -1,0 +1,35 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.51",
+  "title": "What's New in Cloth NeXt 2.9.51",
+  "subtitle": "More water sources for GAIA.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/refresh.png",
+      "title": "Mantaflow, Houdini and LiquiGen",
+      "description": "GAIA Water Flow reads a baked Mantaflow liquid, or liquid particles with velocity imported from Houdini or LiquiGen. Hydrodynamic Pressure works with all of them."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Wetness in the Bake window",
+      "description": "Bake Wetness shows its progress, frames and time left in the Bake window, with Cancel, like a cloth bake."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Companion in the tray",
+      "description": "On Windows the Cloth NeXt Companion runs quietly in the background, keeps your licence current and opens your account from its tray icon."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}

@@ -1,4 +1,8 @@
-# Cloth NeXt 2.9.50
+# Cloth NeXt 2.9.51
+
+GAIA Water Flow takes more water: a baked Mantaflow liquid straight from Blender, or liquid particles imported from Houdini or LiquiGen. Hydrodynamic Pressure works with all of them. Bake Wetness now shows its progress in the Bake window, and on Windows the Cloth NeXt Companion lives quietly in the tray and keeps your licence current.
+
+## 2.9.50
 
 The water panels are tidier. TETHYS Wetness now has its own panel with its own logo next to GAIA Water Flow: choose the fabric, bake, and set the wet look up front, with everything technical folded away. GAIA Water Flow starts with the source, the domain and the fluid cache status, and Wet Fabric Physics now says what it does.
 
