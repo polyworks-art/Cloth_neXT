@@ -146,8 +146,15 @@ def unsupported_reason(context) -> str:
                 missing = []
             if missing:
                 return f"{obj.name}: not supported by the AETHER Engine: {', '.join(missing)}"
-    if any(getattr(item, "enabled", False) for item in getattr(scene, "cloth_next_object_attachments", ())):
-        return "Object Attachments are not supported by the AETHER Engine yet"
+    for item in getattr(scene, "cloth_next_object_attachments", ()):
+        if not getattr(item, "enabled", False):
+            continue
+        pair = (str(item.source_role), str(item.target_role))
+        if pair not in {("CLOTH", "COLLIDER"), ("CLOTH", "CLOTH")}:
+            return (f"Object Attachment {item.name}: {pair[0].title()} to {pair[1].title()} is not supported by "
+                    "the AETHER Engine (Cloth to Collider and Cloth to Cloth are)")
+        if getattr(item, "needs_rebuild", False):
+            return f"Object Attachment {item.name} needs a rebuild"
     if not deformables:
         return ""
     return ""
@@ -284,9 +291,6 @@ class AetherPreparation:
             solver_test._require_cache_directories(tuple(e.obj for e in snapshot.deformables))
         if any(abs(v) > 0.0 for v in snapshot.wind_blender):
             raise AetherSceneError("Wind is not supported by the AETHER Engine yet")
-        sewing_ids = {str(item.identifier) for item in getattr(scene, "cloth_next_sewing_definitions", ())}
-        attachments = [a for a, _s, _t in snapshot.object_attachments
-                       if str(getattr(a, "identifier", "")).split(":", 1)[0] not in sewing_ids]
         self.snapshot = snapshot
         self.fps = solver_test._scene_fps(context)
         self.range = snapshot.bake_range
@@ -301,6 +305,7 @@ class AetherPreparation:
         self.stack = ExitStack()
         self.cloths: list[_ClothCapture] = []
         self.notes: list[str] = []
+        self.attachments: list[dict] = []
         self.colliders: list[dict] = []
         self.frame = self.range.start + 1
         self.started = time.monotonic()
@@ -360,11 +365,77 @@ class AetherPreparation:
             index_of = {self.cloths[i].entry.obj: i for i in range(len(self.cloths))}
             self.seams = _sewing(scene, index_of, object_ids,
                                  {i: c.material for i, c in enumerate(self.cloths)}, self.fps)
-            if attachments:
-                raise AetherSceneError("Object Attachments are not supported by the AETHER Engine yet")
+            self.seams = self.seams + self._attachments(scene, object_ids, index_of, depsgraph)
         except Exception:
             self.close()
             raise
+
+    def _attachments(self, scene, object_ids: dict, index_of: dict, depsgraph) -> tuple:
+        """Object Attachments as AETHER constraints (the bound points stored on each attachment).
+
+        Cloth -> Collider: each bound cloth vertex becomes a compliant pin whose
+        target follows its bound point on the collider surface (barycentric
+        weights on the evaluated triangle, sampled every frame), keeping the
+        offset it had when the attachment was built.
+        Cloth -> Cloth: each bound vertex is joined to the target cloth's vertex
+        with the largest weight of its bound triangle by a seam that holds the
+        initial separation (approximation: nearest vertex, not the surface point).
+        """
+        seams = []
+        all_objects = {str(getattr(getattr(o, "cloth_next", None), "persistent_export_id", "") or ""): o
+                       for o in scene.objects}
+        for item in getattr(scene, "cloth_next_object_attachments", ()):
+            if not item.enabled or not len(item.points):
+                continue
+            source = object_ids.get(str(item.source_persistent_id))
+            if source is None:
+                raise AetherSceneError(f"Object Attachment {item.name}: its Cloth object is not enabled", "CNX-E105")
+            cloth = index_of[source]
+            capture = self.cloths[cloth]
+            points = list(item.points)
+            src = np.array([int(p.source_index) for p in points], np.int32)
+            tri = np.array([tuple(p.target_triangle) for p in points], np.int32)
+            weights = np.array([tuple(p.target_weights) for p in points], np.float64)
+            if str(item.target_role) == "CLOTH":
+                target = object_ids.get(str(item.target_persistent_id))
+                if target is None:
+                    raise AetherSceneError(f"Object Attachment {item.name}: its target Cloth is not enabled",
+                                           "CNX-E105")
+                other = index_of[target]
+                nearest = tri[np.arange(len(tri)), np.argmax(weights, axis=1)]
+                stiffness = amat.seam_stiffness(100.0 * float(item.stiffness), capture.material,
+                                                self.cloths[other].material)
+                for a, b in zip(src.tolist(), nearest.tolist()):
+                    seams.append(abake.SeamInput(cloth, other, (int(a),), (int(b),), stiffness, 1, closing=False))
+                continue
+            target = all_objects.get(str(item.target_persistent_id))
+            if target is None or target.type != "MESH":
+                raise AetherSceneError(f"Object Attachment {item.name}: its target Collider is missing", "CNX-E105")
+            taken = set(capture.registered.tolist()) | set(capture.pin_vertices.tolist())
+            for other in self.attachments:
+                if other["cloth"] == cloth:
+                    taken |= set(other["vertices"].tolist())
+            keep = np.array([v not in taken for v in src.tolist()], bool)
+            if not keep.all():
+                self.notes.append(f"{item.name}: {int((~keep).sum())} attached vertices are already pinned; "
+                                  "the pin wins")
+            src, tri, weights = src[keep], tri[keep], weights[keep]
+            if not len(src):
+                continue
+            count = len(target.data.vertices)
+            rest_target = _evaluated_world(target, depsgraph, count)
+            surface = np.einsum("pk,pkj->pj", weights, rest_target[tri].astype(np.float64))
+            offset = capture.world[src].astype(np.float64) - surface
+            self.attachments.append({"name": item.name, "cloth": cloth, "target": target, "count": count,
+                                     "vertices": src, "triangles": tri, "weights": weights, "offset": offset,
+                                     "stiffness": pin_stiffness(float(item.stiffness), capture.material),
+                                     "frames": []})
+        return tuple(seams)
+
+    def attachment_targets(self, attachment: dict, depsgraph) -> np.ndarray:
+        world = _evaluated_world(attachment["target"], depsgraph, attachment["count"]).astype(np.float64)
+        surface = np.einsum("pk,pkj->pj", attachment["weights"], world[attachment["triangles"]])
+        return (surface + attachment["offset"]).astype(np.float32)
 
     def _meta(self, entry, material: amat.AetherMaterial, vertex_count: int) -> dict:
         from . import validation_state
@@ -395,7 +466,8 @@ class AetherPreparation:
 
     @property
     def needs_timeline(self) -> bool:
-        return any(c["animated"] for c in self.colliders) or any(c.follow for c in self.cloths)
+        return (any(c["animated"] for c in self.colliders) or any(c.follow for c in self.cloths)
+                or bool(self.attachments))
 
     @property
     def total(self) -> int:
@@ -422,6 +494,8 @@ class AetherPreparation:
                 if c.follow:
                     world = _evaluated_world(c.entry.obj, depsgraph, len(c.local))
                     c.pin_targets.append(world[c.pin_vertices])
+            for a in self.attachments:
+                a["frames"].append(self.attachment_targets(a, depsgraph))
             self.frame += 1
             if time.monotonic() - t0 > budget:
                 break
@@ -450,6 +524,9 @@ class AetherPreparation:
                            if c.follow and c.pin_targets else None)
                 pins.append(abake.PinTrack(i, c.pin_vertices, c.pin_stiffness, targets))
         # Live sessions capture no timeline: their animated inputs are sampled while they run.
+        for a in self.attachments:
+            pins.append(abake.PinTrack(a["cloth"], a["vertices"], a["stiffness"],
+                                       np.stack(a["frames"]).astype(np.float32) if a["frames"] else None))
         colliders = tuple(abake.ColliderInput(c["name"], c["triangles"], c["world"],
                                               np.stack(c["frames"]).astype(np.float32)
                                               if c["animated"] and c["frames"] else None)

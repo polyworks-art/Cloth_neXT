@@ -48,6 +48,8 @@ class LiveSession:
         self.colliders = [(c["name"], c["count"], c["animated"]) for c in prep.colliders]
         self.follow = [(c.obj_name, c.pin_vertices, len(c.local)) for c in prep.cloths if c.follow]
         self.follow_ids: list[np.ndarray] = []
+        self.attached: list = []
+        self.prep = prep
         self.last_frame_seen = -1
         self.last_timeline = None
         self.paused = True
@@ -73,13 +75,17 @@ class LiveSession:
                 next_id += len(p.vertices)
                 adds += [{"cloth": p.cloth, "vertex": int(v), "stiffness": float(p.stiffness)}
                          for v in p.vertices.tolist()]
-                if p.targets is not None or prep.cloths[p.cloth].follow:
+                if p.targets is None and prep.cloths[p.cloth].follow and p.vertices is prep.cloths[p.cloth].pin_vertices:
                     self.follow_ids.append(ids)
+                attached = next((a for a in prep.attachments if a["vertices"] is p.vertices), None)
+                if attached is not None:
+                    self.attached.append((attached, ids))
             if adds:
                 setup["pin_add"] = adds
             if request.seams:
                 setup["seam_add"] = [{"cloth_a": s.cloth_a, "cloth_b": s.cloth_b, "chain_a": list(s.chain_a),
-                                      "chain_b": list(s.chain_b), "stiffness": s.stiffness, "progress": 1.0}
+                                      "chain_b": list(s.chain_b), "stiffness": s.stiffness,
+                                      "progress": 1.0 if s.closing else 0.0}
                                      for s in request.seams]
             if setup:
                 self.engine.request("set_inputs", setup)
@@ -203,7 +209,7 @@ class LiveSession:
         return True
 
     def _send_inputs(self) -> None:
-        if not any(animated for _n, _c, animated in self.colliders) and not self.follow:
+        if not any(animated for _n, _c, animated in self.colliders) and not self.follow and not self.attached:
             return
         depsgraph = bpy.context.evaluated_depsgraph_get()
         inputs: dict = {}
@@ -223,6 +229,9 @@ class LiveSession:
             world = backend._evaluated_world(obj, depsgraph, count)
             ids.append(pin_ids)
             targets.append(world[vertices])
+        for attachment, pin_ids in self.attached:
+            ids.append(pin_ids)
+            targets.append(self.prep.attachment_targets(attachment, depsgraph))
         if ids:
             inputs["pin_targets"] = {"ids": aclient.i32(np.concatenate(ids)),
                                      "targets": aclient.f32(np.concatenate(targets))}

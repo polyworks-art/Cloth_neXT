@@ -93,6 +93,7 @@ class SeamInput:
     chain_b: tuple[int, ...]
     stiffness: float
     closure_frames: int             # progress 0 -> 1 over these frames
+    closing: bool = True            # False: hold the separation at creation (attachments)
 
 
 @dataclass(frozen=True)
@@ -149,7 +150,8 @@ def scene_digest(request: BakeRequest) -> str:
     for c in request.colliders:
         _digest_arrays(h, c.triangles, c.rest_world)
     for s in request.seams:
-        h.update(json.dumps([s.cloth_a, s.cloth_b, s.chain_a, s.chain_b, s.stiffness, s.closure_frames]).encode())
+        h.update(json.dumps([s.cloth_a, s.cloth_b, s.chain_a, s.chain_b, s.stiffness, s.closure_frames,
+                             s.closing]).encode())
     for p in request.pins:
         h.update(json.dumps([p.cloth, p.stiffness]).encode())
         _digest_arrays(h, p.vertices)
@@ -181,9 +183,10 @@ def frame_inputs(request: BakeRequest, step: int) -> dict:
             inp["seam_add"] = [{"cloth_a": s.cloth_a, "cloth_b": s.cloth_b, "chain_a": list(s.chain_a),
                                 "chain_b": list(s.chain_b), "stiffness": s.stiffness, "progress": 0.0}
                                for s in request.seams]
-    if request.seams:
-        inp["seam_progress"] = [{"id": i + 1, "progress": min(1.0, (step + 1) / max(1, s.closure_frames))}
-                                for i, s in enumerate(request.seams)]
+    closing = [{"id": i + 1, "progress": min(1.0, (step + 1) / max(1, s.closure_frames))}
+               for i, s in enumerate(request.seams) if s.closing]
+    if closing:
+        inp["seam_progress"] = closing
     # runtime pin ids are 1.. in pin_add order (engine ids are deterministic)
     ids, targets = [], []
     next_id = 1

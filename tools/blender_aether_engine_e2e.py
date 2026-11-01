@@ -302,6 +302,44 @@ def s_sewing(out: Path):
     return r
 
 
+@scenario("attachments")
+def s_attachments(out: Path):
+    """Cloth -> animated Collider and Cloth -> Cloth Object Attachments."""
+    clear_scene()
+    bpy.ops.mesh.primitive_cube_add(size=0.3, location=(0.0, 0.0, 1.0))
+    box = make_collider(bpy.context.object, animated=True)
+    box.keyframe_insert("location", frame=1)
+    box.location = (0.5, 0.0, 1.0)
+    box.keyframe_insert("location", frame=36)
+    upper = make_cloth(add_grid("Upper", 0.5, (0.0, -0.2, 0.6), 10, rotation=(1.5708, 0, 0)), out, 1, 36)
+    lower = make_cloth(add_grid("Lower", 0.5, (0.0, -0.2, 0.08), 10, rotation=(1.5708, 0, 0)), out, 1, 36)
+    world = lambda o: [o.matrix_world @ v.co for v in o.data.vertices]
+    uw, lw = world(upper), world(lower)
+    top = [i for i, p in enumerate(uw) if p.z > 0.84]
+    bottom = [i for i, p in enumerate(uw) if p.z < 0.36]
+    lower_top = [i for i, p in enumerate(lw) if p.z > 0.32]
+    box_face = [i for i, v in enumerate(box.data.vertices) if v.co.y < -0.1]
+    att = importlib.import_module(f"{M}.blender.object_attachments")
+    scene = bpy.context.scene
+    att._commit_attachment(scene, upper, box, top, box_face, smart=True)
+    att._commit_attachment(scene, lower, upper, lower_top, bottom, smart=True)
+    rest_gap = {i: min((lw[i] - uw[j]).length for j in bottom) for i in lower_top}
+    r = bake()
+    pc2 = importlib.import_module(f"{M}.bake.pc2")
+    _, _, pu = playback_error(upper)
+    _, _, pl = playback_error(lower)
+    fu, fl = np.asarray(list(pc2.iter_frames(pu))[-1]), np.asarray(list(pc2.iter_frames(pl))[-1])
+    mu, ml = np.array(upper.matrix_world), np.array(lower.matrix_world)
+    wu = fu @ mu[:3, :3].T + mu[:3, 3]
+    wl = fl @ ml[:3, :3].T + ml[:3, 3]
+    follow_x = float(np.mean(wu[top, 0] - np.array([uw[i].x for i in top])))
+    gaps = [float(np.min(np.linalg.norm(wu[bottom] - wl[i], axis=1))) for i in lower_top]
+    r.update(top_followed_x=round(follow_x, 3), box_moved_x=0.5, lower_gap_max=round(max(gaps), 4),
+             lower_gap_rest_max=round(max(rest_gap.values()), 4))
+    r["ok"] = (r["state"] == "FINISHED" and abs(follow_x - 0.5) < 0.05 and max(gaps) < max(rest_gap.values()) + 0.03)
+    return r
+
+
 @scenario("live")
 def s_live(out: Path):
     clear_scene()
