@@ -1123,6 +1123,10 @@ _diagnostics = {}
 
 
 def _draw_vectors(_region=None):
+    # The PATTERN NeXt 2D editor shows patterns only, never 3D overlays.
+    from .pattern_next.workspace import is_pattern_area
+    if is_pattern_area(bpy.context):
+        return
     obj = bpy.context.object
     if obj is None or not hasattr(obj, 'cloth_next'): return
     s = obj.cloth_next

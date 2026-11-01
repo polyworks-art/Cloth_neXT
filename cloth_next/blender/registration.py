@@ -27,7 +27,7 @@ from . import (account_status, addon_update_operators, cloud_runtime, cloud_ui, 
                telemetry_runtime, timeline_overlay, validation_state, viewport_autoframe,
                viewport_colors, water_flow, water_settings, wind_fields, material_zones, material_zone_selector,
                tethys_bake, tethys_overlay, tethys_properties, tethys_ui,
-               aether_engine_backend, aether_engine_live)
+               aether_engine_backend, aether_engine_live, pattern_next)
 
 _CLASSES = (
     preferences.CLASSES
@@ -58,6 +58,7 @@ _CLASSES = (
     + material_zone_selector.CLASSES
     + aether_engine_backend.CLASSES
     + aether_engine_live.CLASSES
+    + pattern_next.CLASSES
 )
 
 _registered = False
@@ -111,6 +112,9 @@ def _steps() -> list[tuple]:
     steps.append((solver_test.synchronize_playback_input_deformers,
                   lambda: None))
     steps.append((aether_engine_live.register_handlers, aether_engine_live.shutdown))
+    # PATTERN NeXt: Scene data, the 2D editor draw callbacks, the workspace
+    # tab (appended on a timer, never activated) and the editor auto-start.
+    steps.append((pattern_next.register, pattern_next.unregister))
     return steps
 
 

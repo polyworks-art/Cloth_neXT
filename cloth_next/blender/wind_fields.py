@@ -251,6 +251,10 @@ def draw(region=None, context=None):
 
 
 def _draw():
+    # The PATTERN NeXt 2D editor shows patterns only, never 3D overlays.
+    from .pattern_next.workspace import is_pattern_area
+    if is_pattern_area(bpy.context):
+        return
     try:
         draw()
     except (ValueError, AttributeError, ReferenceError, RuntimeError):

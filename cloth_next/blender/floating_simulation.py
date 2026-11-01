@@ -377,6 +377,10 @@ def _fit_label(blf, text, available, size):
 
 
 def _draw():
+    # The PATTERN NeXt 2D editor shows patterns only, never 3D overlays.
+    from .pattern_next.workspace import is_pattern_area
+    if is_pattern_area(bpy.context):
+        return
     context = bpy.context
     if not visible(context):
         return

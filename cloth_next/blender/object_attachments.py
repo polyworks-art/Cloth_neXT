@@ -1155,6 +1155,10 @@ def _invalidate_overlay(scene=None, depsgraph=None):
 def _draw_overlay():  # pragma: no cover - exercised in Blender
     global _overlay_building
     try:
+        # The PATTERN NeXt 2D editor shows patterns only, never 3D overlays.
+        from .pattern_next.workspace import is_pattern_area
+        if is_pattern_area(bpy.context):
+            return
         import gpu
         from gpu_extras.batch import batch_for_shader
         scene = bpy.context.scene
