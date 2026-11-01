@@ -527,11 +527,28 @@ class CLOTHNEXT_OT_aether_live_grab(bpy.types.Operator):
     def poll(cls, context):
         return _session is not None and context.area is not None and context.area.type == "VIEW_3D"
 
+    # the pinch point of the icon (assets/icons/aether_grab_cursor.png), as a fraction from bottom-left
+    HOTSPOT = (0.48, 0.53)
+
+    def _draw_cursor(self, context):
+        if context.region != self.region or self.mouse is None:
+            return
+        import gpu
+        from gpu_extras.batch import batch_for_shader
+        from . import floating_simulation
+        size = 40.0 * context.preferences.system.ui_scale
+        x, y = self.mouse[0] - self.HOTSPOT[0] * size, self.mouse[1] - self.HOTSPOT[1] * size
+        gpu.state.blend_set("ALPHA")
+        floating_simulation._asset_icon(gpu, batch_for_shader, "aether_grab_cursor", x, y, size)
+        gpu.state.blend_set("NONE")
+
     def invoke(self, context, event):
         if _session is None:
             return {"CANCELLED"}
         self.ids, self.offsets, self.depth = [], None, None
-        context.window.cursor_modal_set("HAND")
+        self.region, self.mouse = context.region, (event.mouse_region_x, event.mouse_region_y)
+        self._handle = bpy.types.SpaceView3D.draw_handler_add(self._draw_cursor, (context,), "WINDOW", "POST_PIXEL")
+        context.window.cursor_modal_set("NONE")   # the grab icon is drawn at the mouse instead
         context.area.header_text_set("Grab Cloth: drag with the left mouse button · Right-click or Esc: done")
         context.window_manager.modal_handler_add(self)
         return {"RUNNING_MODAL"}
@@ -555,15 +572,30 @@ class CLOTHNEXT_OT_aether_live_grab(bpy.types.Operator):
         if _session is not None:
             _session.release(self.ids)
         self.ids = []
+        if getattr(self, "_handle", None) is not None:
+            bpy.types.SpaceView3D.draw_handler_remove(self._handle, "WINDOW")
+            self._handle = None
         context.window.cursor_modal_restore()
         context.area.header_text_set(None)
+        context.area.tag_redraw()
         return {"FINISHED"}
 
     def modal(self, context, event):
         if _session is None or context.area is None:
-            return self._finish(context) if context.area is not None else {"CANCELLED"}
+            if context.area is not None:
+                return self._finish(context)
+            if getattr(self, "_handle", None) is not None:
+                bpy.types.SpaceView3D.draw_handler_remove(self._handle, "WINDOW")
+                self._handle = None
+            context.window.cursor_modal_restore()
+            return {"CANCELLED"}
         if event.type in {"RIGHTMOUSE", "ESC"} and event.value == "PRESS":
             return self._finish(context)
+        if event.type == "MOUSEMOVE":
+            inside = 0 <= event.mouse_region_x < context.region.width and 0 <= event.mouse_region_y < context.region.height
+            self.mouse = (event.mouse_region_x, event.mouse_region_y) if inside else None
+            context.window.cursor_modal_set("NONE" if inside else "DEFAULT")
+            context.region.tag_redraw()
         if event.type == "LEFTMOUSE" and event.value == "PRESS":
             found = self._ray(context, event)
             hit = _session.preview_hit(found[2].original if found else None, found[1] if found else -1)
