@@ -17,24 +17,32 @@ from __future__ import annotations
 
 import bpy
 
+from .. import validation_state
 from . import draw, editor, model, operators, properties, sync, ui, workspace
 
 CLASSES = (properties.CLASSES + workspace.CLASSES + editor.CLASSES + operators.CLASSES
            + ui.CLASSES)
 
 
-@bpy.app.handlers.persistent
+@validation_state.persistent
 def _on_load_post(*_args):
     sync.clear_cache()
     draw.clear_cache()
     for scene in bpy.data.scenes:
         if hasattr(scene, "cloth_next_patterns"):
             model.migrate(scene)
+    workspace.on_load_post()
 
 
-@bpy.app.handlers.persistent
+@validation_state.persistent
 def _on_undo(*_args):
     draw.clear_cache()
+    editor.reset_transient()
+
+
+# One load handler and one undo/redo handler for the whole feature.
+_on_load_post._clothnext_pattern_handler = True
+_on_undo._clothnext_pattern_handler = True
 
 
 _HANDLERS = (("load_post", _on_load_post), ("undo_post", _on_undo), ("redo_post", _on_undo))

@@ -27,6 +27,7 @@ import time
 
 import bpy
 
+
 from ...pattern_next import editing
 from ...pattern_next.curves import display_polyline
 from ...pattern_next.seams import SeamSide, side_polyline
@@ -1331,8 +1332,8 @@ def _autostart():
     return 0.25
 
 
-@bpy.app.handlers.persistent
-def _reset(*_args):
+def reset_transient():
+    """After undo/redo: drop drags and previews that refer to old data."""
     for op in tuple(_sessions.values()):
         if op.drag is not None:
             op.drag = None
@@ -1343,19 +1344,11 @@ def _reset(*_args):
 def register():
     if not bpy.app.timers.is_registered(_autostart):
         bpy.app.timers.register(_autostart, first_interval=0.5, persistent=True)
-    for name in ("undo_post", "redo_post"):
-        rows = getattr(bpy.app.handlers, name)
-        if _reset not in rows:
-            rows.append(_reset)
 
 
 def unregister():
     if bpy.app.timers.is_registered(_autostart):
         bpy.app.timers.unregister(_autostart)
-    for name in ("undo_post", "redo_post"):
-        rows = getattr(bpy.app.handlers, name)
-        if _reset in rows:
-            rows.remove(_reset)
     for op in tuple(_sessions.values()):
         op.finish()
 

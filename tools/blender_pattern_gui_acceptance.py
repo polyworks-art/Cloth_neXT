@@ -122,6 +122,18 @@ def screenshot(name):
     yield .3
 
 
+def frame_left(distance=2.4):
+    """Point the 3D view at the panels so screenshots show them."""
+    objects = [p.mesh_object for p in patterns() if p.mesh_object is not None]
+    if not objects:
+        return
+    rv3d = views()[0].spaces.active.region_3d
+    center = sum((o.matrix_world.translation for o in objects),
+                 objects[0].matrix_world.translation * 0) / len(objects)
+    rv3d.view_location = center
+    rv3d.view_distance = distance
+
+
 def view_state(area):
     rv3d = area.spaces.active.region_3d
     return (rv3d.view_perspective, tuple(round(v, 5) for v in rv3d.view_rotation),
@@ -250,6 +262,8 @@ def phase_create():
     check("panel is a Cloth NeXt Cloth object", obj.cloth_next.enabled and
           obj.cloth_next.role == "CLOTH")
     check("panel is selected in 3D after creation", obj.select_get())
+    frame_left()
+    yield .2
     yield from screenshot("03_polygon_filled")
 
     # --- Edit Pattern: move a point ---------------------------------------------
@@ -342,6 +356,8 @@ def phase_create():
     bpy.ops.ed.undo_push(message='scripted edit')
     check("changing rectangle size regenerates the mesh", abs(P(rect_id).area - 0.18) < 0.005,
           P(rect_id).area)
+    frame_left()
+    yield .2
     yield from screenshot("07_rectangle_ellipse")
 
     # --- Edit Curve on the rectangle top edge -------------------------------------
@@ -402,37 +418,87 @@ def phase_create():
     check("the seam is a Cloth NeXt sewing definition",
           len(seams) == 1 and any(d.identifier == seams[0].sewing_identifier for d in defs),
           [(d.name, len(d.side_a), len(d.side_b)) for d in defs])
+    frame_left()
+    yield .2
     yield from screenshot("10_seam")
     P(panel_id).particle_distance = 0.015
     bpy.ops.ed.undo_push(message='scripted edit')
     check("seam survives a Particle Distance change", len(seams) == 1 and not seams[0].status
           and any(d.identifier == seams[0].sewing_identifier for d in defs))
 
+    # --- Internal shape (hole) ------------------------------------------------------
+    yield from key("G")
+    area_before = P(panel_id).area
+    hole = [(-0.06, -0.05), (0.06, -0.05), (0.06, 0.05), (-0.06, 0.05)]
+    canvas_hole = model.to_canvas_points(P(panel_id), hole)
+    for point in canvas_hole:
+        yield from click(*to_window(point))
+    yield from click(*to_window(canvas_hole[0]))
+    yield .3
+    check("Internal tool cuts a hole that is meshed around",
+          len(P(panel_id).contours) == 1 and P(panel_id).area < area_before - 0.01,
+          (area_before, P(panel_id).area))
+    yield from screenshot("10b_hole")
+
+    # --- Copy / paste and rotate ---------------------------------------------------------
+    yield from key("Q")
+    yield from click(*to_window(model.to_canvas_points(P(ell_id), [(0.0, 0.0)])[0]))
+    count = len(patterns())
+    yield from move(*to_window((-0.65, 0.75)))
+    yield from key("C", ctrl=True)
+    yield from key("V", ctrl=True)
+    yield .3
+    check("Ctrl+C / Ctrl+V pastes a copy at the mouse", len(patterns()) == count + 1,
+          len(patterns()))
+    copy_id = patterns()[-1].identifier
+    yield from move(*to_window((-0.4, 0.75)))
+    yield from key("R")
+    yield from move(*to_window((-0.65, 1.0)), steps=6)
+    yield from click(*to_window((-0.65, 1.0)))
+    check("R rotates the selected pattern on the canvas",
+          abs(P(copy_id).rotation) > 0.3, P(copy_id).rotation)
+
+    # --- Mirror with linked symmetry ------------------------------------------------------
+    yield from click(*to_window(model.to_canvas_points(P(panel_id), [(0.0, -0.2)])[0]))
+    with bpy.context.temp_override(window=w, area=pattern_area(), region=region_of(pattern_area())):
+        bpy.ops.clothnext.pattern_mirror(linked=True)
+    yield .3
+    partner_id = P(panel_id).symmetry_partner
+    check("Mirror creates a linked partner", bool(partner_id) and P(partner_id) is not None
+          and P(partner_id).symmetry_linked)
+    yield from key("Z")
+    point = model.to_canvas_points(P(panel_id), [model.outline(P(panel_id))[3].co])[0]
+    yield from drag(to_window(point), to_window((point[0] + 0.05, point[1] + 0.04)), steps=6)
+    yield .3
+    from cloth_next.pattern_next.shapes import mirror_points
+    check("linked symmetry mirrors point edits onto the partner",
+          model.outline(P(partner_id)) == mirror_points(model.outline(P(panel_id))))
+    frame_left()
+    yield .2
+    yield from screenshot("10c_mirror_linked")
+
     # --- Undo / redo --------------------------------------------------------------
     yield from move(*rc)
+    # Undo step by step (mirror edit, mirror, rotate, paste, hole, ...) until the
+    # seam is gone, then redo the same number of steps.
     trail = [len(bpy.context.scene.cloth_next_pattern_seams)]
-    yield from key("Z", ctrl=True)
-    yield .4
-    trail.append(len(bpy.context.scene.cloth_next_pattern_seams))
-    yield from key("Z", ctrl=True)
-    yield .4
-    trail.append(len(bpy.context.scene.cloth_next_pattern_seams))
+    steps = 0
+    while len(bpy.context.scene.cloth_next_pattern_seams) and steps < 15:
+        yield from key("Z", ctrl=True)
+        yield .4
+        steps += 1
+        trail.append((len(patterns()), len(bpy.context.scene.cloth_next_pattern_seams)))
     check("undo removes the seam and its sewing definition",
           len(bpy.context.scene.cloth_next_pattern_seams) == 0 and
-          len(bpy.context.scene.cloth_next_sewing_definitions) == 0,
-          (len(bpy.context.scene.cloth_next_pattern_seams),
-           len(bpy.context.scene.cloth_next_sewing_definitions)))
-    yield from key("Z", ctrl=True, shift=True)
-    yield .4
-    trail.append(len(bpy.context.scene.cloth_next_pattern_seams))
-    yield from key("Z", ctrl=True, shift=True)
-    yield .4
-    trail.append(len(bpy.context.scene.cloth_next_pattern_seams))
-    check("redo restores the seam", len(bpy.context.scene.cloth_next_pattern_seams) == 1,
-          (trail, [s.name for s in reversed(bpy.context.window_manager.undo_history)][:6]
-           if hasattr(bpy.context.window_manager, "undo_history") else ""))
+          len(bpy.context.scene.cloth_next_sewing_definitions) == 0, (steps, trail))
+    for _ in range(steps):
+        yield from key("Z", ctrl=True, shift=True)
+        yield .4
+    check("redo restores the seam and every later edit",
+          len(bpy.context.scene.cloth_next_pattern_seams) == 1
+          and P(panel_id).symmetry_partner and len(P(panel_id).contours) == 1, trail)
     n_patterns = len(patterns())
-    for _ in range(14):
+    for _ in range(40):
         yield from key("Z", ctrl=True)
         yield .25
     after_undo = len(patterns())
@@ -442,7 +508,7 @@ def phase_create():
     check("no orphaned panels after undo",
           all(p.mesh_object is not None and p.mesh_object.name in names for p in patterns())
           and len([o for o in bpy.context.scene.objects if o.get(sync.OBJECT_MARKER)]) == after_undo)
-    for _ in range(14):
+    for _ in range(40):
         yield from key("Z", ctrl=True, shift=True)
         yield .25
     check("redo restores every pattern and panel", len(patterns()) == n_patterns
@@ -514,6 +580,8 @@ def phase_reopen():
     yield .3
     check("editing continues after reopening and the mesh updates",
           [tuple(v.co) for v in obj.data.vertices] != co_before)
+    frame_left()
+    yield .2
     yield from screenshot("12_reopened_and_edited")
 
 

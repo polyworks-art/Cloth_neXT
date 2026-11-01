@@ -107,18 +107,37 @@ def lattice(rings, chains, spacing, origin=(0.0, 0.0)):
     if estimate > MAX_VERTICES * 2:
         raise PatternError("TOO_DENSE", "Particle Distance is too small for this pattern "
                                         f"(about {estimate:,} particles)")
-    jj, ii = np.meshgrid(np.arange(j0, j1 + 1), np.arange(i0, i1 + 1), indexing="ij")
-    x = origin[0] + (ii + 0.5 * (jj % 2)) * spacing
-    y = origin[1] + jj * row
-    points = np.stack((x.ravel(), y.ravel()), axis=1)
-    inside = point_in_rings(points[:, 0], points[:, 1], rings)
-    points = points[inside]
+    # Even-odd scanline per lattice row: one crossing list per row instead of
+    # a points x edges test.
+    edges = _segment_arrays([(ring, True) for ring in rings])
+    ax, ay = edges[:, 0, 0], edges[:, 0, 1]
+    bx, by = edges[:, 1, 0], edges[:, 1, 1]
+    columns = np.arange(i0, i1 + 1)
+    rows = []
+    for j in range(j0, j1 + 1):
+        y = origin[1] + j * row
+        straddle = (ay > y) != (by > y)
+        if not straddle.any():
+            continue
+        with np.errstate(divide="ignore", invalid="ignore"):
+            crossings = np.sort((ax + (y - ay) * (bx - ax) / (by - ay))[straddle])
+        x = origin[0] + (columns + 0.5 * (j % 2)) * spacing
+        right = len(crossings) - np.searchsorted(crossings, x, side="right")
+        inside = x[(right % 2).astype(bool)]
+        if len(inside):
+            rows.append(np.stack((inside, np.full(len(inside), y)), axis=1))
+    points = np.concatenate(rows) if rows else np.zeros((0, 2))
     clearance = _min_distance(points, _segment_arrays(chains))
     return points[clearance >= CLEARANCE * spacing]
 
 
-def _filter(points, triangles, rings):
-    if not len(triangles):
+def _filter(points, triangles, rings, inside_only=False):
+    """Keep triangles inside the outline and outside every hole.
+
+    ``inside_only``: the CDT already dropped everything outside the outline,
+    so only holes remain to be removed.
+    """
+    if not len(triangles) or (inside_only and len(rings) == 1):
         return triangles
     centres = points[triangles].mean(axis=1)
     keep = point_in_rings(centres[:, 0], centres[:, 1], rings)
@@ -179,6 +198,8 @@ def remove_slivers(points, triangles, spacing):
     neighbour removes it without moving any vertex or constraint.
     """
     threshold = 1e-9 * spacing * spacing
+    if not len(triangles) or not (np.abs(_signed_areas(points, triangles)) <= threshold).any():
+        return triangles
     triangles = [tuple(map(int, t)) for t in triangles]
     initial = int((np.abs(_signed_areas(points, np.asarray(triangles, dtype=np.int64)
                                         .reshape(-1, 3))) <= threshold).sum())
@@ -261,14 +282,15 @@ def mesh_shape(shape: PatternShape, cdt):
     seeded = time.perf_counter()
 
     outline_face = loops[0].vertices
+    inside_only = bool(getattr(cdt, "inside_only", False))
     triangles = _filter(points, np.asarray(cdt(points, edges, outline_face),
-                                           dtype=np.int64).reshape(-1, 3), rings)
+                                           dtype=np.int64).reshape(-1, 3), rings, inside_only)
     movable = np.zeros(len(points), dtype=bool)
     movable[fixed:] = True
     first_pass = time.perf_counter()
     points = _smooth(points, triangles, movable)
     triangles = _filter(points, np.asarray(cdt(points, edges, outline_face),
-                                           dtype=np.int64).reshape(-1, 3), rings)
+                                           dtype=np.int64).reshape(-1, 3), rings, inside_only)
     triangles = remove_slivers(points, triangles, spacing)
     triangles, areas = _orient(points, triangles)
     triangulated = time.perf_counter()

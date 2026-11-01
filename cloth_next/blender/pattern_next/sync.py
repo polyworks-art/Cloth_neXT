@@ -76,6 +76,9 @@ def blender_cdt(points, edges, outline=None):
     return mapping[triangles]
 
 
+blender_cdt.inside_only = True  # output type 1: nothing outside the outline
+
+
 def mesh(shape: PatternShape):
     return mesh_shape(shape, blender_cdt)
 

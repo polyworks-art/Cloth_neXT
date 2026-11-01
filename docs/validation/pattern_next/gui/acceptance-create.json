@@ -1,0 +1,350 @@
+{
+  "phase": "create",
+  "blender": "5.2.3 LTS",
+  "checks": [
+    {
+      "name": "workspace tab exists after enabling Cloth NeXt",
+      "ok": true,
+      "detail": "['Animation', 'Compositing', 'Geometry Nodes', 'Layout', 'Modeling', 'PATTERN NeXt', 'Rendering', 'Scripting', 'Sculpting', 'Shading', 'Texture Paint', 'UV Editing']"
+    },
+    {
+      "name": "workspace not activated on startup (no focus steal)",
+      "ok": true,
+      "detail": "Layout"
+    },
+    {
+      "name": "Layout workspace untouched",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "two side-by-side 3D editors",
+      "ok": true,
+      "detail": "[(2, 737, 951), (742, 735, 951)]"
+    },
+    {
+      "name": "right editor is the locked 2D Pattern editor",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "right editor is Front Orthographic",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "left editor is a free perspective 3D view",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "2D editor session running",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "middle-mouse drag does not rotate the 2D editor",
+      "ok": true,
+      "detail": "(('ORTHO', (0.70711, 0.70711, 0.0, 0.0), (0.0, 0.0, 0.6), 2.2), ('ORTHO', (0.70711, 0.70711, 0.0, 0.0), (0.0, 0.0, 0.6), 2.2))"
+    },
+    {
+      "name": "numpad views, perspective toggle and camera are blocked",
+      "ok": true,
+      "detail": "('ORTHO', (0.70711, 0.70711, 0.0, 0.0), (0.0, 0.0, 0.6), 2.2)"
+    },
+    {
+      "name": "wheel zoom works in the 2D editor",
+      "ok": true,
+      "detail": "(2.2, 1.52778)"
+    },
+    {
+      "name": "pan works in the 2D editor",
+      "ok": true,
+      "detail": "((0.0, 0.0, 0.6), (0.2082, -0.0, 0.69253))"
+    },
+    {
+      "name": "left 3D view orbits freely",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "H selects the Polygon tool",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "closing the polygon creates exactly one pattern",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "closed polygon immediately has a real mesh object",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "mesh is triangulated with interior vertices",
+      "ok": true,
+      "detail": "(1260, 2390)"
+    },
+    {
+      "name": "filled area equals the drawn outline",
+      "ok": true,
+      "detail": "(0.42259764671325684, 0.422597655019163)"
+    },
+    {
+      "name": "panel is a Cloth NeXt Cloth object",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "panel is selected in 3D after creation",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "dragging an outline point moves it",
+      "ok": true,
+      "detail": "(0.4192807972431183, 0.16451036930084229)"
+    },
+    {
+      "name": "point edit regenerates the mesh",
+      "ok": true,
+      "detail": "(1, 12)"
+    },
+    {
+      "name": "dragging an edge moves both its points",
+      "ok": true,
+      "detail": "(ContourPoint(uid=1, co=(-0.30117353796958923, -0.43390709161758423), handle_in=(0.0, 0.0), handle_out=(0.0, 0.0), curve_out=False, smooth=False), ContourPoint(uid=2, co=(0.30117353796958923, -0.43390709161758423), handle_in=(0.0, 0.0), handle_out=(0.0, 0.0), curve_out=False, smooth=False))"
+    },
+    {
+      "name": "double-clicking an edge adds a point",
+      "ok": true,
+      "detail": "(6, 7)"
+    },
+    {
+      "name": "self-intersecting edit is rejected and the mesh kept",
+      "ok": true,
+      "detail": "Edit rejected: Pattern outline crosses itself"
+    },
+    {
+      "name": "smaller Particle Distance gives a denser mesh",
+      "ok": true,
+      "detail": "(2927, 11749)"
+    },
+    {
+      "name": "larger Particle Distance gives a coarser mesh",
+      "ok": true,
+      "detail": "(2927, 1301)"
+    },
+    {
+      "name": "rectangle drag creates a filled pattern",
+      "ok": true,
+      "detail": "0.15967623889446259"
+    },
+    {
+      "name": "ellipse drag creates a filled pattern",
+      "ok": true,
+      "detail": "0.09323479235172272"
+    },
+    {
+      "name": "ellipse keeps its editable curve representation",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "changing rectangle size regenerates the mesh",
+      "ok": true,
+      "detail": "0.17999999225139618"
+    },
+    {
+      "name": "Edit Curve bends an edge into a Bezier",
+      "ok": true,
+      "detail": "(0.17999999225139618, 0.20379303395748138)"
+    },
+    {
+      "name": "bending a primitive turns it into a free outline",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "clicking a pattern in 2D selects its 3D panel",
+      "ok": true,
+      "detail": "('SELECT', 'Edit Curve: 1142 triangles, 9 ms', {'kind': 'pattern', 'pattern': '0fa283721a0849ef986d1fdfa14bb382'}, 'Ellipse', ['Ellipse'], (944, 473))"
+    },
+    {
+      "name": "selecting the panel in 3D highlights the pattern in 2D",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "moving on the 2D canvas does not move the 3D panel",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "moving the 3D panel does not change the 2D pattern",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "clicking two edges creates a seam",
+      "ok": true,
+      "detail": "1"
+    },
+    {
+      "name": "the seam is a Cloth NeXt sewing definition",
+      "ok": true,
+      "detail": "[('Pattern \u2194 Rectangle', 32, 24)]"
+    },
+    {
+      "name": "seam survives a Particle Distance change",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "Internal tool cuts a hole that is meshed around",
+      "ok": true,
+      "detail": "(0.5125874280929565, 0.5005745887756348)"
+    },
+    {
+      "name": "Ctrl+C / Ctrl+V pastes a copy at the mouse",
+      "ok": true,
+      "detail": "4"
+    },
+    {
+      "name": "R rotates the selected pattern on the canvas",
+      "ok": true,
+      "detail": "1.5707963705062866"
+    },
+    {
+      "name": "Mirror creates a linked partner",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "linked symmetry mirrors point edits onto the partner",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "undo removes the seam and its sewing definition",
+      "ok": true,
+      "detail": "(4, [1, (4, 1), (3, 1), (3, 1), (3, 0)])"
+    },
+    {
+      "name": "redo restores the seam and every later edit",
+      "ok": true,
+      "detail": "[1, (4, 1), (3, 1), (3, 1), (3, 0)]"
+    },
+    {
+      "name": "undo reaches back before the created patterns",
+      "ok": true,
+      "detail": "(5, 0)"
+    },
+    {
+      "name": "no orphaned panels after undo",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "redo restores every pattern and panel",
+      "ok": true,
+      "detail": "5"
+    },
+    {
+      "name": "disable removes PATTERN NeXt handlers",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "re-enable restores the same handlers (no duplicates)",
+      "ok": true,
+      "detail": "({'load_post': ['_load_post', '_load_post', '_on_blendfile_load_post', '_on_blendfile_load_post', '_on_load_post', '_on_load_post', '_on_load_post', '_on_load_post_refresh_recovery', '_prune_deleted_attachments', '_scene_loaded', '_schedule_repair'], 'undo_post': ['_on_undo', '_on_undo_redo_post', '_schedule_repair'], 'redo_post': ['_on_undo', '_on_undo_redo_post', '_schedule_repair'], 'undo_pre': ['_cancel_editor_sessions', '_cancel_sessions', '_reset_editors'], 'redo_pre': ['_reset_editors'], 'load_pre': ['_cancel_editor_sessions', '_cancel_sessions', '_load_pre', '_on_blendfile_load_pre', '_on_load_pre', '_on_load_pre_reset_overlay', '_reset_editors', '_scene_loading'], 'depsgraph_update_post': ['_depsgraph_post', '_depsgraph_update_post', '_on_depsgraph_update'], 'save_pre': [], 'save_post': [], 'frame_change_post': ['_frame_change_post']}, {'load_post': ['_load_post', '_load_post', '_on_blendfile_load_post', '_on_blendfile_load_post', '_on_load_post', '_on_load_post', '_on_load_post', '_on_load_post_refresh_recovery', '_prune_deleted_attachments', '_scene_loaded', '_schedule_repair'], 'undo_post': ['_on_undo', '_on_undo_redo_post', '_schedule_repair'], 'redo_post': ['_on_undo', '_on_undo_redo_post', '_schedule_repair'], 'undo_pre': ['_cancel_editor_sessions', '_cancel_sessions', '_reset_editors'], 'redo_pre': ['_reset_editors'], 'load_pre': ['_cancel_editor_sessions', '_cancel_sessions', '_load_pre', '_on_blendfile_load_pre', '_on_load_pre', '_on_load_pre_reset_overlay', '_reset_editors', '_scene_loading'], 'depsgraph_update_post': ['_depsgraph_post', '_depsgraph_update_post', '_on_depsgraph_update'], 'save_pre': [], 'save_post': [], 'frame_change_post': ['_frame_change_post']})"
+    },
+    {
+      "name": "re-enabling does not duplicate the workspace",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "editor session restarts after re-enable",
+      "ok": true,
+      "detail": "['None']"
+    },
+    {
+      "name": "file saved",
+      "ok": true,
+      "detail": ""
+    }
+  ],
+  "timings": {
+    "polygon_close_to_mesh_s": 1.8638215999962995,
+    "point_drag_s": 0.9976937000028556,
+    "particle_distance_10mm_s": 0.1289247999957297,
+    "draw_2d_ms": 12.976580000395188,
+    "draw_3d_ms": 3.026460000546649,
+    "last_sync": {
+      "write_mesh": 0.0036986000050092116,
+      "mesh": 0.05440180000005057,
+      "total": 0.058158300002105534,
+      "time_resample": 0.0007792999967932701,
+      "time_seed": 0.018907300000137184,
+      "time_triangulate": 0.03390940000099363,
+      "time_first_pass": 0.012877000001026317,
+      "time_total": 0.05429300000105286
+    }
+  },
+  "screenshots": [
+    "01_workspace_empty.png",
+    "02_polygon_drawing.png",
+    "03_polygon_filled.png",
+    "04_point_moved.png",
+    "05_invalid_rejected.png",
+    "06_particle_distance_10mm.png",
+    "07_rectangle_ellipse.png",
+    "08_curve_edit.png",
+    "09_selection_sync.png",
+    "10_seam.png",
+    "10b_hole.png",
+    "10c_mirror_linked.png",
+    "11_after_redo.png"
+  ],
+  "saved": {
+    "patterns": [
+      [
+        "Pattern",
+        "18662fb9a8f74dc6bbd0b482dd14db14",
+        7,
+        5181
+      ],
+      [
+        "Rectangle",
+        "5cd971d0052041eabe5b44e6dbb0fd0b",
+        4,
+        1142
+      ],
+      [
+        "Ellipse",
+        "0fa283721a0849ef986d1fdfa14bb382",
+        4,
+        520
+      ],
+      [
+        "Ellipse.001",
+        "02e1853fcac14882b47c576d2696cb96",
+        4,
+        520
+      ],
+      [
+        "Pattern (mirror)",
+        "f008dd444e084c5d86299d4d1e3a02ba",
+        7,
+        5181
+      ]
+    ],
+    "seams": 1
+  },
+  "passed": 55,
+  "failed": 0
+}

@@ -26,6 +26,7 @@ from pathlib import Path
 
 import bpy
 
+
 _log = logging.getLogger(__name__)
 
 WORKSPACE_NAME = "PATTERN NeXt"
@@ -36,6 +37,8 @@ TEMPLATE = (Path(__file__).resolve().parents[2] / "resources" / "pattern_next"
             / "pattern_workspace.blend")
 # Front view: looking along +Y, canvas u -> world X, canvas v -> world Z.
 FRONT = (math.sqrt(0.5), math.sqrt(0.5), 0.0, 0.0)
+
+_refreshed = set()
 
 _OBJECT_TYPES = ("mesh", "curve", "surface", "meta", "font", "pointcloud", "volume",
                  "grease_pencil", "armature", "lattice", "empty", "light", "light_probe",
@@ -136,7 +139,13 @@ def refresh_regions(area):
 
     Flags written to a screen that is not shown in a window (the appended
     template) are stored but the regions keep their size until toggled.
+    Each area is refreshed at most once: toggling again while Blender
+    animates a region could leave it shown.
     """
+    key = area.as_pointer()
+    if key in _refreshed:
+        return
+    _refreshed.add(key)
     space = area.spaces.active
     for region_type, attribute in (("HEADER", "show_region_header"),
                                    ("TOOL_HEADER", "show_region_tool_header"),
@@ -195,16 +204,17 @@ def ensure_workspace():
 
 def _ensure_later():
     try:
-        if not bpy.app.background:
+        if not getattr(bpy.app, "background", False):
             ensure_workspace()
     except Exception:
         _log.exception("PATTERN NeXt workspace could not be prepared")
     return None
 
 
-@bpy.app.handlers.persistent
-def _on_load_post(*_args):
-    bpy.app.timers.register(_ensure_later, first_interval=0.05)
+def on_load_post():
+    """Called from the PATTERN NeXt load handler: add the tab to loaded files."""
+    if not bpy.app.timers.is_registered(_ensure_later):
+        bpy.app.timers.register(_ensure_later, first_interval=0.05)
 
 
 class CLOTHNEXT_OT_pattern_open_workspace(bpy.types.Operator):
@@ -234,14 +244,10 @@ def _repair_active():
 
 
 def register():
-    if _on_load_post not in bpy.app.handlers.load_post:
-        bpy.app.handlers.load_post.append(_on_load_post)
     bpy.app.timers.register(_ensure_later, first_interval=0.1)
 
 
 def unregister():
-    if _on_load_post in bpy.app.handlers.load_post:
-        bpy.app.handlers.load_post.remove(_on_load_post)
     if bpy.app.timers.is_registered(_ensure_later):
         bpy.app.timers.unregister(_ensure_later)
     if bpy.app.timers.is_registered(_repair_active):
