@@ -298,6 +298,7 @@ class Progress:
     verified: int = 0
     engine_ms: float = 0.0
     checkpoint_frame: int | None = None
+    step_ms: list = field(default_factory=list)   # (engine frame, ms, contacts) per simulated frame
     started: float = field(default_factory=time.monotonic)
 
 
@@ -520,6 +521,8 @@ class BakeRunner:
             name = ev.get("event")
             if name == "frame" and "step_ms" in ev:
                 self.progress.engine_ms += float(ev["step_ms"])
+                self.progress.step_ms.append((int(ev.get("frame", 0)), float(ev["step_ms"]),
+                                              int(ev.get("contacts", 0))))
             elif name == "checkpoint":
                 self.progress.checkpoint_frame = int(ev.get("frame", 0))
             elif name == "error":
