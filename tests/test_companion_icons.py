@@ -161,6 +161,10 @@ def test_blender_runtime_icons_are_white_for_dark_theme():
             assert visible, path
         if path.name == "gaia_engine.png":
             continue
+        if path.name == "aether_grab_cursor.png":   # a cursor: white hand with a dark halo for light views
+            assert any(p[:3] == (255, 255, 255) for p in visible)
+            assert any(max(p[:3]) < 64 for p in visible)
+            continue
         if path.name == 'gaia_water.png':
             assert all(p[0] == p[1] == p[2] for p in visible)
             continue
