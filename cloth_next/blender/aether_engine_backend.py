@@ -603,6 +603,10 @@ class AetherBakeJob:
             raise AetherSceneError("A Cloth NeXt Bake is already running", "CNX-E169")
         if owner.state is not BakeState.IDLE:
             shared_controller.reset()
+        # A Cancel latched by an earlier bake (or add-on shutdown) must not cancel this one
+        # inside the shared scene validation.
+        from . import solver_test
+        solver_test._cancel_event.clear()
         self.job_id = shared_controller.transition(
             BakeState.PREPARING, job_kind=BakeJobKind.BAKE, status_title=TITLE,
             status_message="Validating the scene for the AETHER Engine", solver_name=TITLE,
