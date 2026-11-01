@@ -134,6 +134,24 @@ def frame_left(distance=2.4):
     rv3d.view_distance = distance
 
 
+def _layout_in(area, region, has):
+    from cloth_next.blender.pattern_next import toolbar as strip
+    with bpy.context.temp_override(**_ctx(area, region)):
+        return strip.layout(bpy.context, region, has)
+
+
+def _sel(area, region):
+    from cloth_next.blender.pattern_next import inspector
+    with bpy.context.temp_override(**_ctx(area, region)):
+        return inspector.selection(bpy.context)
+
+
+def _ctx(area, region):
+    return {"window": window(), "area": area, "region": region, "screen": window().screen,
+            "scene": bpy.context.scene, "view_layer": bpy.context.view_layer,
+            "workspace": window().workspace}
+
+
 def view_state(area):
     rv3d = area.spaces.active.region_3d
     return (rv3d.view_perspective, tuple(round(v, 5) for v in rv3d.view_rotation),
@@ -195,7 +213,15 @@ def phase_create():
     check("left editor is a free perspective 3D view",
           left.spaces.active.region_3d.view_perspective == "PERSP")
     check("2D editor session running", editor.session_for(w) is not None)
+    check("inspector is docked in the 2D editor, Blender's N sidebar stays closed",
+          bpy.context.scene.cloth_next_pattern_settings.show_inspector
+          and not right.spaces.active.show_region_ui)
     yield from screenshot("01_workspace_empty")
+    # The drawing checks below use the full canvas; the inspector is checked later.
+    yield from move(*region_center(right))
+    yield from key("I")
+    check("I hides the inspector column",
+          not bpy.context.scene.cloth_next_pattern_settings.show_inspector)
 
     # --- view lock: right cannot rotate, left can --------------------------------
     rc = region_center(right)
@@ -477,13 +503,85 @@ def phase_create():
     yield .2
     yield from screenshot("10c_mirror_linked")
 
+    # --- Redesigned UI: toolbar, inspector, list, curve tool ------------------------------
+    from cloth_next.blender.pattern_next import inspector, toolbar as strip
+    area = pattern_area()
+    region = region_of(area)
+    has = bool([p for p in patterns() if draw.is_selected(p)])
+    layout_now = _layout_in(area, region, has)
+    button = next(b for b in layout_now.buttons if b.identifier == "tool:RECTANGLE")
+    yield from click(round(region.x + button.x + button.w / 2), round(region.y + button.y + button.h / 2))
+    check("toolbar button activates its tool", bpy.context.window_manager.cloth_next_pattern_ui.tool
+          == "RECTANGLE")
+    toggle = next(b for b in layout_now.buttons if b.identifier == "toggle:show_mesh")
+    before_mesh = bpy.context.scene.cloth_next_pattern_settings.show_mesh
+    yield from click(round(region.x + toggle.x + toggle.w / 2), round(region.y + toggle.y + toggle.h / 2))
+    check("toolbar toggle switches the triangulation display",
+          bpy.context.scene.cloth_next_pattern_settings.show_mesh != before_mesh)
+    yield from screenshot("10d_triangulation_toggle")
+    yield from click(round(region.x + toggle.x + toggle.w / 2), round(region.y + toggle.y + toggle.h / 2))
+    # Curve tool: smooth outline from clicks
+    yield from move(*to_window((0.6, 1.0)))
+    yield from key("C")
+    curve_count = len(patterns())
+    for point in [(0.45, 0.9), (0.75, 0.9), (0.8, 1.15), (0.6, 1.3), (0.42, 1.15)]:
+        yield from click(*to_window(point))
+    yield from key("RET")
+    yield .3
+    check("Curve tool creates a smooth curved pattern", len(patterns()) == curve_count + 1
+          and all(p.curve_out and p.smooth for p in patterns()[-1].points), len(patterns()))
+    curve_id = patterns()[-1].identifier
+    # Inspector: point and edge editing
+    yield from key("Z")
+    pt = model.to_canvas_points(P(panel_id), [model.outline(P(panel_id))[0].co])[0]
+    yield from click(*to_window(pt))
+    yield .2
+    ctx_sel = _sel(area, region)
+    check("selecting a point shows point controls", ctx_sel.kind == "POINT", ctx_sel.kind)
+    ui = bpy.context.window_manager.cloth_next_pattern_ui
+    with bpy.context.temp_override(**_ctx(area, region)):
+        ui.point_x = ui.point_x - 0.03
+    yield .2
+    moved_canvas = model.to_canvas_points(P(panel_id), [model.outline(P(panel_id))[0].co])[0]
+    check("editing X in the inspector moves the point", abs(moved_canvas[0] - (pt[0] - 0.03)) < 1e-4,
+          (pt, moved_canvas))
+    outline = model.outline(P(panel_id))
+    mid = model.to_canvas_points(P(panel_id), [((outline[0].co[0] + outline[1].co[0]) / 2,
+                                                 (outline[0].co[1] + outline[1].co[1]) / 2)])[0]
+    yield from click(*to_window(mid))
+    yield .2
+    ctx_sel = _sel(area, region)
+    check("selecting an edge shows edge controls", ctx_sel.kind == "EDGE", ctx_sel.kind)
+    with bpy.context.temp_override(**_ctx(area, region)):
+        ui.edge_length = 0.55
+    yield .2
+    from cloth_next.pattern_next.curves import segment_length
+    from cloth_next.pattern_next.shapes import Contour as _C
+    check("editing Length in the inspector sets the edge length",
+          abs(segment_length(_C(model.outline(P(panel_id))), ctx_sel.edge) - 0.55) < 1e-4)
+    bpy.context.scene.cloth_next_pattern_settings.show_inspector = True
+    yield .4
+    yield from screenshot("10e_inspector_edge")
+    bpy.context.scene.cloth_next_pattern_settings.show_inspector = False
+    # Pattern list and visibility
+    index = model.index_of(bpy.context.scene, P(ell_id))
+    with bpy.context.temp_override(**_ctx(area, region)):
+        bpy.context.scene.cloth_next_pattern_settings.pattern_index = index
+    check("clicking a list row selects that pattern", P(ell_id).mesh_object.select_get()
+          and not P(panel_id).mesh_object.select_get())
+    P(curve_id).hidden = True
+    check("hiding a pattern hides its 3D panel", not P(curve_id).mesh_object.visible_get())
+    P(curve_id).hidden = False
+    check("showing it again restores the panel", P(curve_id).mesh_object.visible_get())
+    yield from key("Q")
+
     # --- Undo / redo --------------------------------------------------------------
     yield from move(*rc)
     # Undo step by step (mirror edit, mirror, rotate, paste, hole, ...) until the
     # seam is gone, then redo the same number of steps.
     trail = [len(bpy.context.scene.cloth_next_pattern_seams)]
     steps = 0
-    while len(bpy.context.scene.cloth_next_pattern_seams) and steps < 15:
+    while len(bpy.context.scene.cloth_next_pattern_seams) and steps < 30:
         yield from key("Z", ctrl=True)
         yield .4
         steps += 1

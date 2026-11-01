@@ -19,12 +19,16 @@ pattern data in the file untouched.
 
 ## The workspace
 
+The workspace has exactly two editors (no Outliner or Properties column;
+Cloth NeXt physics of a panel stays reachable in any other workspace or by
+turning an area into a Properties editor).
+
 | Area | What it is |
 | --- | --- |
 | Left | A normal Blender 3D View: orbit, pan, zoom, perspective/orthographic, selection, Move/Rotate/Scale, materials. Your avatar and the generated garment panels live here. |
 | Right | The **2D Pattern editor**: front orthographic, permanently. Pan (Shift+Middle mouse, trackpad) and zoom (wheel, Ctrl+Middle mouse) work; orbit, roll, numpad views, perspective toggle and camera view do not. |
-| Far right | Outliner and Properties (Cloth NeXt physics and materials of the panels). |
-| Sidebar (N) | "PATTERN NeXt" tab in both views: Pattern, Patterns, Sewing, Arrangement, Display & Snapping. |
+| Inspector | A docked column on the right edge of the 2D editor (not Blender's N sidebar): the pattern list (visibility, selection) and the properties of what is selected: overview, pattern, several patterns, point, edge or seam. Click a value to edit it with Blender's own field. I (or the toolbar's inspector button) shows/hides it. |
+| 3D header | "Arrange" menu: place selected panels in front/behind, reset to staging, seam display. |
 
 The 2D editor draws patterns as flat shapes with outline, fill and
 triangulation on a centimetre grid. Scene objects are hidden in it, so the
@@ -49,8 +53,12 @@ position and rotation on the canvas.
 
 ## Tools
 
-The toolbar at the top of the 2D editor, and the keys while the mouse is
-over the 2D editor:
+The tool strip at the top of the 2D editor is grouped Create · Edit ·
+Construct · Display (Grid, Snap, Measurements, Triangulation, Sewing
+Display), with Inspector and Frame All on the right. Hover a button for its
+name, purpose and shortcut. On a narrow editor the Display group folds into
+one button that opens a popover, and the groups wrap onto further rows.
+Keys while the mouse is over the 2D editor:
 
 | Tool | Key | Use |
 | --- | --- | --- |
@@ -58,13 +66,14 @@ over the 2D editor:
 | Polygon | H | Click points. Click-and-drag places a smooth curve point. Click the first point or press Enter to close. Backspace removes the last point, Esc cancels, right-click finishes. |
 | Rectangle | S | Drag (Shift: square). A click without dragging asks for exact width and height. |
 | Ellipse | E | Drag (Shift: circle). A click asks for exact size. |
+| Curve | C | Click points of a smooth closed outline; each point gets tangents from its neighbours (drag while placing a point to set its tangent yourself). |
 | Edit Pattern | Z | Drag points or edges, Shift-click to select several points, X removes selected points, double-click an edge to add a point. Right-click an edge: Add Point Here, Make Curved/Straight, Set Edge Length. |
 | Edit Curve | V | Drag an edge to bend it into a Bezier curve, drag the tangent handles, Alt-click a point to toggle smooth/corner. |
 | Internal Shape | G | Inside a pattern, draw a hole (closed) or an internal line (L switches; Enter or double-click ends a line). |
 | Sewing | M | Click an edge, then the edge to sew it to. Click near the ends that belong together; the seam direction follows. F flips the hovered seam, X deletes it. |
 
-Also: Home frames all patterns, Numpad . or F frames the selection, number
-keys 1-8 pick the tools in toolbar order. Shift constrains angles to 45°
+Also: Home frames all patterns, Numpad . or F frames the selection, I
+toggles the inspector, number keys 1-9 pick the tools in toolbar order. Shift constrains angles to 45°
 steps while drawing; Ctrl temporarily disables snapping. N keeps opening the
 sidebar (Blender's shortcut is kept; Sewing therefore uses M).
 
@@ -72,8 +81,11 @@ Snapping (toolbar, right side): grid, pattern points, pattern edges. Points
 snap to other patterns and to the draft itself. The grid step follows the
 zoom (1/2/5 steps) unless a fixed Grid Step is set.
 
-Measurements: segment lengths of the selected pattern, of the draft and of
-the rectangle/ellipse being dragged are shown in centimetres.
+Measurements: segment lengths of the selected pattern (outside the outline,
+only where they fit), of the draft and of the rectangle/ellipse being
+dragged are shown in centimetres. Selecting a point or an edge (Edit
+Pattern) shows its coordinates or exact length in the inspector, where it
+can be typed.
 
 ## Automatic fill and triangulation
 
@@ -140,8 +152,14 @@ seam. After every remesh the seam is re-derived into a regular Cloth NeXt
 the solvers read), so there is no second sewing system. Removing a sewn
 point marks the seam as needing attention instead of silently dropping it.
 
-Seams are drawn in the 2D editor with their own colour, direction arrows
-and connection threads. Simulating seams with AETHER is the next milestone;
+Seams are drawn in the 2D editor as coloured edges with drafting notches.
+Direction chevrons and three dashed connectors appear only for seams of
+the selected patterns, the hovered seam or the seam chosen in the Sewing
+tool, so a garment with many seams stays readable; a length difference
+over 2 % is labelled. Clicking a seam selects it (inspector: lengths,
+difference, Crossed, Delete). While sewing, the first edge and a dashed
+preview of how it pairs with the hovered edge are shown before the second
+click. Simulating seams with AETHER is the next milestone;
 PATTERN NeXt does not run a simulation itself.
 
 ## Symmetry
@@ -166,8 +184,12 @@ run on load.
   (`shapes`, `curves`, `validation`, `mesher`, `editing`, `seams`,
   `snapping`, `quality`, and `delaunay`, a pure fallback for tests).
 * Blender integration: `cloth_next/blender/pattern_next/` (`properties`,
-  `model`, `sync`, `workspace`, `draw`, `toolbar`, `editor`, `operators`,
-  `ui`), registered through `cloth_next/blender/registration.py`.
+  `model`, `sync`, `workspace`, `style` (design system), `draw`, `toolbar`,
+  `dock` (inspector), `inspector` (selection context), `editor`,
+  `operators`, `ui`), registered through `cloth_next/blender/registration.py`.
+* Icons: `assets/pattern_next_icons/*.svg` (Cloth NeXt line style), rendered
+  by `python tools/build_pattern_icons.py` to
+  `cloth_next/assets/icons/pattern_next/` at 18/27/36/64 px.
 * Workspace template: `cloth_next/resources/pattern_next/pattern_workspace.blend`,
   rebuilt with `blender --factory-startup --python tools/build_pattern_workspace.py`
   (windowed; screen operators need a window). It is appended with

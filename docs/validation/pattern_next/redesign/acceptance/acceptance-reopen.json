@@ -1,0 +1,47 @@
+{
+  "phase": "reopen",
+  "blender": "5.2.3 LTS",
+  "checks": [
+    {
+      "name": "workspace present exactly once after reopening",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "patterns restored",
+      "ok": true,
+      "detail": "['Pattern', 'Rectangle', 'Ellipse', 'Ellipse.001', 'Pattern (mirror)', 'Pattern.001']"
+    },
+    {
+      "name": "panels restored",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "seams restored",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "2D editor still locked front orthographic after reopening",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "editor session running after reopening",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "editing continues after reopening and the mesh updates",
+      "ok": true,
+      "detail": ""
+    }
+  ],
+  "timings": {},
+  "screenshots": [
+    "12_reopened_and_edited.png"
+  ],
+  "passed": 7,
+  "failed": 0
+}

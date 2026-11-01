@@ -302,6 +302,16 @@ def placement_changed(pattern):
     draw.tag_redraw()
 
 
+def apply_visibility(pattern):
+    scene = _scene_of(pattern)
+    if scene is None or not object_alive(scene, pattern):
+        return
+    try:
+        pattern.mesh_object.hide_set(bool(pattern.hidden))
+    except RuntimeError:
+        pattern.mesh_object.hide_viewport = bool(pattern.hidden)
+
+
 def assign_material(pattern):
     scene = _scene_of(pattern)
     if scene is None or not object_alive(scene, pattern):
@@ -381,8 +391,14 @@ def derive_seam(scene, seam):
         side_b = side_vertices(rb.outline, SeamSide(pb.identifier, seam.b_start, seam.b_end))
         if not object_alive(scene, pa) or not object_alive(scene, pb):
             raise SeamError("A sewn panel has no 3D mesh")
+        active = scene.cloth_next_sewing_index
         item = sewing._commit(scene, pa.mesh_object, pb.mesh_object, side_a, side_b,
                               flipped=bool(seam.flipped))
+        # The PATTERN NeXt workspace draws its own restrained seam display;
+        # the Cloth NeXt Sewing overlay stays off for these rows (the user can
+        # switch it on per seam) and the Sewing list keeps its selection.
+        item.show_overlay = False
+        scene.cloth_next_sewing_index = min(active, len(scene.cloth_next_sewing_definitions) - 1)
     except (SeamError, PatternError, ValueError) as exc:
         seam.status = str(exc)
         return False

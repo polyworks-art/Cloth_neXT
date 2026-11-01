@@ -32,7 +32,7 @@ _log = logging.getLogger(__name__)
 WORKSPACE_NAME = "PATTERN NeXt"
 WORKSPACE_MARKER = "cloth_next_pattern_workspace"
 CONFIGURED_MARKER = "cloth_next_pattern_configured"
-CONFIG_VERSION = 1
+CONFIG_VERSION = 3  # 3: no sidebar; the inspector is docked in the 2D editor
 TEMPLATE = (Path(__file__).resolve().parents[2] / "resources" / "pattern_next"
             / "pattern_workspace.blend")
 # Front view: looking along +Y, canvas u -> world X, canvas v -> world Z.
@@ -128,7 +128,8 @@ def configure_2d(space, *, full=False):
         if hasattr(overlay, name):
             setattr(overlay, name, value)
     for name, value in (("show_gizmo_navigate", False), ("show_region_toolbar", False),
-                        ("show_region_tool_header", False), ("show_region_header", False)):
+                        ("show_region_tool_header", False), ("show_region_header", False),
+                        ("show_region_ui", False)):
         if hasattr(space, name):
             setattr(space, name, value)
     space.shading.type = "SOLID"
@@ -147,6 +148,12 @@ def refresh_regions(area):
         return
     _refreshed.add(key)
     space = area.spaces.active
+    sidebar = next((r for r in area.regions if r.type == "UI"), None)
+    if sidebar is not None and hasattr(sidebar, "active_panel_category"):
+        try:
+            sidebar.active_panel_category = "PATTERN NeXt"
+        except (TypeError, ValueError, AttributeError):
+            pass
     for region_type, attribute in (("HEADER", "show_region_header"),
                                    ("TOOL_HEADER", "show_region_tool_header"),
                                    ("TOOLS", "show_region_toolbar")):
@@ -168,6 +175,30 @@ def configure_screen(screen, *, force=False):
         rv3d.view_location = (0.0, 0.0, 0.6)
         rv3d.view_distance = 2.2
     screen[CONFIGURED_MARKER] = CONFIG_VERSION
+
+
+LAYOUT_MARKER = "cloth_next_pattern_layout"
+LAYOUT_VERSION = 1  # 1: only the 3D view and the 2D editor (no Outliner/Properties)
+
+
+def close_side_areas(window):
+    """Give the whole workspace to the 3D view and the 2D editor.
+
+    Workspaces appended from an older template (or edited by the user before
+    this layout) still carry the Outliner and Properties column; it is closed
+    once per screen with Blender's own area operator. Areas the user adds
+    later are left alone.
+    """
+    screen = window.screen
+    if screen.get(LAYOUT_MARKER, 0) >= LAYOUT_VERSION:
+        return
+    for area in [a for a in screen.areas if a.type in {"OUTLINER", "PROPERTIES"}]:
+        try:
+            with bpy.context.temp_override(window=window, screen=screen, area=area):
+                bpy.ops.screen.area_close()
+        except RuntimeError:
+            _log.warning("PATTERN NeXt: could not close the %s area", area.type)
+    screen[LAYOUT_MARKER] = LAYOUT_VERSION
 
 
 def _drop_template_library():

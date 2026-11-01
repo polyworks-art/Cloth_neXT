@@ -58,7 +58,9 @@ def step_layout():
         # Renaming the screen here crashes Blender 5.2.3 (layout lookup by
         # screen name); the workspace name is what the tab bar shows.
         workspace.name = NAME
-        for area in [a for a in screen.areas if a.type in {"DOPESHEET_EDITOR", "TIMELINE"}]:
+        # Only the 3D Garment view and the 2D Pattern editor remain.
+        for area in [a for a in screen.areas
+                     if a.type in {"DOPESHEET_EDITOR", "TIMELINE", "OUTLINER", "PROPERTIES"}]:
             with bpy.context.temp_override(window=window, screen=screen, area=area):
                 bpy.ops.screen.area_close()
         view = max((a for a in screen.areas if a.type == "VIEW_3D"),
@@ -86,6 +88,7 @@ def step_write():
         rv3d.view_distance = 2.2
         workspace = window.workspace
         workspace[MARKER] = 1
+        screen["cloth_next_pattern_layout"] = 1
         os.makedirs(os.path.dirname(OUT), exist_ok=True)
         bpy.data.libraries.write(OUT, {workspace}, fake_user=False, compress=True)
         with bpy.data.libraries.load(OUT) as (source, _target):

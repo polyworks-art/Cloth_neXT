@@ -520,6 +520,82 @@ class CLOTHNEXT_OT_pattern_seam_remove(_PatternOperator):
         return {"CANCELLED"}
 
 
+class CLOTHNEXT_OT_pattern_set_tool(bpy.types.Operator):
+    """Activate a PATTERN NeXt tool in the 2D editor"""
+    bl_idname = "clothnext.pattern_set_tool"
+    bl_label = "PATTERN NeXt Tool"
+    bl_options = {"INTERNAL"}
+    tool: bpy.props.StringProperty(options={"HIDDEN"})
+
+    @classmethod
+    def description(cls, _context, properties):
+        from .properties import TOOL_INFO
+        row = next((r for r in TOOL_INFO if r[0] == properties.tool), None)
+        return f"{row[1]}: {row[2]} ({row[3]})" if row else cls.bl_label
+
+    def execute(self, context):
+        from .properties import TOOL_INFO
+        if self.tool not in {row[0] for row in TOOL_INFO}:
+            return {"CANCELLED"}
+        context.window_manager.cloth_next_pattern_ui.tool = self.tool
+        from .editor import session_for
+        session = session_for(context.window)
+        if session is not None:
+            session.reset_tool_state()
+        draw.tag_redraw()
+        return {"FINISHED"}
+
+
+class CLOTHNEXT_OT_pattern_point_type(_PatternOperator):
+    """Make the point a corner (independent tangents) or smooth (aligned tangents)"""
+    bl_idname = "clothnext.pattern_point_type"
+    bl_label = "Point Type"
+    pattern: bpy.props.StringProperty(options={"HIDDEN"})
+    point: bpy.props.IntProperty(options={"HIDDEN"})
+    smooth: bpy.props.BoolProperty(options={"HIDDEN"})
+
+    def execute(self, context):
+        pattern = _target(context, self.pattern)
+        if pattern is None:
+            return {"CANCELLED"}
+        points = list(model.outline(pattern))
+        n = len(points)
+        i = self.point % n
+        p = points[i]
+        if self.smooth and p.handle_out == (0.0, 0.0) and p.handle_in == (0.0, 0.0):
+            prev, nxt = points[(i - 1) % n].co, points[(i + 1) % n].co
+            tangent = ((nxt[0] - prev[0]) / 6.0, (nxt[1] - prev[1]) / 6.0)
+            points[i] = replace(p, handle_out=tangent, handle_in=(-tangent[0], -tangent[1]),
+                                curve_out=True, smooth=True)
+            points[(i - 1) % n] = replace(points[(i - 1) % n], curve_out=True)
+        else:
+            points[i] = replace(p, smooth=self.smooth)
+        model.make_free_form(pattern)
+        ok, message = sync.commit(context.scene, pattern, tuple(points))
+        if not ok:
+            self.report({"ERROR"}, message)
+            return {"CANCELLED"}
+        sync_symmetry(context.scene, pattern)
+        return {"FINISHED"}
+
+
+class CLOTHNEXT_OT_pattern_seam_select(bpy.types.Operator):
+    """Select this seam (shows it in the Sewing tool and the inspector)"""
+    bl_idname = "clothnext.pattern_seam_select"
+    bl_label = "Select Seam"
+    bl_options = {"INTERNAL"}
+    index: bpy.props.IntProperty(options={"HIDDEN"})
+
+    def execute(self, context):
+        scene = context.scene
+        if not 0 <= self.index < len(scene.cloth_next_pattern_seams):
+            return {"CANCELLED"}
+        scene.cloth_next_pattern_settings.seam_index = self.index
+        context.window_manager.cloth_next_pattern_ui.tool = "SEWING"
+        draw.tag_redraw()
+        return {"FINISHED"}
+
+
 class CLOTHNEXT_MT_pattern_context(bpy.types.Menu):
     bl_label = "Pattern"
     bl_idname = "CLOTHNEXT_MT_pattern_context"
@@ -569,4 +645,6 @@ CLASSES = (CLOTHNEXT_OT_pattern_delete, CLOTHNEXT_OT_pattern_duplicate,
            CLOTHNEXT_OT_pattern_remove_contour, CLOTHNEXT_OT_pattern_rebuild,
            CLOTHNEXT_OT_pattern_select, CLOTHNEXT_OT_pattern_restage,
            CLOTHNEXT_OT_pattern_place, CLOTHNEXT_OT_pattern_seam_add,
-           CLOTHNEXT_OT_pattern_seam_remove, CLOTHNEXT_MT_pattern_context)
+           CLOTHNEXT_OT_pattern_seam_remove, CLOTHNEXT_OT_pattern_set_tool,
+           CLOTHNEXT_OT_pattern_point_type, CLOTHNEXT_OT_pattern_seam_select,
+           CLOTHNEXT_MT_pattern_context)

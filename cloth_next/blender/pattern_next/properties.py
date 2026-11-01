@@ -15,21 +15,28 @@ from ...pattern_next import SCHEMA_VERSION
 
 DEFAULT_PARTICLE_DISTANCE = 0.02  # 20 mm, a typical garment default
 
-TOOLS = (
-    ("SELECT", "Select / Move", "Select, move and rotate patterns (Q)", "RESTRICT_SELECT_OFF", 0),
-    ("POLYGON", "Polygon", "Click points; click the first point or press Enter to close (H)",
-     "MESH_DATA", 1),
-    ("RECTANGLE", "Rectangle", "Drag a rectangle; click for exact width and height (S)",
-     "MESH_PLANE", 2),
-    ("ELLIPSE", "Ellipse", "Drag an ellipse; click for exact size (E)", "MESH_CIRCLE", 3),
-    ("EDIT", "Edit Pattern", "Move points and edges; double-click an edge to add a point (Z)",
-     "VERTEXSEL", 4),
-    ("CURVE", "Edit Curve", "Drag an edge to bend it; drag handles to shape curves (V)",
-     "CURVE_BEZCURVE", 5),
-    ("INTERNAL", "Internal Shape", "Draw holes and internal lines inside a pattern (G)",
-     "MOD_BOOLEAN", 6),
-    ("SEWING", "Sewing", "Click two edges to sew them (N)", "AUTOMERGE_OFF", 7),
+# (identifier, label, description, shortcut, icon). Enum order is the
+# toolbar order; the identifiers are UI state only (stored nowhere).
+TOOL_INFO = (
+    ("POLYGON", "Polygon", "Click points; drag for a curve point. Click the first point or "
+     "press Enter to close", "H", "polygon"),
+    ("RECTANGLE", "Rectangle", "Drag a rectangle. Click without dragging for exact width and "
+     "height", "S", "rectangle"),
+    ("ELLIPSE", "Ellipse", "Drag an ellipse. Click without dragging for exact size", "E",
+     "ellipse"),
+    ("CURVE_DRAW", "Curve", "Click points of a smooth curved outline; tangents follow the "
+     "neighbouring points", "C", "curve"),
+    ("SELECT", "Select / Move", "Select, move and rotate patterns", "Q", "select"),
+    ("EDIT", "Edit Pattern", "Move points and edges; double-click an edge to add a point",
+     "Z", "edit_pattern"),
+    ("CURVE", "Edit Curve", "Bend edges into curves and shape tangent handles", "V",
+     "edit_curve"),
+    ("INTERNAL", "Internal Shape", "Draw holes and internal lines inside a pattern", "G",
+     "internal"),
+    ("SEWING", "Sewing", "Click an edge, then the edge to sew it to", "M", "sewing"),
 )
+TOOLS = tuple((key, label, f"{description} ({shortcut})", "NONE", number)
+              for number, (key, label, description, shortcut, _icon) in enumerate(TOOL_INFO))
 
 
 def _redraw(_self=None, context=None):
@@ -62,6 +69,27 @@ def _material(self, context):
 def _renamed(self, context):
     from . import sync
     sync.rename_object(self)
+
+
+def _visibility(self, context):
+    from . import sync
+    sync.apply_visibility(self)
+    _redraw()
+
+
+def _pattern_index(self, context):
+    from . import inspector
+    inspector.select_from_list(context)
+
+
+def _inspector_point(self, context):
+    from . import inspector
+    inspector.apply_point(context)
+
+
+def _inspector_edge(self, context):
+    from . import inspector
+    inspector.apply_edge_length(context)
 
 
 def _seam_changed(self, context):
@@ -127,6 +155,9 @@ class CLOTHNEXT_PG_pattern(bpy.types.PropertyGroup):
     triangle_count: bpy.props.IntProperty(default=0)
     area: bpy.props.FloatProperty(default=0.0, unit="AREA")
     mesh_time: bpy.props.FloatProperty(default=0.0)
+    hidden: bpy.props.BoolProperty(
+        name="Hidden", default=False, update=_visibility,
+        description="Hide the pattern in the 2D editor and its panel in the 3D view")
 
 
 class CLOTHNEXT_PG_pattern_seam(bpy.types.PropertyGroup):
@@ -150,6 +181,16 @@ class CLOTHNEXT_PG_pattern_settings(bpy.types.PropertyGroup):
     default_particle_distance: bpy.props.FloatProperty(
         name="New Pattern Particle Distance", default=DEFAULT_PARTICLE_DISTANCE, min=0.002,
         max=0.5, subtype="DISTANCE", unit="LENGTH")
+    use_snap: bpy.props.BoolProperty(name="Snap", default=True, update=_redraw,
+                                     description="Snap to grid, pattern points and edges "
+                                                 "(hold Ctrl to suspend)")
+    show_grid: bpy.props.BoolProperty(name="Grid", default=True, update=_redraw,
+                                      description="Show the measurement grid")
+    show_inspector: bpy.props.BoolProperty(name="Inspector", default=True, update=_redraw,
+                                           description="Show the inspector column of the 2D "
+                                                       "editor (patterns and properties)")
+    show_names: bpy.props.BoolProperty(name="Names", default=True, update=_redraw,
+                                       description="Show pattern names on the canvas")
     snap_grid: bpy.props.BoolProperty(name="Grid", default=True, update=_redraw,
                                       description="Snap to the measurement grid")
     snap_vertex: bpy.props.BoolProperty(name="Points", default=True, update=_redraw,
@@ -159,22 +200,29 @@ class CLOTHNEXT_PG_pattern_settings(bpy.types.PropertyGroup):
     grid_step: bpy.props.FloatProperty(
         name="Grid Step", default=0.0, min=0.0, subtype="DISTANCE", unit="LENGTH",
         update=_redraw, description="Snapping grid step; 0 follows the zoom (1/2/5 steps)")
-    show_mesh: bpy.props.BoolProperty(name="Mesh", default=True, update=_redraw,
-                                      description="Show the generated triangulation")
-    show_lengths: bpy.props.BoolProperty(name="Lengths", default=True, update=_redraw,
-                                         description="Show segment lengths")
-    show_seams: bpy.props.BoolProperty(name="Seams", default=True, update=_redraw,
-                                       description="Show sewing connections")
+    show_mesh: bpy.props.BoolProperty(name="Triangulation", default=False, update=_redraw,
+                                      description="Show the generated cloth triangulation")
+    show_lengths: bpy.props.BoolProperty(name="Measurements", default=True, update=_redraw,
+                                         description="Show edge lengths of the selected "
+                                                     "pattern and of new shapes")
+    show_seams: bpy.props.BoolProperty(name="Sewing", default=True, update=_redraw,
+                                       description="Show sewing relationships")
     staging_offset: bpy.props.FloatProperty(
         name="Staging Depth", default=-0.5, subtype="DISTANCE", unit="LENGTH",
         description="Y position of new 3D panels (their staging area in front of the origin)")
-    seam_index: bpy.props.IntProperty(default=0, min=0)
-    pattern_index: bpy.props.IntProperty(default=0, min=0)
+    seam_index: bpy.props.IntProperty(default=0, min=0, update=_redraw)
+    pattern_index: bpy.props.IntProperty(default=0, min=0, update=_pattern_index)
 
 
 class CLOTHNEXT_PG_pattern_ui(bpy.types.PropertyGroup):
     """Window-manager state: the active tool is UI state, not scene data."""
     tool: bpy.props.EnumProperty(name="Tool", items=TOOLS, default="POLYGON", update=_redraw)
+    point_x: bpy.props.FloatProperty(name="X", subtype="DISTANCE", unit="LENGTH",
+                                     update=_inspector_point)
+    point_y: bpy.props.FloatProperty(name="Y", subtype="DISTANCE", unit="LENGTH",
+                                     update=_inspector_point)
+    edge_length: bpy.props.FloatProperty(name="Length", min=0.001, subtype="DISTANCE",
+                                         unit="LENGTH", update=_inspector_edge)
     internal_kind: bpy.props.EnumProperty(
         name="Internal", default="HOLE", update=_redraw,
         items=(("HOLE", "Hole", "Closed polygon cut out of the pattern"),

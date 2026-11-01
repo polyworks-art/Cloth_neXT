@@ -36,15 +36,16 @@ from ...pattern_next.shapes import (Contour, ContourPoint, add, distance, rectan
                                     vector_to_local)
 from ...pattern_next.snapping import snap
 from ...pattern_next.validation import PatternError, validate_ring
-from . import draw, model, sync, toolbar, workspace
+from . import dock, draw, model, style, sync, toolbar, workspace
 
 _log = logging.getLogger(__name__)
 
 _sessions = {}
 
 TOOL_KEYS = {"Q": "SELECT", "H": "POLYGON", "S": "RECTANGLE", "E": "ELLIPSE", "Z": "EDIT",
+             "C": "CURVE_DRAW",
              "V": "CURVE", "G": "INTERNAL", "M": "SEWING"}
-NUMBER_KEYS = ("ONE", "TWO", "THREE", "FOUR", "FIVE", "SIX", "SEVEN", "EIGHT")
+NUMBER_KEYS = ("ONE", "TWO", "THREE", "FOUR", "FIVE", "SIX", "SEVEN", "EIGHT", "NINE")
 NAVIGATION = {"MIDDLEMOUSE", "WHEELUPMOUSE", "WHEELDOWNMOUSE", "WHEELINMOUSE", "WHEELOUTMOUSE",
               "TRACKPADPAN", "TRACKPADZOOM", "MOUSESMARTZOOM", "TIMER", "TIMER_REPORT",
               "TIMERREGION", "TIMER0", "TIMER1", "TIMER2", "TIMERJOBS", "TIMERAUTOSAVE",
@@ -116,12 +117,27 @@ def frame(context, region, rv3d, patterns, margin=1.18):
     xs, ys = [p[0] for p in points], [p[1] for p in points]
     cx, cy = (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2
     width, height = max(max(xs) - min(xs), 0.05), max(max(ys) - min(ys), 0.05)
-    rv3d.view_location = (cx, 0.0, cy)
+    # Fit into the visible canvas: not under an overlapping sidebar, the
+    # tool strip or the status strip.
+    sidebar = 0
+    for area in getattr(context.window, "screen", None).areas if context.window else ():
+        if any(r.as_pointer() == region.as_pointer() for r in area.regions):
+            sidebar = sum(r.width for r in area.regions if r.type == "UI" and r.width > 1
+                          and region.x < r.x < region.x + region.width)
+    s = style.ui_scale(context)
+    if context.scene.cloth_next_pattern_settings.show_inspector:
+        sidebar += dock.width(context, region)
+    usable_w = max(region.width - sidebar - 60 * s, 50)
+    usable_h = max(region.height - (style.BAR + style.STATUS) * s - 60 * s, 50)
     for _ in range(3):
+        rv3d.view_location = (cx, 0.0, cy)
         current = draw.pixel_size(region, rv3d)
-        needed = max(width / max(region.width - 80, 50), height / max(region.height - 140, 50))
+        needed = max(width / usable_w, height / usable_h)
         rv3d.view_distance *= needed * margin / current
         rv3d.update()
+    px = draw.pixel_size(region, rv3d)
+    shift_y = (style.BAR - style.STATUS) * s / 2 * px
+    rv3d.view_location = (cx + sidebar / 2 * px, 0.0, cy + shift_y)
 
 
 class CLOTHNEXT_OT_pattern_editor(bpy.types.Operator):
@@ -162,6 +178,7 @@ class CLOTHNEXT_OT_pattern_editor(bpy.types.Operator):
         self.hover_seam = None
         self.seam_first = None
         self.points_selected = {}
+        self.selected_segment = None
         self.preview = None
 
     def say(self, message, error=False):
@@ -224,13 +241,26 @@ class CLOTHNEXT_OT_pattern_editor(bpy.types.Operator):
     def _redraw(self):
         draw.tag_redraw()
 
+    def _chrome(self, context, region, mouse):
+        """Toolbar button, tool strip or status strip under the mouse."""
+        found = toolbar.hit(context, region, *mouse,
+                            has_selection=bool(selected_patterns(context.scene)))
+        if found is not None:
+            return found
+        if dock.contains(context, region, *mouse):
+            return _DOCK
+        x, y, w, h = toolbar.status_rect(context, region)
+        if x <= mouse[0] <= x + w and y <= mouse[1] <= y + h:
+            return toolbar.Strip(x, y, w, h, (), ())
+        return None
+
     def _px(self, region, rv3d):
         return draw.pixel_size(region, rv3d)
 
     def _snap(self, context, region, rv3d, canvas, event, origin=None, exclude=None):
         settings = context.scene.cloth_next_pattern_settings
         radius = PICK_PX * draw.ui_scale(context) * self._px(region, rv3d)
-        use = not event.ctrl
+        use = settings.use_snap and not event.ctrl
         vertices, polylines = [], []
         if use and (settings.snap_vertex or settings.snap_edge):
             for pattern in context.scene.cloth_next_patterns:
@@ -257,7 +287,7 @@ class CLOTHNEXT_OT_pattern_editor(bpy.types.Operator):
 
     def _pattern_at(self, context, canvas):
         found = None
-        for pattern in context.scene.cloth_next_patterns:
+        for pattern in draw.visible_patterns(context.scene):
             if editing.ring_contains(model.canvas_rings(pattern, 0.002), canvas):
                 found = pattern  # last drawn = topmost
         return found
@@ -268,7 +298,7 @@ class CLOTHNEXT_OT_pattern_editor(bpy.types.Operator):
 
     def _pick_point(self, context, canvas, radius, prefer=None):
         best = None
-        patterns = list(context.scene.cloth_next_patterns)
+        patterns = draw.visible_patterns(context.scene)
         if prefer is not None:
             patterns.sort(key=lambda p: p.identifier != prefer)
         for pattern in patterns:
@@ -280,7 +310,7 @@ class CLOTHNEXT_OT_pattern_editor(bpy.types.Operator):
 
     def _pick_segment(self, context, canvas, radius):
         best = None
-        for pattern in context.scene.cloth_next_patterns:
+        for pattern in draw.visible_patterns(context.scene):
             local = self._local(pattern, canvas)
             hit = editing.nearest_segment(model.outline(pattern), local, radius)
             if hit and (best is None or hit[0] < best[0]):
@@ -331,6 +361,13 @@ class CLOTHNEXT_OT_pattern_editor(bpy.types.Operator):
         if not self._alive(context):
             self.finish()
             return {"FINISHED", "PASS_THROUGH"}
+        if event.type in {"WHEELUPMOUSE", "WHEELDOWNMOUSE"}:
+            over = self._locate(event)
+            if over is not None and over[2] is not None and \
+                    dock.contains(context, over[1], *over[2]):
+                dock.scroll(context, over[1], -1 if event.type == "WHEELUPMOUSE" else 1)
+                self._redraw()
+                return {"RUNNING_MODAL"}
         if event.type in NAVIGATION or event.type.startswith("NDOF"):
             return {"PASS_THROUGH"}
         located = self._locate(event)
@@ -360,19 +397,34 @@ class CLOTHNEXT_OT_pattern_editor(bpy.types.Operator):
         if event.type in {"MOUSEMOVE", "INBETWEEN_MOUSEMOVE"}:
             if event.type == "INBETWEEN_MOUSEMOVE":
                 return {"RUNNING_MODAL"}
-            button = None if self.drag else toolbar.hit(context, region, *mouse)
-            self.toolbar_hover = button.identifier if button else None
-            self.window.cursor_modal_set("DEFAULT" if button else "CROSSHAIR")
-            if button is None:
+            chrome = None if self.drag else self._chrome(context, region, mouse)
+            hovered = getattr(chrome, "identifier", None)
+            if hovered != self.toolbar_hover or chrome is not None:
+                self.toolbar_hover = hovered
+            self.window.cursor_modal_set("DEFAULT" if chrome is not None else "CROSSHAIR")
+            if chrome is None:
                 self._move(context, region, rv3d, canvas, event, tool)
+            else:
+                self.hover = None
+                self.snapped = None
+                if chrome is _DOCK:
+                    dock.hover(context, region, *mouse)
+            if chrome is not _DOCK and dock._state["hover"] is not None:
+                dock._state["hover"] = None
             self._redraw()
             return {"RUNNING_MODAL"}
 
-        if event.type == "LEFTMOUSE" and event.value == "PRESS" and self.drag is None:
-            button = toolbar.hit(context, region, *mouse)
-            if button is not None:
-                self._button(context, region, rv3d, button.identifier)
-                self._redraw()
+        if event.type in {"LEFTMOUSE", "RIGHTMOUSE"} and self.drag is None:
+            chrome = self._chrome(context, region, mouse)
+            if chrome is not None:
+                if event.type == "LEFTMOUSE" and event.value == "PRESS" and chrome is _DOCK:
+                    dock.click(context, region, *mouse)
+                    self._selection_changed(context)
+                    self._redraw()
+                elif event.type == "LEFTMOUSE" and event.value == "PRESS" and \
+                        hasattr(chrome, "identifier") and chrome.enabled:
+                    self._button(context, region, rv3d, chrome.identifier)
+                    self._redraw()
                 return {"RUNNING_MODAL"}
 
         # Undo/redo: drop transient drags, keep the draft, let Blender undo.
@@ -424,6 +476,10 @@ class CLOTHNEXT_OT_pattern_editor(bpy.types.Operator):
                 ui.tool = toolbar.TOOL_ROWS_FLAT[NUMBER_KEYS.index(kind)]
                 self.reset_tool_state()
                 return True
+        if value == "PRESS" and kind == "I" and idle and not (event.ctrl or event.alt):
+            settings = context.scene.cloth_next_pattern_settings
+            settings.show_inspector = not settings.show_inspector
+            return True
         if value == "PRESS" and kind == "HOME":
             frame(context, region, rv3d, list(context.scene.cloth_next_patterns))
             return True
@@ -434,7 +490,7 @@ class CLOTHNEXT_OT_pattern_editor(bpy.types.Operator):
         if value == "PRESS" and kind == "ESC":
             return self._escape()
         if kind == "RIGHTMOUSE" and value == "PRESS":
-            if self.draft and tool in {"POLYGON", "INTERNAL"}:
+            if self.draft and tool in {"POLYGON", "CURVE_DRAW", "INTERNAL"}:
                 return self._finish_draft(context, tool)
             if self.drag is not None:
                 self._cancel_drag(context)
@@ -488,13 +544,17 @@ class CLOTHNEXT_OT_pattern_editor(bpy.types.Operator):
         if identifier.startswith("tool:"):
             ui.tool = identifier[5:]
             self.reset_tool_state()
-        elif identifier.startswith("snap:") or identifier.startswith("show:"):
-            name = {"snap:grid": "snap_grid", "snap:vertex": "snap_vertex",
-                    "snap:edge": "snap_edge", "show:mesh": "show_mesh",
-                    "show:lengths": "show_lengths", "show:seams": "show_seams"}[identifier]
+        elif identifier.startswith("toggle:"):
+            name = identifier[7:]
             setattr(settings, name, not getattr(settings, name))
-        elif identifier == "frame":
-            frame(context, region, rv3d, list(context.scene.cloth_next_patterns))
+        elif identifier == "action:frame":
+            frame(context, region, rv3d, draw.visible_patterns(context.scene))
+        elif identifier == "action:mirror":
+            bpy.ops.clothnext.pattern_mirror("EXEC_DEFAULT", linked=True)
+        elif identifier == "action:duplicate":
+            bpy.ops.clothnext.pattern_duplicate("EXEC_DEFAULT")
+        elif identifier == "menu:display":
+            bpy.ops.wm.call_panel(name="CLOTHNEXT_PT_pattern_display_popover", keep_open=True)
 
     def _context_menu(self, context, canvas, region, rv3d, tool):
         radius = PICK_PX * draw.ui_scale(context) * self._px(region, rv3d)
@@ -524,11 +584,11 @@ class CLOTHNEXT_OT_pattern_editor(bpy.types.Operator):
         radius = PICK_PX * draw.ui_scale(context) * self._px(region, rv3d)
         self.hover = None
         self.hover_seam = None
-        if tool in {"POLYGON", "INTERNAL"} and self.draft:
+        if tool in {"POLYGON", "CURVE_DRAW", "INTERNAL"} and self.draft:
             origin = self.draft[-1].co
             self._snap(context, region, rv3d, canvas, event, origin=origin)
             return
-        if tool in {"POLYGON", "RECTANGLE", "ELLIPSE", "INTERNAL"}:
+        if tool in {"POLYGON", "CURVE_DRAW", "RECTANGLE", "ELLIPSE", "INTERNAL"}:
             self._snap(context, region, rv3d, canvas, event)
             pattern = self._pattern_at(context, canvas)
             if pattern is not None and tool == "INTERNAL":
@@ -561,6 +621,16 @@ class CLOTHNEXT_OT_pattern_editor(bpy.types.Operator):
         pattern = self._pattern_at(context, canvas)
         if pattern is not None:
             self.hover = {"kind": "pattern", "pattern": pattern.identifier}
+
+    def _selection_changed(self, context):
+        from . import inspector
+        inspector.follow_selection(context)
+        inspector.refresh(context)
+        for area in self.window.screen.areas:
+            if area.type == "VIEW_3D":
+                for region in area.regions:
+                    if region.type == "UI":
+                        region.tag_redraw()
 
     def _start_move(self, context, canvas):
         chosen = selected_patterns(context.scene)
@@ -685,6 +755,7 @@ class CLOTHNEXT_OT_pattern_editor(bpy.types.Operator):
                 return True
             if event.value == "RELEASE" and self.drag is not None and self.drag["kind"] != "rotate":
                 self._finish_drag(context, region, rv3d, canvas, event)
+                self._selection_changed(context)
                 return True
         if event.value == "PRESS" and event.type == "R" and self.drag is None:
             chosen = selected_patterns(context.scene)
@@ -708,6 +779,9 @@ class CLOTHNEXT_OT_pattern_editor(bpy.types.Operator):
     # -- Polygon / Internal drafting ---------------------------------------------------------
     def _tool_polygon(self, context, region, rv3d, canvas, event):
         return self._draft_tool(context, region, rv3d, canvas, event, "POLYGON")
+
+    def _tool_curve_draw(self, context, region, rv3d, canvas, event):
+        return self._draft_tool(context, region, rv3d, canvas, event, "CURVE_DRAW")
 
     def _tool_internal(self, context, region, rv3d, canvas, event):
         if event.type == "L" and event.value == "PRESS" and not event.ctrl:
@@ -786,6 +860,8 @@ class CLOTHNEXT_OT_pattern_editor(bpy.types.Operator):
                 points = _reverse(points)
         if tool == "POLYGON":
             ok = self._create(context, "Pattern", points, "POLYGON")
+        elif tool == "CURVE_DRAW":
+            ok = self._create(context, "Pattern", auto_smooth(points), "POLYGON")
         else:
             ok = self._create_internal(context, points, "LINE" if line else "HOLE")
         if ok:
@@ -896,6 +972,8 @@ class CLOTHNEXT_OT_pattern_editor(bpy.types.Operator):
                 select_pattern(context, pattern, toggle=event.shift) if pattern else (
                     None if event.shift else select_pattern(context, None))
                 self.points_selected = {}
+                self.selected_segment = None
+                self._selection_changed(context)
                 return True
             pattern = model.find(scene, hover["pattern"])
             if pattern is None:
@@ -924,10 +1002,13 @@ class CLOTHNEXT_OT_pattern_editor(bpy.types.Operator):
                 for other in list(self.points_selected):
                     if other != pattern.identifier and not event.shift:
                         del self.points_selected[other]
+                self.selected_segment = None
                 self.drag = dict(base, kind="points", indices=sorted(selected) or [hover["index"]],
                                  primary=hover["index"])
             elif hover["kind"] == "segment":
                 n = len(points)
+                self.points_selected = {}
+                self.selected_segment = (pattern.identifier, hover["index"] % n)
                 if curve:
                     self.drag = dict(base, kind="bend", index=hover["index"], t=hover["t"])
                 else:
@@ -936,10 +1017,13 @@ class CLOTHNEXT_OT_pattern_editor(bpy.types.Operator):
                                      primary=hover["index"] % n)
             elif hover["kind"] == "pattern":
                 select_pattern(context, pattern, toggle=event.shift)
+                self.points_selected, self.selected_segment = {}, None
                 self._start_move(context, canvas)
+            self._selection_changed(context)
             return True
         if event.type == "LEFTMOUSE" and event.value == "RELEASE" and self.drag is not None:
             self._finish_drag(context, region, rv3d, canvas, event)
+            self._selection_changed(context)
             return True
         if event.value == "PRESS" and event.type in {"X", "DEL"} and self.drag is None:
             removed = False
@@ -1053,6 +1137,14 @@ class CLOTHNEXT_OT_pattern_editor(bpy.types.Operator):
             return True
         if event.type != "LEFTMOUSE" or event.value not in {"PRESS", "DOUBLE_CLICK"}:
             return False
+        if self.hover_seam and self.seam_first is None and not event.shift:
+            for index, seam in enumerate(scene.cloth_next_pattern_seams):
+                if seam.identifier == self.hover_seam:
+                    scene.cloth_next_pattern_settings.seam_index = index
+                    self.say(f"Seam {seam.name}  ·  F reverses  ·  X deletes  ·  "
+                             "Shift-click an edge to start a new seam")
+            self._selection_changed(context)
+            return True
         hover = self.hover
         if not hover or hover["kind"] != "segment":
             self.say("Click a pattern edge", True)
@@ -1078,41 +1170,55 @@ class CLOTHNEXT_OT_pattern_editor(bpy.types.Operator):
         return True
 
     # -- drawing --------------------------------------------------------------------------------
+    HINTS = {
+        "SELECT": "Click a pattern · drag to move · R rotate · Shift D duplicate · X delete",
+        "POLYGON": "Click points · drag for a curve point · click the first point or Enter "
+                   "closes · Backspace undoes a point · Shift 45° · Ctrl no snap",
+        "CURVE_DRAW": "Click points of a smooth outline · click the first point or Enter "
+                      "closes · Backspace undoes a point",
+        "RECTANGLE": "Drag a rectangle · Shift square · click for exact size",
+        "ELLIPSE": "Drag an ellipse · Shift circle · click for exact size",
+        "EDIT": "Drag points or edges · double-click an edge adds a point · X removes points",
+        "CURVE": "Drag an edge to bend it · drag handles · Alt-click a point: smooth/corner",
+        "INTERNAL": "Click points inside a pattern · L hole/line · Enter finishes",
+        "SEWING": "Click an edge, then the matching edge (near the ends that belong together)"
+                  " · click a seam to select it",
+    }
+
     def draw_view(self, context, region, rv3d):
         scene = context.scene
         tool = context.window_manager.cloth_next_pattern_ui.tool
-        # Edit handles and points of selected/hovered patterns.
-        if tool in {"EDIT", "CURVE", "SEWING"}:
-            for pattern in scene.cloth_next_patterns:
-                selected = draw.is_selected(pattern)
-                if not selected and self.hover_pattern() != pattern.identifier:
+        pal = style.palette(context)
+        accent = (*style.ACCENT, 1.0)
+        if tool == "CURVE":
+            pairs = []
+            for pattern in draw.visible_patterns(scene):
+                if not (draw.is_selected(pattern) or self.hover_pattern() == pattern.identifier):
                     continue
                 points = model.outline(pattern)
-                if tool == "CURVE":
-                    pairs = []
-                    n = len(points)
-                    for i, p in enumerate(points):
-                        co = sync.canvas_of(pattern, p.co)
-                        if p.curve_out:
-                            pairs += [co, sync.canvas_of(pattern, add(p.co, p.handle_out))]
-                        if points[(i - 1) % n].curve_out:
-                            pairs += [co, sync.canvas_of(pattern, add(p.co, p.handle_in))]
-                    draw.lines(pairs, (0.6, 0.85, 1.0, 0.8), 1.2, region=region)
+                n = len(points)
+                for i, p in enumerate(points):
+                    co = sync.canvas_of(pattern, p.co)
+                    if p.curve_out:
+                        pairs += [co, sync.canvas_of(pattern, add(p.co, p.handle_out))]
+                    if points[(i - 1) % n].curve_out:
+                        pairs += [co, sync.canvas_of(pattern, add(p.co, p.handle_in))]
+            draw.lines(pairs, (*pal.text[:3], 0.55), 1.0, region=region)
         hover = self.hover
+        selected_segment = self.selected_segment
+        if selected_segment is not None and tool in {"EDIT", "CURVE"}:
+            pattern = model.find(scene, selected_segment[0])
+            if pattern is not None:
+                line = editing.segment_points(model.outline(pattern), selected_segment[1])
+                draw.polyline(model.to_canvas_points(pattern, line), accent, 3.0, region=region)
         if hover and hover["kind"] == "segment":
             pattern = model.find(scene, hover["pattern"])
             if pattern is not None:
                 line = editing.segment_points(model.outline(pattern), hover["index"])
-                color = (0.35, 0.85, 1.0, 1.0) if tool == "SEWING" else draw.HOVER
-                draw.polyline(model.to_canvas_points(pattern, line), color, 3.5, region=region)
+                color = (*style.ACCENT, 0.85) if tool == "SEWING" else (*pal.text[:3], 0.9)
+                draw.polyline(model.to_canvas_points(pattern, line), color, 3.0, region=region)
         if self.seam_first is not None:
-            pattern = model.find(scene, self.seam_first[0])
-            if pattern is not None:
-                line = side_polyline(model.outline(pattern),
-                                     SeamSide(pattern.identifier, self.seam_first[1],
-                                              self.seam_first[2]))
-                draw.polyline(model.to_canvas_points(pattern, line), (1.0, 0.82, 0.25, 1.0), 4.0,
-                              region=region)
+            self._draw_seam_preview(context, region, rv3d)
         if self.preview is not None:
             identifier, points, valid = self.preview
             pattern = model.find(scene, identifier)
@@ -1120,15 +1226,16 @@ class CLOTHNEXT_OT_pattern_editor(bpy.types.Operator):
                 ring = model.to_canvas_points(pattern, display_polyline(Contour(points)))
                 if valid:
                     try:
-                        draw.triangles(ring, draw.ear_fill(ring), (0.35, 0.85, 0.55, 0.12))
+                        draw.triangles(ring, draw.ear_fill(ring), (*style.ACCENT, 0.10))
                     except Exception:
                         pass
-                draw.polyline(ring, draw.VALID if valid else draw.INVALID, 2.0, closed=True,
+                draw.polyline(ring, accent if valid else (*style.ERROR, 1.0), 1.6, closed=True,
                               region=region)
         drag = self.drag
         if drag is not None and drag["kind"] == "box":
             a, b = drag["start"], drag.get("end", drag["start"])
-            draw.polyline([a, (b[0], a[1]), b, (a[0], b[1])], (1, 1, 1, 0.6), 1.0, True, region)
+            draw.polyline([a, (b[0], a[1]), b, (a[0], b[1])], (*pal.text[:3], 0.7), 1.0,
+                          True, region)
         if drag is not None and drag["kind"] in {"rect", "ellipse"}:
             a, b = drag["anchor"], drag["current"]
             w, h = abs(b[0] - a[0]), abs(b[1] - a[1])
@@ -1137,13 +1244,41 @@ class CLOTHNEXT_OT_pattern_editor(bpy.types.Operator):
                 pts = (rectangle_points(w, h, range(4)) if drag["kind"] == "rect"
                        else ellipse_points(w / 2, h / 2, range(4)))
                 ring = [add(p, center) for p in display_polyline(Contour(pts))]
-                draw.triangles(ring, draw.ear_fill(ring), (0.35, 0.75, 1.0, 0.25))
-                draw.polyline(ring, (0.55, 0.85, 1.0, 1.0), 2.0, True, region)
+                draw.triangles(ring, draw.ear_fill(ring), (*pal.fill[:3], 0.55))
+                draw.polyline(ring, accent, 1.6, True, region)
         if self.draft:
-            self._draw_draft(context, region, rv3d, tool)
+            self._draw_draft(context, region, rv3d, tool, pal)
         if drag is not None and drag["kind"] == "rotate":
-            draw.lines([drag["center"], self.cursor or drag["center"]], (1, 1, 1, 0.5), 1.0,
-                       region=region)
+            draw.dashed([drag["center"], self.cursor or drag["center"]], (*pal.text[:3], 0.6),
+                        1.0, 6 * self._px(region, rv3d), region)
+
+    def _draw_seam_preview(self, context, region, rv3d):
+        """Exactly which stretches will be sewn, and how they pair."""
+        scene = context.scene
+        identifier, start, end, t_first, _index = self.seam_first
+        pattern = model.find(scene, identifier)
+        if pattern is None:
+            return
+        first = model.to_canvas_points(pattern, side_polyline(
+            model.outline(pattern), SeamSide(identifier, start, end)))
+        accent = (*style.ACCENT, 1.0)
+        draw.polyline(first, accent, 3.0, region=region)
+        hover = self.hover
+        if not hover or hover["kind"] != "segment":
+            return
+        other = model.find(scene, hover["pattern"])
+        if other is None:
+            return
+        second = model.to_canvas_points(other, editing.segment_points(
+            model.outline(other), hover["index"]))
+        crossed = (t_first < 0.5) != (hover["t"] < 0.5)
+        a = draw._resample_line(first, 5)
+        b = draw._resample_line(second, 5)
+        if crossed:
+            b = list(reversed(b))
+        px = self._px(region, rv3d)
+        for p, q in zip(a, b):
+            draw.dashed([p, q], (*style.ACCENT, 0.7), 1.0, 5 * px, region)
 
     def _draft_ring(self, tool):
         cursor = self.snapped.co if self.snapped else self.cursor
@@ -1154,7 +1289,6 @@ class CLOTHNEXT_OT_pattern_editor(bpy.types.Operator):
             handle = self.drag.get("handle")
             co = self.drag["co"]
             if handle:
-                points[-1:] = points[-1:]
                 if points:
                     points[-1] = replace(points[-1], curve_out=True)
                 points.append(ContourPoint(0, co, (-handle[0], -handle[1]), handle, True, True))
@@ -1162,53 +1296,58 @@ class CLOTHNEXT_OT_pattern_editor(bpy.types.Operator):
                 points.append(ContourPoint(0, co))
         return points
 
-    def _draw_draft(self, context, region, rv3d, tool):
+    def _draw_draft(self, context, region, rv3d, tool, pal):
         line_mode = tool == "INTERNAL" and \
             context.window_manager.cloth_next_pattern_ui.internal_kind == "LINE"
         points = self._draft_ring(tool)
-        open_line = display_polyline(Contour(tuple(points), False))
+        if tool == "CURVE_DRAW" and len(points) >= 3:
+            points = list(auto_smooth(tuple(points)))
         if len(points) >= 3 and not line_mode:
             ring = display_polyline(Contour(tuple(points)))
             try:
                 validate_ring(ring)
-                draw.triangles(ring, draw.ear_fill(ring), (0.35, 0.85, 0.55, 0.18))
-                closing = draw.VALID
+                draw.triangles(ring, draw.ear_fill(ring), (*pal.fill[:3], 0.45))
+                closing = (*pal.text[:3], 0.35)
             except PatternError:
-                closing = draw.INVALID
-            draw.lines([ring[-1], ring[0]] if ring else [], (*closing[:3], 0.45), 1.0,
-                       region=region)
-        draw.polyline(open_line, (1.0, 1.0, 1.0, 0.95), 2.0, region=region)
+                closing = (*style.ERROR, 0.9)
+            draw.dashed([ring[-1], ring[0]], closing, 1.0, 5 * self._px(region, rv3d), region)
+        # Open contour: the same segments as the closed preview, minus the closing one.
+        draw.polyline(display_polyline(Contour(tuple(points), False)), (*style.ACCENT, 1.0),
+                      1.8, region=region)
 
     def draw_pixel(self, context, region, rv3d):
         tool = context.window_manager.cloth_next_pattern_ui.tool
-        scale = draw.ui_scale(context)
+        s = style.ui_scale(context)
+        pal = style.palette(context)
         scene = context.scene
-        # points
-        if tool in {"EDIT", "CURVE"}:
-            for pattern in scene.cloth_next_patterns:
+        accent = (*style.ACCENT, 1.0)
+        vertex = style.VERTEX * s
+        if tool in {"EDIT", "CURVE", "INTERNAL"}:
+            for pattern in draw.visible_patterns(scene):
                 if not (draw.is_selected(pattern) or self.hover_pattern() == pattern.identifier):
                     continue
                 points = model.outline(pattern)
                 chosen = self.points_selected.get(pattern.identifier, set())
-                normal, active = [], []
+                n = len(points)
                 for i, p in enumerate(points):
                     xy = draw.canvas_to_region(region, rv3d, sync.canvas_of(pattern, p.co))
-                    if xy is not None:
-                        (active if i in chosen else normal).append(xy)
-                draw.px_points(normal, (0.95, 0.95, 1.0, 1.0), 6 * scale)
-                draw.px_points(active, draw.SELECTED, 8 * scale)
-                if tool == "CURVE":
-                    handles = []
-                    n = len(points)
-                    for i, p in enumerate(points):
+                    if xy is None:
+                        continue
+                    if i in chosen:
+                        style.square(xy[0], xy[1], vertex + 1 * s, accent, pal.canvas)
+                    elif p.smooth:
+                        style.disc(xy[0], xy[1], vertex / 2 + 1 * s, pal.canvas)
+                        style.disc(xy[0], xy[1], vertex / 2, pal.text)
+                    else:
+                        style.square(xy[0], xy[1], vertex, pal.text, pal.canvas)
+                    if tool == "CURVE":
                         for offset, on in ((p.handle_out, p.curve_out),
                                            (p.handle_in, points[(i - 1) % n].curve_out)):
                             if on:
-                                xy = draw.canvas_to_region(region, rv3d, sync.canvas_of(
+                                h = draw.canvas_to_region(region, rv3d, sync.canvas_of(
                                     pattern, add(p.co, offset)))
-                                if xy is not None:
-                                    handles.append(xy)
-                    draw.px_points(handles, (0.6, 0.85, 1.0, 1.0), 7 * scale, square=False)
+                                if h is not None:
+                                    style.diamond(h[0], h[1], vertex + 1 * s, pal.text)
         hover = self.hover
         if hover and hover["kind"] in {"point", "handle"}:
             pattern = model.find(scene, hover["pattern"])
@@ -1218,67 +1357,65 @@ class CLOTHNEXT_OT_pattern_editor(bpy.types.Operator):
                     p.co, p.handle_out if hover["side"] == "out" else p.handle_in)
                 xy = draw.canvas_to_region(region, rv3d, sync.canvas_of(pattern, co))
                 if xy:
-                    draw.px_points([xy], draw.HOVER, 11 * scale, square=hover["kind"] == "point")
+                    style.ring(xy[0], xy[1], vertex + 2 * s, accent, 1.5 * s, region=region)
+        if self.selected_segment is not None and tool in {"EDIT", "CURVE"} and \
+                scene.cloth_next_pattern_settings.show_lengths:
+            pattern = model.find(scene, self.selected_segment[0])
+            if pattern is not None and not draw.is_selected(pattern):
+                draw._segment_labels(context, region, rv3d, pal, pattern,
+                                     only=self.selected_segment[1])
         if self.draft:
             pts = [draw.canvas_to_region(region, rv3d, p.co) for p in self.draft]
-            draw.px_points([p for p in pts if p], (1, 1, 1, 1), 7 * scale)
+            for xy in pts:
+                if xy:
+                    style.square(xy[0], xy[1], vertex, pal.text, pal.canvas)
             if pts and pts[0] and len(self.draft) >= 3 and self.mouse_px and \
-                    distance(pts[0], self.mouse_px) <= CLOSE_PX * scale:
-                draw.px_points([pts[0]], draw.VALID, 14 * scale)
+                    distance(pts[0], self.mouse_px) <= CLOSE_PX * s:
+                style.ring(pts[0][0], pts[0][1], 7 * s, accent, 2.0 * s, region=region)
+                style.label("Close", pts[0][0], pts[0][1] + 12 * s, pal, accent, 10, scale=s)
             if scene.cloth_next_pattern_settings.show_lengths:
                 ring = self._draft_ring(tool)
-                for a, b in zip(ring, ring[1:]):
-                    mid = draw.canvas_to_region(region, rv3d, ((a.co[0] + b.co[0]) / 2,
-                                                               (a.co[1] + b.co[1]) / 2))
-                    if mid:
-                        draw.text(draw.format_length(context, distance(a.co, b.co)), mid[0],
-                                  mid[1] + 6 * scale, (1, 1, 1, 0.95), 10, align="CENTER")
-        if self.snapped is not None and self.snapped.kind != "NONE" and self.drag is None or (
-                self.drag is not None and self.snapped is not None and self.drag["kind"] in {
-                    "points", "rect", "ellipse"} and self.snapped.kind != "NONE"):
-            xy = draw.canvas_to_region(region, rv3d, self.snapped.co)
+                for number, (a, b) in enumerate(zip(ring, ring[1:])):
+                    pa = draw.canvas_to_region(region, rv3d, a.co)
+                    pb = draw.canvas_to_region(region, rv3d, b.co)
+                    value = draw.format_length(context, distance(a.co, b.co))
+                    if not pa or not pb:
+                        continue
+                    active = number == len(ring) - 2
+                    if not active and distance(pa, pb) < style.text_width(value, 10, s) + 16 * s:
+                        continue
+                    style.label(value, (pa[0] + pb[0]) / 2, (pa[1] + pb[1]) / 2 + 8 * s, pal,
+                                pal.text if active else pal.text_dim, 10, scale=s)
+        snapped = self.snapped
+        show_snap = snapped is not None and snapped.kind != "NONE" and (
+            self.drag is None or self.drag["kind"] in {"points", "rect", "ellipse", "poly_point"})
+        if show_snap:
+            xy = draw.canvas_to_region(region, rv3d, snapped.co)
             if xy:
-                colors = {"VERTEX": (1.0, 0.85, 0.2, 1.0), "EDGE": (0.4, 0.95, 1.0, 1.0),
-                          "GRID": (0.8, 0.8, 0.8, 0.9), "ANGLE": (0.9, 0.6, 1.0, 1.0)}
-                draw.px_points([xy], colors.get(self.snapped.kind, (1, 1, 1, 1)), 9 * scale,
-                               square=self.snapped.kind != "EDGE")
-                draw.text(self.snapped.kind.title(), xy[0] + 10 * scale, xy[1] - 16 * scale,
-                          (0.85, 0.88, 0.9, 0.9), 9)
+                r = 5 * s
+                style.lines_px([(xy[0] - r, xy[1]), (xy[0] + r, xy[1]),
+                                (xy[0], xy[1] - r), (xy[0], xy[1] + r)], accent, 1.2 * s, region)
+                if snapped.kind in {"VERTEX", "EDGE"}:
+                    style.ring(xy[0], xy[1], r + 2 * s, accent, 1.2 * s, region=region)
+                style.text(snapped.kind.title(), xy[0] + 9 * s, xy[1] - 15 * s,
+                           (*pal.text_dim[:3], 0.9), 9, scale=s)
         drag = self.drag
         if drag is not None and drag["kind"] in {"rect", "ellipse"}:
             a, b = drag["anchor"], drag["current"]
             xy = draw.canvas_to_region(region, rv3d, b)
             if xy:
-                draw.text(f"{draw.format_length(context, abs(b[0] - a[0]))} × "
-                          f"{draw.format_length(context, abs(b[1] - a[1]))}",
-                          xy[0] + 14 * scale, xy[1] + 10 * scale, (1, 1, 1, 1), 11)
-        toolbar.draw(context, region, self.toolbar_hover, None)
-        self._draw_status(context, region, tool)
-
-    def _draw_status(self, context, region, tool):
-        scale = draw.ui_scale(context)
-        ui = context.window_manager.cloth_next_pattern_ui
-        hints = {
-            "SELECT": "Click a pattern to select · drag to move · R rotate · Shift+D duplicate · "
-                      "X delete · Ctrl+C/V copy",
-            "POLYGON": "Click points · drag for a curve point · click the first point or Enter to "
-                       "close · Backspace removes · Shift 45° · Ctrl no snap",
-            "RECTANGLE": "Drag a rectangle (Shift: square) · click for exact size",
-            "ELLIPSE": "Drag an ellipse (Shift: circle) · click for exact size",
-            "EDIT": "Drag points or edges · double-click an edge adds a point · X removes "
-                    "selected points · right-click for edge options",
-            "CURVE": "Drag an edge to bend it · drag handles · Alt+click a point toggles smooth",
-            "INTERNAL": f"Inside a pattern: click points ({'Line' if ui.internal_kind == 'LINE' else 'Hole'}"
-                        ", L switches) · Enter finishes",
-            "SEWING": "Click an edge, then the edge to sew it to · click near the matching ends · "
-                      "F flips · X deletes",
-        }
-        label = next((row[1] for row in toolbar.TOOL_ROWS if row and row[0] == tool), tool)
-        text = self.message or f"{label}:  {hints.get(tool, '')}"
-        color = (1.0, 0.55, 0.5, 1.0) if self.message_error and self.message else draw.TEXT_DIM
-        draw.text(text, 12 * scale, 12 * scale, color, 11)
-        draw.text("Front · Orthographic · 2D Pattern", region.width - 12 * scale, 12 * scale,
-                  (0.6, 0.66, 0.75, 0.8), 10, align="RIGHT")
+                style.label(f"{draw.format_length(context, abs(b[0] - a[0]))} × "
+                            f"{draw.format_length(context, abs(b[1] - a[1]))}",
+                            xy[0] + 12 * s, xy[1] + 10 * s, pal, pal.text, 10, "LEFT", s)
+        dock.draw(context, region)
+        executing = bool(self.draft) or (drag is not None and drag["kind"] not in {"box"})
+        toolbar.draw(context, region, self.toolbar_hover, executing=executing,
+                     error=self.message_error and bool(self.message),
+                     has_selection=bool(selected_patterns(scene)))
+        step = draw.grid_step(context, region, rv3d)
+        toolbar.draw_status(context, region, tool, self.HINTS.get(tool, ""), self.message,
+                            self.message_error,
+                            f"Grid {draw.format_length(context, step)}  ·  Front Ortho")
 
 
 class _NoShift:
@@ -1290,6 +1427,27 @@ class _NoShift:
 
     def __getattr__(self, name):
         return getattr(self._event, name)
+
+
+_DOCK = object()  # the docked inspector column (a chrome region of the 2D editor)
+
+
+def auto_smooth(points):
+    """Curve tool: every point becomes smooth with Catmull-Rom tangents.
+
+    A point that already has handles (dragged while drawing) keeps them.
+    """
+    n = len(points)
+    result = []
+    for i, p in enumerate(points):
+        if p.handle_out != (0.0, 0.0) or p.handle_in != (0.0, 0.0):
+            result.append(replace(p, curve_out=True, smooth=True))
+            continue
+        prev, nxt = points[(i - 1) % n].co, points[(i + 1) % n].co
+        tangent = ((nxt[0] - prev[0]) / 6.0, (nxt[1] - prev[1]) / 6.0)
+        result.append(replace(p, handle_out=tangent, handle_in=(-tangent[0], -tangent[1]),
+                              curve_out=True, smooth=True))
+    return tuple(result)
 
 
 def _reverse(points):
@@ -1313,6 +1471,7 @@ def _autostart():
             if not areas:
                 continue
             workspace.configure_screen(window.screen)
+            workspace.close_side_areas(window)
             for area in areas:
                 workspace.refresh_regions(area)
             if session_for(window) is not None:

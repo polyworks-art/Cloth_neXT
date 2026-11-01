@@ -17,7 +17,7 @@ PATTERN NeXt is implemented inside the existing Cloth NeXt extension: same
 | Real-GUI acceptance, session 2 (new Blender process, reopened .blend) | **7 / 7 passed** |
 | Geometry validation in Blender (18 shapes, Blender CDT) | **18 / 18 passed**, 5 / 5 invalid shapes rejected |
 | Unit tests, geometry core (`tests/test_pattern_next_geometry.py`) | **21 / 21 passed** |
-| Full Cloth NeXt pytest suite | see "Regression" below |
+| Full Cloth NeXt pytest suite | **2777 passed**, 40 skipped (platform/engine-dependent), 0 failed |
 | Blender registration smoke (`tools/run_blender_smoke.py`) | passed (register/unregister twice, add/remove physics) |
 | Blender Sewing smoke (`tools/blender_sewing_smoke.py`) | passed |
 | Sewing GUI acceptance (`tools/blender_sewing_gui_acceptance.py`) | 32 passed, 1 failed — **same single failure on unmodified `main`** (pre-existing, not caused by PATTERN NeXt) |
@@ -161,12 +161,11 @@ remesh on release. All Blender data is written on the main thread.
 
 ## Regression
 
-* Full pytest suite: 2765 passed, 40 skipped (platform/engine-dependent), 0
-  failed after adapting `tests/fake_bpy.py` (added `UIList`, `WindowManager`,
+* Full pytest suite: 2777 passed, 40 skipped (platform/engine-dependent), 0
+  failed, after adapting `tests/fake_bpy.py` (added `UIList`, `WindowManager`,
   `Material`, `TOPBAR_MT_window`) and `tests/test_validation_state.py`
   (expects one more load/undo/redo handler, the single PATTERN NeXt handler,
-  checked by marker). *(Final number: see the commit message of this report;
-  re-run with `python -m pytest -q`.)*
+  checked by marker).
 * AETHER and GAIA code is untouched. Existing 3D overlays (Sewing, Object
   Attachments, Linked Colliders, Wind, Water Flow, TETHYS, the floating
   simulation toolbar) received a three-line guard so they do not draw inside
