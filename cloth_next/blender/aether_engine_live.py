@@ -512,6 +512,30 @@ class CLOTHNEXT_OT_aether_live_reset(bpy.types.Operator):
         return {"FINISHED"}
 
 
+_cursor_px: float | None = None
+
+
+def _system_cursor_px(context) -> float:
+    """Edge of the system mouse cursor box in pixels (Windows: pointer size setting x DPI)."""
+    global _cursor_px
+    if _cursor_px is None:
+        _cursor_px = 32.0 * context.preferences.system.pixel_size
+        if os.name == "nt":
+            try:
+                import ctypes
+                import winreg
+                with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Control Panel\Cursors") as key:
+                    base = float(winreg.QueryValueEx(key, "CursorBaseSize")[0])
+            except OSError:
+                base = 32.0
+            try:
+                dpi = float(ctypes.windll.user32.GetDpiForSystem())
+            except (AttributeError, OSError):
+                dpi = 96.0
+            _cursor_px = base * (dpi or 96.0) / 96.0
+    return _cursor_px
+
+
 class CLOTHNEXT_OT_aether_live_grab(bpy.types.Operator):
     """Pull the cloth with the mouse while the Live Simulation runs (like grabbing in Marvelous)."""
     bl_idname = "clothnext.aether_live_grab"
@@ -529,6 +553,8 @@ class CLOTHNEXT_OT_aether_live_grab(bpy.types.Operator):
 
     # the pinch point of the icon (assets/icons/aether_grab_cursor.png), as a fraction from bottom-left
     HOTSPOT = (0.48, 0.53)
+    # the icon fills its square; the system hand cursor fills about 22 of its 32 px box
+    CURSOR_FILL = 22.0 / 32.0
 
     def _draw_cursor(self, context):
         if context.region != self.region or self.mouse is None:
@@ -536,7 +562,7 @@ class CLOTHNEXT_OT_aether_live_grab(bpy.types.Operator):
         import gpu
         from gpu_extras.batch import batch_for_shader
         from . import floating_simulation
-        size = 40.0 * context.preferences.system.ui_scale
+        size = _system_cursor_px(context) * self.CURSOR_FILL
         x, y = self.mouse[0] - self.HOTSPOT[0] * size, self.mouse[1] - self.HOTSPOT[1] * size
         gpu.state.blend_set("ALPHA")
         floating_simulation._asset_icon(gpu, batch_for_shader, "aether_grab_cursor", x, y, size)
