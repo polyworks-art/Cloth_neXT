@@ -467,7 +467,7 @@ class CLOTHNEXT_PT_solver(_ClothNextSubpanel, bpy.types.Panel):
     def draw(self, context):
         from . import solver_test
         layout = self.layout
-        status = _solver_status(context)
+        status = _active_backend_status(context)
         header = layout.column(align=True)
         header.label(text="Simulation Solver",
                      **icon_registry.icon_kwargs("solver", "SETTINGS"))
@@ -571,6 +571,8 @@ def _draw_quality_buttons(layout, context, bake_active: bool):
 
 
 def _draw_solver_quality(layout, context, bake_active: bool) -> None:
+    if _draw_aether_section(layout, context, bake_active):
+        return
     quality = getattr(context.scene, "cloth_next_quality", None)
     if quality is None:
         return
@@ -703,8 +705,51 @@ def _solver_status(context) -> _SolverStatus:
 
 
 def _active_backend_status(context) -> _SolverStatus:
-    """Cheap PPF readiness without solver discovery side effects."""
+    """Cheap readiness of the selected backend without discovery side effects."""
+    from . import solver_backends
+    status = solver_backends.backend_status(context)
+    if status is not None:
+        return _SolverStatus(*status)
     return _solver_status(context)
+
+
+def _draw_aether_section(layout, context, bake_active: bool) -> bool:
+    """AETHER Engine presets, Live Simulation and Recovery; False for other backends."""
+    from ..simulation.backends import BackendId
+    from . import solver_backends
+    if solver_backends.active_backend_id(context.scene) is not BackendId.AETHER_ENGINE:
+        return False
+    from . import aether_engine_backend, aether_engine_live
+    settings = getattr(context.scene, "cloth_next_solver", None)
+    section = layout.column(align=True)
+    section.label(text="AETHER Engine · experimental")
+    if settings is not None:
+        row = section.row(align=True)
+        row.enabled = not bake_active
+        row.prop(settings, "aether_bake_quality", text="Bake")
+        row = section.row(align=True)
+        row.enabled = not aether_engine_live.is_running()
+        row.prop(settings, "aether_live_quality", text="Live")
+    for note in aether_engine_backend.not_enforced_notes(context)[:3]:
+        layout.label(text=note.split(" (", 1)[0] + " · not enforced by AETHER", icon="INFO")
+    live = layout.row(align=True)
+    if aether_engine_live.is_running():
+        live.operator("clothnext.aether_live_toggle_pause",
+                      text="Resume" if aether_engine_live.is_paused() else "Pause",
+                      icon="PLAY" if aether_engine_live.is_paused() else "PAUSE")
+        live.operator("clothnext.aether_live_reset", text="Reset", icon="FILE_REFRESH")
+        live.operator("clothnext.aether_live_stop", text="Stop", icon="CANCEL")
+        layout.label(text=aether_engine_live.status_line())
+    else:
+        live.enabled = not bake_active
+        live.operator("clothnext.aether_live_start", text="Start Live Simulation", icon="PLAY")
+    if not bake_active and aether_engine_backend.recovery_available(context):
+        box = layout.box()
+        box.label(text="An AETHER bake was interrupted", icon="RECOVER_LAST")
+        row = box.row(align=True)
+        row.operator("clothnext.aether_resume_bake", text="Resume Bake")
+        row.operator("clothnext.aether_discard_recovery", text="Discard")
+    return True
 
 
 def _cache_state(context) -> tuple[str, str]:
@@ -755,7 +800,8 @@ def _cache_state(context) -> tuple[str, str]:
     if version != solver_test.BAKE_FINGERPRINT_VERSION or not baked_geometry:
         return "NEEDS_VALIDATION", "Cache needs validation · mesh may have changed"
 
-    current_settings = solver_test.cheap_settings_fingerprint(context)
+    current_settings = solver_backends.backend_settings_key(
+        context, solver_test.cheap_settings_fingerprint(context))
     if current_settings is None or current_settings != baked_settings:
         return "STALE", "Cache stale · settings changed"
 
@@ -1093,6 +1139,8 @@ def _draw_scene_statistics(layout, context) -> None:
 
 
 def _draw_quality_selector(layout, context, bake_active: bool) -> None:
+    if _draw_aether_section(layout, context, bake_active):
+        return
     quality = getattr(context.scene, "cloth_next_quality", None)
     if quality is None:
         return

@@ -37,6 +37,8 @@ def validate_source_tree(root: Path) -> None:
     if ((root / "tethys_manifest.json").exists()
             or any((root / "bin" / name).exists() for name in TETHYS_FILENAMES.values())):
         raise ValueError("source phase must not contain a staged TETHYS Engine")
+    if (root / "aether_engine_manifest.json").exists() or (root / "bin" / "AETHER Engine.exe").exists():
+        raise ValueError("source phase must not contain a staged AETHER Engine")
 
 
 TETHYS_FILENAMES = {"windows-x64": "TETHYS Engine.exe", "linux-x64": "tethys-engine"}

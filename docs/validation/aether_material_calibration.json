@@ -1,0 +1,62 @@
+[
+ {
+  "case": "hanging strip",
+  "stretch_resistance": 250.0,
+  "surface_weight": 0.2,
+  "membrane_N_per_m": 50.0,
+  "elongation_simulated_mm": 4.812151193618774,
+  "elongation_analytic_mm": 4.905,
+  "ratio": 0.9810705797387919
+ },
+ {
+  "case": "hanging strip",
+  "stretch_resistance": 1000.0,
+  "surface_weight": 0.2,
+  "membrane_N_per_m": 200.0,
+  "elongation_simulated_mm": 1.2202262878417969,
+  "elongation_analytic_mm": 1.22625,
+  "ratio": 0.9950876965070717
+ },
+ {
+  "case": "hanging strip",
+  "stretch_resistance": 4000.0,
+  "surface_weight": 0.2,
+  "membrane_N_per_m": 800.0,
+  "elongation_simulated_mm": 0.30618906021118164,
+  "elongation_analytic_mm": 0.3065625,
+  "ratio": 0.9987818477836709
+ },
+ {
+  "case": "cantilever",
+  "bend_resistance": 1.0,
+  "surface_weight": 0.2,
+  "length_m": 0.05,
+  "bending_N_m": 2.399995531957932e-05,
+  "physical_bending_N_m": 3.9999925532632205e-05,
+  "tip_deflection_simulated_mm": 35.71408987045288,
+  "tip_deflection_analytic_mm": 38.32038384045295,
+  "ratio": 0.931986746770299
+ },
+ {
+  "case": "cantilever",
+  "bend_resistance": 4.0,
+  "surface_weight": 0.2,
+  "length_m": 0.05,
+  "bending_N_m": 9.599982127831729e-05,
+  "physical_bending_N_m": 0.00015999970213052882,
+  "tip_deflection_simulated_mm": 10.093510150909424,
+  "tip_deflection_analytic_mm": 9.580095960113237,
+  "ratio": 1.0535917586769263
+ },
+ {
+  "case": "cantilever",
+  "bend_resistance": 10.0,
+  "surface_weight": 0.2,
+  "length_m": 0.05,
+  "bending_N_m": 0.00023999955319579323,
+  "physical_bending_N_m": 0.00039999925532632205,
+  "tip_deflection_simulated_mm": 4.155933856964111,
+  "tip_deflection_analytic_mm": 3.832038384045295,
+  "ratio": 1.0845230241605501
+ }
+]

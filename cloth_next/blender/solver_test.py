@@ -10422,8 +10422,9 @@ def cancel_pending_startup() -> None:
 
 
 def request_cancel() -> None:
-    from . import tethys_bake, water_preparation
-    if water_preparation.cancel() or tethys_bake.cancel_from_window():
+    from . import aether_engine_backend, tethys_bake, water_preparation
+    if (water_preparation.cancel() or tethys_bake.cancel_from_window()
+            or aether_engine_backend.cancel_from_window()):
         return
     # Latch first. Export/startup ownership can move between controller,
     # pending-plan and worker state during this call; no branch may lose the
@@ -10637,8 +10638,9 @@ class CLOTHNEXT_OT_inspect_parameters(bpy.types.Operator):
 def _tethys_running() -> bool:
     # The TETHYS Engine reads the published PC2 while it runs; replacing or
     # clearing that cache must wait until the wetness bake has finished.
-    from . import tethys_bake
-    return tethys_bake.is_running()
+    from . import aether_engine_backend, aether_engine_live, tethys_bake
+    return (tethys_bake.is_running() or aether_engine_backend.is_running()
+            or aether_engine_live.is_running())
 
 
 class CLOTHNEXT_OT_solver_test_run(bpy.types.Operator):

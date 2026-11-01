@@ -919,8 +919,25 @@ class CLOTHNEXT_PG_force_settings(bpy.types.PropertyGroup):
         description="Isotropic-air-friction coefficient applied per vertex")
 
 
+_AETHER_QUALITY_ITEMS = (
+    ("NORMAL", "Normal", "Interactive quality: the default for Live Simulation"),
+    ("ANIMATION", "Animation", "Intermediate stability, for moving characters"),
+    ("FITTING", "Fitting", "Accurate fabric: recommended for final AETHER Engine bakes"),
+)
+
+
 class CLOTHNEXT_PG_solver_backend_settings(bpy.types.PropertyGroup):
-    """Persistent scene-wide PPF quality selection."""
+    """Persistent scene-wide quality selection (default solver and AETHER Engine)."""
+    aether_bake_quality: bpy.props.EnumProperty(
+        name="AETHER Bake Quality", default="FITTING", items=_AETHER_QUALITY_ITEMS,
+        description="AETHER Engine preset for bakes. A bake keeps the preset it started with; "
+                    "a resume needs the same preset")
+    aether_live_quality: bpy.props.EnumProperty(
+        name="AETHER Live Quality", default="NORMAL", items=_AETHER_QUALITY_ITEMS,
+        description="AETHER Engine preset for Live Simulation (fixed while it runs)")
+    aether_checkpoint_interval: bpy.props.IntProperty(
+        name="Checkpoint Interval", default=24, min=1, soft_max=240,
+        description="AETHER Engine bakes save a recovery checkpoint every this many frames")
     quality_preset: bpy.props.EnumProperty(
         name="Quality", default="HIGH", update=_on_settings_update,
         items=(("LOW", "Low", "Fast setup bake"),

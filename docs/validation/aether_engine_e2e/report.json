@@ -1,0 +1,505 @@
+{
+  "blender": "5.2.3 LTS",
+  "scenarios": {
+    "static_collider": {
+      "state": "FINISHED",
+      "error": "",
+      "code": "",
+      "message": "AETHER bake finished: 30 frames in 0.8 s",
+      "seconds": 0.94,
+      "tick_ms_max": 4.2,
+      "tick_ms_p95": 1.6,
+      "gpu_mb_idle": 2459.0,
+      "gpu_mb_peak": 2459.0,
+      "frames": 29,
+      "resumed_from": null,
+      "verified": 0,
+      "engine_ms": 459.7,
+      "timings": {
+        "engine_startup_s": 0.1690856000000167,
+        "publish_s": 0.06476820000000316,
+        "total_s": 0.7122661999999309
+      },
+      "playback_error": 0.0,
+      "pc2_frames": 30,
+      "fell": 0.19996792078018188,
+      "backend": "AETHER_ENGINE",
+      "cache_label": "Cache needs validation \u00b7 mesh may have changed",
+      "ok": true,
+      "wall_s": 1.0
+    },
+    "animated_collider": {
+      "state": "FINISHED",
+      "error": "",
+      "code": "",
+      "message": "AETHER bake finished: 36 frames in 0.8 s",
+      "seconds": 0.85,
+      "tick_ms_max": 5.8,
+      "tick_ms_p95": 4.0,
+      "gpu_mb_idle": 2459.0,
+      "gpu_mb_peak": 2459.0,
+      "frames": 35,
+      "resumed_from": null,
+      "verified": 0,
+      "engine_ms": 424.8,
+      "timings": {
+        "engine_startup_s": 0.1478945000000067,
+        "publish_s": 0.036540500000000975,
+        "total_s": 0.6321588000000702
+      },
+      "playback_error": 0.0,
+      "pc2_frames": 36,
+      "ok": true,
+      "wall_s": 0.9
+    },
+    "multi_material": {
+      "state": "FINISHED",
+      "error": "",
+      "code": "",
+      "message": "AETHER bake finished: 24 frames in 0.7 s \u00b7 Not enforced: Silk: Stretch Limit 6 % (not enforced: the AETHER Engine has no strain limiting; stretch follows the membrane stiffness); Denim: Stretch Limit 3 % (not enforced: the AETHER Engine has no strain limiting; stretch follows the membrane stiffness)",
+      "seconds": 0.79,
+      "tick_ms_max": 10.6,
+      "tick_ms_p95": 1.7,
+      "gpu_mb_idle": 2459.0,
+      "gpu_mb_peak": 2459.0,
+      "frames": [
+        24,
+        24
+      ],
+      "resumed_from": null,
+      "verified": 0,
+      "engine_ms": 300.5,
+      "timings": {
+        "engine_startup_s": 0.16462239999998474,
+        "publish_s": 0.06916060000003199,
+        "total_s": 0.5909738999999945
+      },
+      "playback_error": 0.0,
+      "silk": {
+        "bend": 0.00017039967761918148,
+        "bend_damping": 0.0,
+        "density": 1.0,
+        "friction": 0.125,
+        "poisson": 0.4000000059604645,
+        "shear_scale": 1.0,
+        "stretch_damping": 0.0,
+        "thickness": 0.0005000000237487257,
+        "youngs": 500.0
+      },
+      "denim": {
+        "bend": 0.0011999977659789662,
+        "bend_damping": 0.0,
+        "density": 1.0,
+        "friction": 0.25,
+        "poisson": 0.25,
+        "shear_scale": 1.0,
+        "stretch_damping": 0.0,
+        "thickness": 0.0005000000237487257,
+        "youngs": 10000.0
+      },
+      "ok": true,
+      "wall_s": 0.8
+    },
+    "animated_pins": {
+      "state": "FINISHED",
+      "error": "",
+      "code": "",
+      "message": "AETHER bake finished: 30 frames in 0.7 s",
+      "seconds": 0.79,
+      "tick_ms_max": 4.6,
+      "tick_ms_p95": 4.4,
+      "gpu_mb_idle": 2502.0,
+      "gpu_mb_peak": 2502.0,
+      "frames": 29,
+      "resumed_from": null,
+      "verified": 0,
+      "engine_ms": 350.9,
+      "timings": {
+        "engine_startup_s": 0.1450540999999248,
+        "publish_s": 0.06400989999997364,
+        "total_s": 0.5826180999999906
+      },
+      "playback_error": 0.0,
+      "pin_travel_x": 0.4000000059604645,
+      "ok": true,
+      "wall_s": 0.8
+    },
+    "sewing": {
+      "state": "FINISHED",
+      "error": "",
+      "code": "",
+      "message": "AETHER bake finished: 48 frames in 1.0 s",
+      "seconds": 1.17,
+      "tick_ms_max": 13.0,
+      "tick_ms_p95": 2.0,
+      "gpu_mb_idle": 2459.0,
+      "gpu_mb_peak": 2459.0,
+      "frames": 47,
+      "resumed_from": null,
+      "verified": 0,
+      "engine_ms": 625.0,
+      "timings": {
+        "engine_startup_s": 0.15939380000008896,
+        "publish_s": 0.06063949999997931,
+        "total_s": 0.8709935000000542
+      },
+      "seam_gap_m": 0.0009533943375572562,
+      "start_gap_m": 0.08,
+      "ok": true,
+      "wall_s": 1.2
+    },
+    "live": {
+      "startup_s": 0.2,
+      "frames_displayed_3s": 73,
+      "display_fps": 24.3,
+      "tick_ms_p95": 0.27,
+      "tick_ms_max": 0.4,
+      "moved": 0.7846384048461914,
+      "paused_ok": true,
+      "reset_ok": true,
+      "original_hidden_while_live": true,
+      "restored": true,
+      "engine_processes_after": 0,
+      "ok": true,
+      "wall_s": 5.9
+    },
+    "cancel": {
+      "state": "CANCELLED",
+      "error": "",
+      "code": "",
+      "message": "AETHER bake cancelled \u00b7 Resume continues from the last checkpoint",
+      "seconds": 0.69,
+      "tick_ms_max": 1.7,
+      "tick_ms_p95": 0.6,
+      "gpu_mb_idle": 2459.0,
+      "gpu_mb_peak": 2459.0,
+      "frames": 11,
+      "resumed_from": null,
+      "verified": 0,
+      "engine_ms": 275.2,
+      "timings": {
+        "engine_startup_s": 0.1566927000000078
+      },
+      "recovery_offered": true,
+      "playback_attached": false,
+      "engine_processes_after": 0,
+      "ok": true,
+      "wall_s": 2.7
+    },
+    "kill_resume": {
+      "interrupted": {
+        "state": "ERROR",
+        "error": "The AETHER Engine process ended unexpectedly (exit code 1). The bake can be resumed from its last checkpoint",
+        "code": "CNX-E164",
+        "message": "CNX-E164 The AETHER Engine process ended unexpectedly (exit code 1). The bake can be resumed from its last checkpoint",
+        "seconds": 1.15,
+        "tick_ms_max": 66.7,
+        "tick_ms_p95": 9.3,
+        "gpu_mb_idle": 2578.0,
+        "gpu_mb_peak": 2578.0,
+        "frames": 31,
+        "resumed_from": null,
+        "verified": 0,
+        "engine_ms": 610.9,
+        "timings": {
+          "engine_startup_s": 0.18997650000005706
+        }
+      },
+      "resumed": {
+        "state": "FINISHED",
+        "error": "",
+        "code": "",
+        "message": "AETHER bake finished: 48 frames in 0.7 s (resumed at frame 25, 7 frames verified)",
+        "seconds": 0.83,
+        "tick_ms_max": 7.4,
+        "tick_ms_p95": 2.0,
+        "gpu_mb_idle": 2552.0,
+        "gpu_mb_peak": 2552.0,
+        "frames": 47,
+        "resumed_from": 24,
+        "verified": 7,
+        "engine_ms": 394.7,
+        "timings": {
+          "engine_startup_s": 0.16841450000003988,
+          "publish_s": 0.034154899999975896,
+          "total_s": 0.6134812999999895
+        }
+      },
+      "bit_identical": true,
+      "ok": true,
+      "wall_s": 3.3
+    },
+    "device_lost": {
+      "interrupted": {
+        "state": "ERROR",
+        "error": "The GPU was lost (driver reset or device fault): test device fault: CUDA error in cudaStreamSynchronize(stream_): unspecified launch failure (device context lost). The bake can be resumed from its last checkpoint",
+        "code": "CNX-E164",
+        "message": "CNX-E164 The GPU was lost (driver reset or device fault): test device fault: CUDA error in cudaStreamSynchronize(stream_): unspecified launch failure (device context lost). The bake can be resumed from its last checkpoint",
+        "seconds": 1.45,
+        "tick_ms_max": 13.7,
+        "tick_ms_p95": 0.2,
+        "gpu_mb_idle": 2666.0,
+        "gpu_mb_peak": 2820.0,
+        "frames": 21,
+        "resumed_from": null,
+        "verified": 0,
+        "engine_ms": 468.9,
+        "timings": {
+          "engine_startup_s": 0.17807590000006712
+        }
+      },
+      "resumed": {
+        "state": "FINISHED",
+        "error": "",
+        "code": "",
+        "message": "AETHER bake finished: 48 frames in 2.0 s (resumed at frame 1, 21 frames verified)",
+        "seconds": 2.09,
+        "tick_ms_max": 6.1,
+        "tick_ms_p95": 0.2,
+        "gpu_mb_idle": 2669.0,
+        "gpu_mb_peak": 2853.0,
+        "frames": 47,
+        "resumed_from": 0,
+        "verified": 21,
+        "engine_ms": 834.6,
+        "timings": {
+          "engine_startup_s": 0.1604594000000361,
+          "publish_s": 0.049093500000026324,
+          "total_s": 1.8695629000000054
+        }
+      },
+      "bit_identical": true,
+      "ok": true,
+      "wall_s": 4.8
+    },
+    "incompatible": {
+      "interrupted": "ERROR",
+      "resume": {
+        "state": "ERROR",
+        "error": "The interrupted bake cannot be resumed: the quality preset changed (presets are never changed silently)",
+        "code": "CNX-E129",
+        "message": "CNX-E129 The interrupted bake cannot be resumed: the quality preset changed (presets are never changed silently)",
+        "seconds": 0.16,
+        "tick_ms_max": 11.3,
+        "tick_ms_p95": 11.3,
+        "gpu_mb_idle": 2556.0,
+        "gpu_mb_peak": 2556.0
+      },
+      "ok": true,
+      "wall_s": 1.2
+    },
+    "lifecycle": {
+      "cycles_s": [
+        0.44,
+        0.47,
+        0.48,
+        0.5,
+        0.44
+      ],
+      "engine_processes_after": 0,
+      "ok": true,
+      "wall_s": 6.3
+    },
+    "offset_range": {
+      "state": "FINISHED",
+      "error": "",
+      "code": "",
+      "message": "AETHER bake finished: 30 frames in 1.2 s",
+      "seconds": 1.36,
+      "tick_ms_max": 4.0,
+      "tick_ms_p95": 0.2,
+      "gpu_mb_idle": 2622.0,
+      "gpu_mb_peak": 2804.0,
+      "frames": 29,
+      "resumed_from": null,
+      "verified": 0,
+      "engine_ms": 376.9,
+      "timings": {
+        "engine_startup_s": 0.1610306000000037,
+        "publish_s": 0.23481649999996534,
+        "total_s": 0.9229035000000749
+      },
+      "playback_error": 0.0,
+      "pc2_frames": 30,
+      "modifier_frame_start": 11.0,
+      "rest_at_sample0": true,
+      "ok": true,
+      "wall_s": 1.4
+    },
+    "gaia_routing": {
+      "aether_routes_to": "AETHER_ENGINE",
+      "without_aether_choice_routes_to": "PPF",
+      "gaia_selected_in_registry": true,
+      "ok": true,
+      "wall_s": 0.0
+    },
+    "performance": {
+      "rows": [
+        {
+          "vertices": 10201,
+          "quality": "NORMAL",
+          "mode": "bake",
+          "state": "FINISHED",
+          "seconds": 2.09,
+          "frames_per_s": 22.97,
+          "engine_step_ms_per_frame": 15.4,
+          "engine_startup_s": 0.2,
+          "tick_ms_max": 41.1,
+          "tick_ms_p95": 0.1,
+          "gpu_mb_idle": 2615.0,
+          "gpu_mb_peak": 2929.0
+        },
+        {
+          "vertices": 10201,
+          "quality": "FITTING",
+          "mode": "bake",
+          "state": "FINISHED",
+          "seconds": 2.05,
+          "frames_per_s": 23.41,
+          "engine_step_ms_per_frame": 22.8,
+          "engine_startup_s": 0.19,
+          "tick_ms_max": 49.3,
+          "tick_ms_p95": 0.2,
+          "gpu_mb_idle": 2671.0,
+          "gpu_mb_peak": 2936.0
+        },
+        {
+          "vertices": 10201,
+          "quality": "NORMAL",
+          "mode": "live",
+          "startup_s": 0.3,
+          "display_fps": 24.2,
+          "tick_ms_p95": 1.12,
+          "tick_ms_max": 1.26,
+          "gpu_mb": 2924.0
+        },
+        {
+          "vertices": 50625,
+          "quality": "NORMAL",
+          "mode": "bake",
+          "state": "FINISHED",
+          "seconds": 7.2,
+          "frames_per_s": 6.67,
+          "engine_step_ms_per_frame": 111.4,
+          "engine_startup_s": 0.39,
+          "tick_ms_max": 206.7,
+          "tick_ms_p95": 0.2,
+          "gpu_mb_idle": 2613.0,
+          "gpu_mb_peak": 3867.0
+        },
+        {
+          "vertices": 50625,
+          "quality": "FITTING",
+          "mode": "bake",
+          "state": "FINISHED",
+          "seconds": 6.45,
+          "frames_per_s": 7.44,
+          "engine_step_ms_per_frame": 99.5,
+          "engine_startup_s": 0.37,
+          "tick_ms_max": 205.4,
+          "tick_ms_p95": 0.1,
+          "gpu_mb_idle": 2772.0,
+          "gpu_mb_peak": 3568.0
+        },
+        {
+          "vertices": 50625,
+          "quality": "NORMAL",
+          "mode": "live",
+          "startup_s": 0.67,
+          "display_fps": 5.0,
+          "tick_ms_p95": 3.4,
+          "tick_ms_max": 4.21,
+          "gpu_mb": 3755.0
+        }
+      ],
+      "ok": true,
+      "wall_s": 27.3
+    }
+  },
+  "measurements": {
+    "performance": [
+      {
+        "vertices": 10201,
+        "quality": "NORMAL",
+        "mode": "bake",
+        "state": "FINISHED",
+        "seconds": 2.09,
+        "frames_per_s": 22.97,
+        "engine_step_ms_per_frame": 15.4,
+        "engine_startup_s": 0.2,
+        "tick_ms_max": 41.1,
+        "tick_ms_p95": 0.1,
+        "gpu_mb_idle": 2615.0,
+        "gpu_mb_peak": 2929.0
+      },
+      {
+        "vertices": 10201,
+        "quality": "FITTING",
+        "mode": "bake",
+        "state": "FINISHED",
+        "seconds": 2.05,
+        "frames_per_s": 23.41,
+        "engine_step_ms_per_frame": 22.8,
+        "engine_startup_s": 0.19,
+        "tick_ms_max": 49.3,
+        "tick_ms_p95": 0.2,
+        "gpu_mb_idle": 2671.0,
+        "gpu_mb_peak": 2936.0
+      },
+      {
+        "vertices": 10201,
+        "quality": "NORMAL",
+        "mode": "live",
+        "startup_s": 0.3,
+        "display_fps": 24.2,
+        "tick_ms_p95": 1.12,
+        "tick_ms_max": 1.26,
+        "gpu_mb": 2924.0
+      },
+      {
+        "vertices": 50625,
+        "quality": "NORMAL",
+        "mode": "bake",
+        "state": "FINISHED",
+        "seconds": 7.2,
+        "frames_per_s": 6.67,
+        "engine_step_ms_per_frame": 111.4,
+        "engine_startup_s": 0.39,
+        "tick_ms_max": 206.7,
+        "tick_ms_p95": 0.2,
+        "gpu_mb_idle": 2613.0,
+        "gpu_mb_peak": 3867.0
+      },
+      {
+        "vertices": 50625,
+        "quality": "FITTING",
+        "mode": "bake",
+        "state": "FINISHED",
+        "seconds": 6.45,
+        "frames_per_s": 7.44,
+        "engine_step_ms_per_frame": 99.5,
+        "engine_startup_s": 0.37,
+        "tick_ms_max": 205.4,
+        "tick_ms_p95": 0.1,
+        "gpu_mb_idle": 2772.0,
+        "gpu_mb_peak": 3568.0
+      },
+      {
+        "vertices": 50625,
+        "quality": "NORMAL",
+        "mode": "live",
+        "startup_s": 0.67,
+        "display_fps": 5.0,
+        "tick_ms_p95": 3.4,
+        "tick_ms_max": 4.21,
+        "gpu_mb": 3755.0
+      }
+    ]
+  },
+  "engine": {
+    "ready": true,
+    "title": "AETHER Engine 0.4.6-dev",
+    "detail": "build e8d5b4860ec5d1fb \u00b7 developer override"
+  },
+  "result": "PASS"
+}

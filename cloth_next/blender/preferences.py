@@ -165,8 +165,14 @@ def _gaia_access_granted() -> bool:
     return gaia_account.access_granted()
 
 
-def _engine_get(_self) -> int:
+def _engine_get(self) -> int:
+    """GAIA only while a GAIA build is selected and AETHER was not chosen since.
+
+    AETHER is the native AETHER Engine (testing builds: it replaces the
+    upstream PPF build that used this name). Existing GAIA selections stay GAIA."""
     from ..updater import engines
+    if bool(getattr(self, "aether_engine_chosen", False)):
+        return 0
     registry, _error = _read_registry()
     return 1 if engines.selected_engine(registry) == engines.GAIA else 0
 
@@ -175,11 +181,20 @@ def _engine_set(self, value: int) -> None:
     """Switch engine only by explicit choice, to that engine's best healthy build."""
     from ..updater import engines
     engine = engines.GAIA if value == 1 else engines.AETHER
+    if _solver_session_active():
+        _session.worker_error = "The solver engine cannot change while a Bake is active."
+        return
+    if engine == engines.AETHER:
+        # The native AETHER Engine ships with Cloth NeXt: no installation to select.
+        self.aether_engine_chosen = True
+        _session.worker_error = None
+        return
     registry, error = _read_registry()
     if error:
         _session.worker_error = error
         return
     if engines.selected_engine(registry) == engine:
+        self.aether_engine_chosen = False
         return
     if _solver_session_active():
         _session.worker_error = "The solver engine cannot change while a Bake is active."
@@ -196,6 +211,7 @@ def _engine_set(self, value: int) -> None:
         _session.worker_error = f"Engine change failed: {exc}"
         return
     self.selected_solver_installation_id = target.installation_id
+    self.aether_engine_chosen = False
     _session.worker_error = None
 
 
@@ -912,6 +928,9 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         name="Engine", items=_engine_items, get=_engine_get, set=_engine_set,
         description="Solver engine for future Bakes. Changing it never happens "
                     "automatically and is locked while a Bake is active")
+    aether_engine_chosen: bpy.props.BoolProperty(
+        name="AETHER Engine chosen", default=False, options={"HIDDEN"},
+        description="The artist chose AETHER (the native AETHER Engine) in the Engine selector")
     gaia_reproducible_bake: bpy.props.BoolProperty(
         name="Reproducible Bake", default=False,
         description="GAIA only: run the deterministic solver path so the same scene, "

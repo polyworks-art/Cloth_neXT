@@ -50,7 +50,7 @@ REPRODUCIBLE_ENVIRONMENT = (
 )
 
 ENGINE_DESCRIPTIONS = {
-    AETHER: "Official, unmodified PPF Contact Solver by ST-Tech",
+    AETHER: "AETHER Engine: native GPU cloth engine, no account needed (experimental)",
     GAIA: "PolyWorks' separately maintained patched PPF solver",
 }
 

@@ -26,7 +26,8 @@ from . import (account_status, addon_update_operators, cloud_runtime, cloud_ui, 
                solver_release_naming, solver_test, test_scene,
                telemetry_runtime, timeline_overlay, validation_state, viewport_autoframe,
                viewport_colors, water_flow, water_settings, wind_fields, material_zones, material_zone_selector,
-               tethys_bake, tethys_overlay, tethys_properties, tethys_ui)
+               tethys_bake, tethys_overlay, tethys_properties, tethys_ui,
+               aether_engine_backend, aether_engine_live)
 
 _CLASSES = (
     preferences.CLASSES
@@ -55,6 +56,8 @@ _CLASSES = (
     + tethys_ui.CLASSES
     + material_zones.CLASSES
     + material_zone_selector.CLASSES
+    + aether_engine_backend.CLASSES
+    + aether_engine_live.CLASSES
 )
 
 _registered = False
@@ -107,6 +110,7 @@ def _steps() -> list[tuple]:
                   solver_test.uninstall_recovery_ui_handler))
     steps.append((solver_test.synchronize_playback_input_deformers,
                   lambda: None))
+    steps.append((aether_engine_live.register_handlers, aether_engine_live.shutdown))
     return steps
 
 
@@ -137,6 +141,8 @@ def unregister() -> None:
     # (never an external server), and joins the worker thread.
     solver_test.shutdown()
     tethys_bake.shutdown()
+    aether_engine_live.stop()
+    aether_engine_backend.shutdown()
     tethys_overlay.unregister()
     viewport_autoframe.reset()
     preferences.shutdown()

@@ -9,6 +9,9 @@ from enum import Enum
 
 class BackendId(str, Enum):
     PPF = "PPF"
+    # The native AETHER Engine (AETHER Engine.exe). Not the PPF-based solver
+    # build that the PPF engine dropdown historically calls "AETHER".
+    AETHER_ENGINE = "AETHER_ENGINE"
 
 
 class MappingKind(str, Enum):
@@ -73,7 +76,24 @@ PPF_BACKEND = SolverBackendSpec(
         follow_animation_pins=True, wind=True),
     tuple((field, _EXACT_PPF) for field in _CANONICAL_FIELDS))
 
-_BACKENDS = {PPF_BACKEND.identifier: PPF_BACKEND}
+def _aether_mappings() -> tuple[tuple[str, FieldMapping], ...]:
+    from ..aether_engine.materials import FIELD_MAPPINGS
+    return tuple((field, FieldMapping(MappingKind(kind), detail))
+                 for field, (kind, detail) in FIELD_MAPPINGS.items())
+
+
+AETHER_ENGINE_BACKEND = SolverBackendSpec(
+    BackendId.AETHER_ENGINE, "AETHER Engine (experimental)",
+    "Native GPU cloth engine for live simulation and baking",
+    SolverCapabilities(
+        live_preview=True, recovery=True, cloth=True, rods=False, soft_bodies=False,
+        rigid_bodies=False, mixed_simulation=False, pressure=False, sewing=True,
+        self_collision=True, animated_colliders=True, follow_animation_pins=True,
+        gravity=True, wind=False),
+    _aether_mappings())
+
+_BACKENDS = {PPF_BACKEND.identifier: PPF_BACKEND,
+             AETHER_ENGINE_BACKEND.identifier: AETHER_ENGINE_BACKEND}
 
 
 def backend_spec(identifier: BackendId | str) -> SolverBackendSpec:
