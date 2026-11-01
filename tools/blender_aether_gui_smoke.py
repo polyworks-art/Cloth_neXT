@@ -84,16 +84,15 @@ def simulation_panel_shot(name):
     window, area, region = found
     with bpy.context.temp_override(window=window, area=area, region=region):
         bpy.ops.screen.screen_full_area()
-    STEPS.insert(0, lambda: _scroll_panel(name))
+    STEPS[0:0] = [wait(0.6), lambda: _scroll_panel(name)]
 
 
 def _scroll_panel(name):
     window, area, region = areas("PROPERTIES")
     with bpy.context.temp_override(window=window, area=area, region=region):
-        for _ in range(60):
-            bpy.ops.view2d.scroll_down(deltay=60)
+        bpy.ops.view2d.scroll_up(deltay=100000)   # the AETHER Engine panel sits below Setup
     area.tag_redraw()
-    STEPS.insert(0, lambda: _finish_panel_shot(name))
+    STEPS[0:0] = [wait(0.6), lambda: _finish_panel_shot(name)]
 
 
 def _finish_panel_shot(name):

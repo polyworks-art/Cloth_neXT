@@ -571,7 +571,8 @@ def _draw_quality_buttons(layout, context, bake_active: bool):
 
 
 def _draw_solver_quality(layout, context, bake_active: bool) -> None:
-    if _draw_aether_section(layout, context, bake_active):
+    if _aether_selected(context):
+        layout.label(text="AETHER Engine presets: see the AETHER Engine panel")
         return
     quality = getattr(context.scene, "cloth_next_quality", None)
     if quality is None:
@@ -711,6 +712,12 @@ def _active_backend_status(context) -> _SolverStatus:
     if status is not None:
         return _SolverStatus(*status)
     return _solver_status(context)
+
+
+def _aether_selected(context) -> bool:
+    from ..simulation.backends import BackendId
+    from . import solver_backends
+    return solver_backends.active_backend_id(context.scene) is BackendId.AETHER_ENGINE
 
 
 def _draw_aether_section(layout, context, bake_active: bool) -> bool:
@@ -1139,7 +1146,8 @@ def _draw_scene_statistics(layout, context) -> None:
 
 
 def _draw_quality_selector(layout, context, bake_active: bool) -> None:
-    if _draw_aether_section(layout, context, bake_active):
+    if _aether_selected(context):
+        layout.label(text="AETHER Engine presets: see the AETHER Engine panel")
         return
     quality = getattr(context.scene, "cloth_next_quality", None)
     if quality is None:
@@ -1373,6 +1381,21 @@ class CLOTHNEXT_PT_setup(_ClothNextSubpanel, bpy.types.Panel):
             _draw_force_setup(layout, context.object.cloth_next)
             return
         _draw_frame_range(layout, _authoritative_frame_settings(context))
+
+
+class CLOTHNEXT_PT_aether_engine(_ClothNextSubpanel, bpy.types.Panel):
+    """AETHER Engine presets, Live Simulation and Recovery (both looks)."""
+    bl_label = "AETHER Engine"
+    bl_idname = "CLOTHNEXT_PT_aether_engine"
+    roles = {"CLOTH", "COLLIDER"}
+    header_icon = "solver"
+
+    @classmethod
+    def poll(cls, context):
+        return super().poll(context) and _aether_selected(context)
+
+    def draw(self, context):
+        _draw_aether_section(self.layout, context, shared_controller.snapshot().active)
 
 
 class CLOTHNEXT_PT_simulation(_ClothNextSubpanel, bpy.types.Panel):
@@ -2814,7 +2837,7 @@ CLASSES = (CLOTHNEXT_OT_unavailable_object_type, CLOTHNEXT_MT_object_type,
            CLOTHNEXT_OT_remove_motion_override,
            *MATERIAL_PRESET_CATEGORY_MENUS, CLOTHNEXT_MT_material_presets,
            CLOTHNEXT_PT_physics, CLOTHNEXT_PT_empty_force,
-           CLOTHNEXT_PT_setup, CLOTHNEXT_PT_simulation, CLOTHNEXT_PT_cloud_jobs,
+           CLOTHNEXT_PT_setup, CLOTHNEXT_PT_aether_engine, CLOTHNEXT_PT_simulation, CLOTHNEXT_PT_cloud_jobs,
            CLOTHNEXT_PT_solver,
            CLOTHNEXT_PT_force, CLOTHNEXT_PT_material,
            CLOTHNEXT_PT_shape, CLOTHNEXT_PT_pinning,

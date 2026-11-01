@@ -139,9 +139,23 @@ def _scale(context):
     return max(0.75, float(context.preferences.system.ui_scale)) * _LAYOUT_SCALE
 
 
+def _aether_quality(scene):
+    """The AETHER Engine bake preset as a quality-like record, or None (other backend)."""
+    from ..simulation.backends import BackendId
+    from . import solver_backends
+    if scene is None or solver_backends.active_backend_id(scene) is not BackendId.AETHER_ENGINE:
+        return None
+    from types import SimpleNamespace
+    key = str(getattr(getattr(scene, "cloth_next_solver", None), "aether_bake_quality", "FITTING"))
+    return SimpleNamespace(identifier=key, label=f"AETHER {key.title()}")
+
+
 def _quality_width(context):
     scene = getattr(context, "scene", None)
-    if scene is None:
+    aether = _aether_quality(scene)
+    if aether is not None:
+        label = aether.label
+    elif scene is None:
         label = "Custom"
     else:
         preset = matching_quality_preset(
@@ -183,7 +197,7 @@ def _state(context):
     snapshot = shared_controller.snapshot()
     if scene is None:
         return None, snapshot, None, False, "No scene"
-    quality = matching_quality_preset(
+    quality = _aether_quality(scene) or matching_quality_preset(
         object_properties.solver_quality_from(scene),
         has_pdrd=physics_operators.scene_has_pdrd(scene))
     model = physics_ui._bake_panel_model(
@@ -661,11 +675,41 @@ def _draw_pull(context, bounds, blf, shader, batch):
         _label(blf, text, left+35*s, y+23*s, size, _TEXT)
 
 
+def _draw_aether_menu(layout, context) -> None:
+    """New Look toolbar menu with the AETHER Engine selected: presets, Live, Recovery."""
+    from . import aether_engine_backend, aether_engine_live
+    settings = context.scene.cloth_next_solver
+    busy = shared_controller.snapshot().active
+    layout.label(text="AETHER Engine Bake preset")
+    for key, label in (("NORMAL", "Normal"), ("ANIMATION", "Animation"), ("FITTING", "Fitting")):
+        row = layout.row()
+        row.enabled = not busy
+        row.prop_enum(settings, "aether_bake_quality", key, text=label)
+    layout.separator()
+    layout.label(text=f"Live Simulation · {settings.aether_live_quality.title()}")
+    if aether_engine_live.is_running():
+        layout.operator("clothnext.aether_live_toggle_pause",
+                        text="Resume Live" if aether_engine_live.is_paused() else "Pause Live")
+        layout.operator("clothnext.aether_live_reset", text="Reset Live")
+        layout.operator("clothnext.aether_live_stop", text="Stop Live")
+    else:
+        row = layout.row()
+        row.enabled = not busy
+        row.operator("clothnext.aether_live_start", text="Start Live Simulation")
+    if not busy and aether_engine_backend.recovery_available(context):
+        layout.separator()
+        layout.operator("clothnext.aether_resume_bake", text="Resume Interrupted Bake")
+        layout.operator("clothnext.aether_discard_recovery", text="Discard Interrupted Bake")
+
+
 class CLOTHNEXT_MT_floating_quality(bpy.types.Menu):
     bl_idname = "CLOTHNEXT_MT_floating_quality"
     bl_label = "Quality"
 
     def draw(self, context):
+        if _aether_quality(context.scene) is not None:
+            _draw_aether_menu(self.layout, context)
+            return
         pdrd = physics_operators.scene_has_pdrd(context.scene)
         ids = (physics_operators.PDRD_QUALITY_PRESET_OPERATOR_IDS if pdrd
                else physics_operators.QUALITY_PRESET_OPERATOR_IDS)
