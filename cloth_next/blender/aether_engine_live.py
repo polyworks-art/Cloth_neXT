@@ -536,6 +536,44 @@ def _system_cursor_px(context) -> float:
     return _cursor_px
 
 
+def _brightness_under(gpu, region, x, y, size) -> float | None:
+    """Mean display brightness (0-1) of the viewport pixels the cursor icon will cover."""
+    x0, y0 = max(int(x), 0), max(int(y), 0)
+    w, h = min(int(x + size), region.width) - x0, min(int(y + size), region.height) - y0
+    if w <= 0 or h <= 0:
+        return None
+    try:
+        buffer = gpu.state.active_framebuffer_get().read_color(x0, y0, w, h, 4, 0, "FLOAT")
+    except (RuntimeError, ValueError):
+        return None
+    buffer.dimensions = w * h * 4
+    rgb = np.clip(np.asarray(buffer.to_list(), np.float32).reshape(-1, 4)[:, :3], 0.0, 1.0)
+    return float((rgb @ np.array([0.2126, 0.7152, 0.0722], np.float32)).mean())
+
+
+def _inverted_icon(floating_simulation, name: str) -> str:
+    """A colour-inverted copy of an asset icon (alpha kept), cached beside the original."""
+    inverted = name + "_inverted"
+    image = floating_simulation._images.get(inverted)
+    try:
+        if image is not None and image.name in bpy.data.images:
+            return inverted
+    except ReferenceError:
+        pass
+    from pathlib import Path
+    path = Path(__file__).resolve().parent.parent / "assets" / "icons" / f"{name}.png"
+    source = bpy.data.images.load(str(path), check_existing=False)
+    pixels = np.empty(len(source.pixels), np.float32)
+    source.pixels.foreach_get(pixels)
+    pixels = pixels.reshape(-1, 4)
+    pixels[:, :3] = 1.0 - pixels[:, :3]
+    image = bpy.data.images.new(inverted, source.size[0], source.size[1], alpha=True)
+    image.pixels.foreach_set(pixels.ravel())
+    bpy.data.images.remove(source)
+    floating_simulation._images[inverted] = image
+    return inverted
+
+
 class CLOTHNEXT_OT_aether_live_grab(bpy.types.Operator):
     """Pull the cloth with the mouse while the Live Simulation runs (like grabbing in Marvelous)."""
     bl_idname = "clothnext.aether_live_grab"
@@ -564,8 +602,18 @@ class CLOTHNEXT_OT_aether_live_grab(bpy.types.Operator):
         from . import floating_simulation
         size = _system_cursor_px(context) * self.CURSOR_FILL
         x, y = self.mouse[0] - self.HOTSPOT[0] * size, self.mouse[1] - self.HOTSPOT[1] * size
+        # the opposite of what is under the cursor: white hand on dark, black hand on light
+        brightness = _brightness_under(gpu, context.region, x, y, size)
+        if brightness is not None:   # hysteresis, so the colour does not flicker at the threshold
+            if self.light_bg and brightness < 0.4:
+                self.light_bg = False
+            elif not self.light_bg and brightness > 0.6:
+                self.light_bg = True
+        name = "aether_grab_cursor"
+        if self.light_bg:
+            name = _inverted_icon(floating_simulation, name)
         gpu.state.blend_set("ALPHA")
-        floating_simulation._asset_icon(gpu, batch_for_shader, "aether_grab_cursor", x, y, size)
+        floating_simulation._asset_icon(gpu, batch_for_shader, name, x, y, size)
         gpu.state.blend_set("NONE")
 
     def invoke(self, context, event):
@@ -573,6 +621,7 @@ class CLOTHNEXT_OT_aether_live_grab(bpy.types.Operator):
             return {"CANCELLED"}
         self.ids, self.offsets, self.depth = [], None, None
         self.region, self.mouse = context.region, (event.mouse_region_x, event.mouse_region_y)
+        self.light_bg = False
         self._handle = bpy.types.SpaceView3D.draw_handler_add(self._draw_cursor, (context,), "WINDOW", "POST_PIXEL")
         context.window.cursor_modal_set("NONE")   # the grab icon is drawn at the mouse instead
         context.area.header_text_set("Grab Cloth: drag with the left mouse button · Right-click or Esc: done")
