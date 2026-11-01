@@ -267,6 +267,23 @@ class _ClothCapture:
     triangle_zones: np.ndarray | None = None
 
 
+def _frames(corners: np.ndarray) -> np.ndarray:
+    """Orthonormal frames (P, 3, 3) of triangles (P, 3, 3): rows = edge direction, in-plane normal, normal."""
+    e = corners[:, 1] - corners[:, 0]
+    n = np.cross(e, corners[:, 2] - corners[:, 0])
+    e /= np.maximum(np.linalg.norm(e, axis=1, keepdims=True), 1e-20)
+    n /= np.maximum(np.linalg.norm(n, axis=1, keepdims=True), 1e-20)
+    return np.stack([e, np.cross(n, e), n], axis=1)
+
+
+def _to_frame(vectors: np.ndarray, corners: np.ndarray) -> np.ndarray:
+    return np.einsum("pij,pj->pi", _frames(corners), vectors)
+
+
+def _from_frame(local: np.ndarray, corners: np.ndarray) -> np.ndarray:
+    return np.einsum("pij,pi->pj", _frames(corners), local)
+
+
 def _material_zones(obj, shell, depsgraph, triangle_count: int):
     """Enabled Material Zones as AETHER materials and the zone (1..) of each evaluated triangle.
 
@@ -480,7 +497,10 @@ class AetherPreparation:
             count = len(target.data.vertices)
             rest_target = _evaluated_world(target, depsgraph, count)
             surface = np.einsum("pk,pkj->pj", weights, rest_target[tri].astype(np.float64))
-            offset = capture.world[src].astype(np.float64) - surface
+            # The offset at bind time in the bound triangle's own frame (edge, in-plane normal, face
+            # normal), so it turns with the surface. Kept in world space it pointed into the body when
+            # a limb rotated: the attachment pulled the cloth through the collider (M5.2, measured).
+            offset = _to_frame(capture.world[src].astype(np.float64) - surface, rest_target[tri].astype(np.float64))
             self.attachments.append({"name": item.name, "cloth": cloth, "target": target, "count": count,
                                      "vertices": src, "triangles": tri, "weights": weights, "offset": offset,
                                      "stiffness": pin_stiffness(float(item.stiffness), capture.material),
@@ -489,8 +509,9 @@ class AetherPreparation:
 
     def attachment_targets(self, attachment: dict, depsgraph) -> np.ndarray:
         world = _evaluated_world(attachment["target"], depsgraph, attachment["count"]).astype(np.float64)
-        surface = np.einsum("pk,pkj->pj", attachment["weights"], world[attachment["triangles"]])
-        return (surface + attachment["offset"]).astype(np.float32)
+        corners = world[attachment["triangles"]]
+        surface = np.einsum("pk,pkj->pj", attachment["weights"], corners)
+        return (surface + _from_frame(attachment["offset"], corners)).astype(np.float32)
 
     def _meta(self, entry, material: amat.AetherMaterial, vertex_count: int, zones=(), triangle_zones=None) -> dict:
         from . import validation_state
@@ -599,7 +620,8 @@ class AetherPreparation:
             self.range.start, self.range.end, folder, folder.with_name(folder.name + ".json"),
             checkpoint_interval=self.interval, settings_fingerprint=self.settings_fp,
             geometry_fingerprint=self.geometry_fp, cloth_next_version=self.cloth_next_version,
-            blender_version=self.blender_version)
+            blender_version=self.blender_version,
+            experimental_recovery=os.environ.get("CLOTH_NEXT_AETHER_EXPERIMENTAL_RECOVERY") == "1")
 
 
 # ------------------------------------------------------------------ playback attach

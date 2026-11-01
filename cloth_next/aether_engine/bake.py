@@ -117,6 +117,9 @@ class BakeRequest:
     geometry_fingerprint: str = ""
     cloth_next_version: str = ""
     blender_version: str = ""
+    # Milestone 5.2, experimental (CLOTH_NEXT_AETHER_EXPERIMENTAL_RECOVERY=1, off by default): the
+    # engine analyses every frame for intersecting cloth and runs its E4 recovery when it finds some.
+    experimental_recovery: bool = False
 
     @property
     def steps(self) -> int:
@@ -142,6 +145,7 @@ def scene_digest(request: BakeRequest) -> str:
     """Scene identity: geometry, materials, pins, seams, colliders' rest, settings."""
     h = hashlib.sha256()
     h.update(json.dumps({"quality": request.quality, "fps": request.fps, "gravity": request.gravity,
+                         **({"experimental_recovery": True} if request.experimental_recovery else {}),
                          "self_collision": request.self_collision, "range": [request.frame_start,
                                                                               request.frame_end]},
                         sort_keys=True).encode())
@@ -177,6 +181,8 @@ def input_digest(request: BakeRequest) -> str:
 def frame_inputs(request: BakeRequest, step: int) -> dict:
     """Inputs for engine step ``step`` (0-based): poses at Blender frame start+step+1."""
     inp: dict = {"frame": step}
+    if request.experimental_recovery:
+        inp["untangle"] = {"frames": 1}   # analysis this frame; recovery only where intersections exist
     if step == 0:
         adds = []
         for p in request.pins:
@@ -314,6 +320,7 @@ class Progress:
     engine_ms: float = 0.0
     checkpoint_frame: int | None = None
     step_ms: list = field(default_factory=list)   # (engine frame, ms, contacts) per simulated frame
+    recovery: list = field(default_factory=list)  # (engine frame, E4 report) with experimental recovery
     started: float = field(default_factory=time.monotonic)
 
 
@@ -535,6 +542,8 @@ class BakeRunner:
                 self.progress.engine_ms += float(ev["step_ms"])
                 self.progress.step_ms.append((int(ev.get("frame", 0)), float(ev["step_ms"]),
                                               int(ev.get("contacts", 0))))
+                if "untangle" in ev:
+                    self.progress.recovery.append((int(ev.get("frame", 0)), dict(ev["untangle"])))
             elif name == "checkpoint":
                 self.progress.checkpoint_frame = int(ev.get("frame", 0))
             elif name == "error":
