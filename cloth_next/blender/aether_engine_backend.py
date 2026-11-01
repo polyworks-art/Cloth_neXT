@@ -449,8 +449,10 @@ class AetherPreparation:
                 targets = (np.stack(c.pin_targets).astype(np.float32)
                            if c.follow and c.pin_targets else None)
                 pins.append(abake.PinTrack(i, c.pin_vertices, c.pin_stiffness, targets))
+        # Live sessions capture no timeline: their animated inputs are sampled while they run.
         colliders = tuple(abake.ColliderInput(c["name"], c["triangles"], c["world"],
-                                              np.stack(c["frames"]).astype(np.float32) if c["animated"] else None)
+                                              np.stack(c["frames"]).astype(np.float32)
+                                              if c["animated"] and c["frames"] else None)
                           for c in self.colliders)
         first = self.cloths[0].pc2_path.parent
         folder = first / f"cn_aether_recovery_{self.cloths[0].uuid[:16]}"
