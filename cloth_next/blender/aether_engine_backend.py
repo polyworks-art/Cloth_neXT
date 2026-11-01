@@ -125,6 +125,38 @@ def not_enforced_notes(context) -> list[str]:
     return notes
 
 
+_loose_edges = {}
+
+
+def has_loose_edges(obj) -> bool:
+    """True when the mesh has edges used by no face (cached per mesh state)."""
+    data = getattr(obj, "data", None)
+    edges = getattr(data, "edges", None)
+    if edges is None:
+        return False
+    key = (data.as_pointer(), len(edges), len(data.polygons), getattr(data, "is_editmode", False))
+    cached = _loose_edges.get(obj.as_pointer())
+    if cached is not None and cached[0] == key:
+        return cached[1]
+    try:
+        import numpy as np
+        flags = np.zeros(len(edges), dtype=bool)
+        edges.foreach_get("is_loose", flags)
+        result = bool(flags.any())
+    except (AttributeError, RuntimeError, TypeError):
+        result = any(edge.is_loose for edge in edges)
+    _loose_edges[obj.as_pointer()] = (key, result)
+    return result
+
+
+def without_idle_sewing(obj, material):
+    """Drop the legacy loose-edge Sewing switch when there is nothing to sew."""
+    if getattr(material, "sewing_enabled", False) and not has_loose_edges(obj):
+        from dataclasses import replace
+        return replace(material, sewing_enabled=False)
+    return material
+
+
 def unsupported_reason(context) -> str:
     """Cheap, property-only refusal reason for the AETHER backend ('' = supported)."""
     status = engine_status()
@@ -148,6 +180,11 @@ def unsupported_reason(context) -> str:
                 missing = amat.unsupported_controls(object_properties.shell_settings_from(settings))
             except Exception:  # noqa: BLE001 - invalid values are reported by validation
                 missing = []
+            # The legacy loose-edge Sewing switch (no longer shown in the UI
+            # since the path Sewing workflow) still sits in older files; it
+            # only matters when the mesh really has loose edges to sew.
+            missing = [item for item in missing
+                       if not (item.startswith("loose-edge Sewing") and not has_loose_edges(obj))]
             if missing:
                 return f"{obj.name}: not supported by the AETHER Engine: {', '.join(missing)}"
     for item in getattr(scene, "cloth_next_object_attachments", ()):
@@ -309,7 +346,7 @@ def _material_zones(obj, shell, depsgraph, triangle_count: int):
             raise AetherSceneError(f"{obj.name}, Material Zone {zone.name}: {', '.join(unknown)} is not supported "
                                    "by the AETHER Engine", "CNX-E104")
         try:
-            material = amat.map_material(replace(shell, **fields))
+            material = amat.map_material(without_idle_sewing(obj, replace(shell, **fields)))
         except amat.UnsupportedMaterial as exc:
             raise AetherSceneError(f"{obj.name}, Material Zone {zone.name}: {exc}", "CNX-E104") from exc
         zones.append((zone.name, material))
@@ -399,7 +436,7 @@ class AetherPreparation:
                 if not np.isfinite(world).all():
                     raise AetherSceneError(f"{obj.name}: non-finite vertex coordinates", "CNX-E109")
                 try:
-                    material = amat.map_material(entry.material)
+                    material = amat.map_material(without_idle_sewing(obj, entry.material))
                 except amat.UnsupportedMaterial as exc:
                     raise AetherSceneError(f"{obj.name}: {exc}", "CNX-E104") from exc
                 pins = entry.pin_membership
