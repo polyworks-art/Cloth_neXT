@@ -1,4 +1,8 @@
-# Cloth NeXt 2.9.52
+# Cloth NeXt 2.9.53
+
+PATTERN NeXt arrives: a new workspace where you draw garment patterns in a precise 2D editor and get a filled, triangulated cloth panel the moment you close the outline. Edit points and curves, sew edges together, and arrange the panels in 3D, all as regular Cloth NeXt cloth. This build also includes the experimental AETHER Engine for fast GPU cloth on Windows.
+
+## 2.9.52
 
 Wetness now has real-world proportions: drops, holes and rivulets keep their millimetre sizes on every garment and texture resolution, and the water stays as thin as real water on fabric. The TETHYS Engine also uses several CPU cores and bakes wetness about five times faster.
 

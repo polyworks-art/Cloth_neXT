@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.9.53 - 2026-11-01
+
+- PATTERN NeXt: a new workspace tab for drawing garment patterns. A 3D view on the left and a locked front-orthographic 2D pattern editor on the right. Polygon, Rectangle, Ellipse and Curve tools, Edit Pattern and Edit Curve, holes and internal lines, snapping, measurements, mirroring with linked symmetry.
+- Every closed pattern is filled and triangulated at once with interior particles at Particle Distance; editing remeshes only that pattern. Each pattern is a regular Cloth NeXt Cloth object with UVs from the 2D layout.
+- Seams between pattern edges become Cloth NeXt sewing definitions and survive remeshing. The 2D editor has its own docked inspector, tool strip and status line; patterns, seams and the workspace are saved in the .blend with undo and redo.
+- AETHER Engine (experimental, Windows with an NVIDIA GPU): the native GPU cloth engine for Live Simulation and Bake is now included in the extension; choose AETHER in the solver Engine setting.
+
 ## 2.9.52 - 2026-10-26
 
 - TETHYS Wetness at real-world size: drops, sheet holes and rivulets are sized in millimetres from the scene (Feature Size, capillary length) instead of texture pixels, and water heights are physical (films level off softly towards about 1.2 mm, sheet ridges towards 1.5 mm, drops at most what water can hold on fabric, flattening into puddles). Details finer than the wetness texture show as wetness instead of large blobs.
