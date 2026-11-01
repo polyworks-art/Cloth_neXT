@@ -85,13 +85,18 @@ def quality_of(scene, *, live: bool = False) -> str:
 
 
 # ------------------------------------------------------------------ capabilities
+# Test harness only (reduced acceptance scenarios): accepted simplifications,
+# never set by the UI. Each one is recorded in the bake notes and sidecars.
+TEST_SIMPLIFICATIONS: set[str] = set()
+
+
 def _unsupported_object(obj, settings) -> str:
     role = str(settings.role)
     if role != "CLOTH":
         return f"{obj.name}: {role.replace('_', ' ').title()} is not supported by the AETHER Engine (Cloth only)"
     if obj.type != "MESH":
         return f"{obj.name}: the AETHER Engine simulates mesh Cloth objects"
-    if len(getattr(settings, "material_zones", ())):
+    if len(getattr(settings, "material_zones", ())) and "material_zones" not in TEST_SIMPLIFICATIONS:
         return f"{obj.name}: Material Zones are not supported by the AETHER Engine yet"
     if len(getattr(settings, "friction_regions", ())):
         return f"{obj.name}: Friction Regions are not supported by the AETHER Engine yet"
@@ -349,6 +354,9 @@ class AetherPreparation:
                         stiffness = 0.0 if hard else pin_stiffness(pins.pull_strength, material)
                 for note in amat.not_enforced(entry.material):
                     self.notes.append(f"{obj.name}: {note}")
+                if len(getattr(obj.cloth_next, "material_zones", ())) and "material_zones" in TEST_SIMPLIFICATIONS:
+                    self.notes.append(f"{obj.name}: REDUCED SCENARIO - Material Zones simulated with the base "
+                                      "material")
                 uuid = export_uuid(obj)
                 object_ids[str(obj.cloth_next.persistent_export_id)] = obj
                 matrix = np.array(obj.matrix_world, dtype=np.float64)
