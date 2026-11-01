@@ -85,7 +85,7 @@ def _staged(tmp_path: Path, data: bytes, **override) -> Path:
     (tmp_path / "bin" / "AETHER Engine.exe").write_bytes(data)
     manifest = {"schema_version": 1, "filename": "AETHER Engine.exe", "platform": "windows-x64",
                 "file_size": len(data), "sha256": hashlib.sha256(data).hexdigest(), "protocol": 1,
-                "api": [1, 1], "engine_version": "0.4.6-dev", "build_id": "0" * 16}
+                "api": list(engine.API_VERSION), "engine_version": "0.4.6-dev", "build_id": "0" * 16}
     manifest.update(override)
     (tmp_path / engine.MANIFEST).write_text(json.dumps(manifest))
     return tmp_path

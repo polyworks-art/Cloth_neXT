@@ -23,7 +23,7 @@ import time
 import bpy
 import numpy as np
 
-from ..aether_engine import client as aclient, engine as aengine
+from ..aether_engine import bake as abake, client as aclient, engine as aengine
 from . import aether_engine_backend as backend
 
 LIVE_MARK = "cloth_next_aether_live"
@@ -63,10 +63,7 @@ class LiveSession:
             self.session = self.engine.create_session(
                 mode="interactive", quality=self.quality, fps=request.fps, gravity=request.gravity,
                 self_collision=request.self_collision,
-                cloths=[{"positions": c.rest_world, "triangles": c.triangles,
-                         "material": c.material.as_protocol(),
-                         "pins": c.registered_pins if len(c.registered_pins) else None}
-                        for c in request.cloths],
+                cloths=[abake.session_cloth(c) for c in request.cloths],
                 meshes=[{"vertices": c.rest_world, "triangles": c.triangles} for c in request.colliders])
             setup: dict = {}
             adds, next_id = [], 1

@@ -66,6 +66,8 @@ class ClothInput:
     registered_pins: np.ndarray     # int32, hard static pins
     pc2_path: Path
     material_meta: dict             # cache sidecar seed (fingerprints, identities, details)
+    zones: tuple[AetherMaterial, ...] = ()       # Material Zones (engine API 1.2), zone k at [k - 1]
+    triangle_zones: np.ndarray | None = None     # (T,) int32, 0 = base material
 
 
 @dataclass(frozen=True)
@@ -147,6 +149,9 @@ def scene_digest(request: BakeRequest) -> str:
         h.update(c.uuid.encode())
         _digest_arrays(h, c.rest_world, c.triangles, c.registered_pins)
         h.update(json.dumps(c.material.as_protocol(), sort_keys=True).encode())
+        if c.triangle_zones is not None:
+            h.update(json.dumps([z.as_protocol() for z in c.zones], sort_keys=True).encode())
+            _digest_arrays(h, c.triangle_zones)
     for c in request.colliders:
         _digest_arrays(h, c.triangles, c.rest_world)
     for s in request.seams:
@@ -203,6 +208,16 @@ def frame_inputs(request: BakeRequest, step: int) -> dict:
     if meshes:
         inp["mesh_colliders"] = meshes
     return inp
+
+
+def session_cloth(c: ClothInput) -> dict:
+    """One cloth of a create_session request (bake and Live)."""
+    out = {"positions": c.rest_world, "triangles": c.triangles, "material": c.material.as_protocol(),
+           "pins": c.registered_pins if len(c.registered_pins) else None}
+    if c.triangle_zones is not None:
+        out["zones"] = [z.as_protocol() for z in c.zones]
+        out["triangle_zones"] = c.triangle_zones
+    return out
 
 
 # ---------------------------------------------------------------- recovery record
@@ -373,10 +388,7 @@ class BakeRunner:
             self.progress.phase = "Building the AETHER scene"
             session = e.create_session(mode="bake", quality=req.quality, fps=req.fps, gravity=req.gravity,
                                        self_collision=req.self_collision,
-                                       cloths=[{"positions": c.rest_world, "triangles": c.triangles,
-                                                "material": c.material.as_protocol(),
-                                                "pins": c.registered_pins if len(c.registered_pins) else None}
-                                               for c in req.cloths],
+                                       cloths=[session_cloth(c) for c in req.cloths],
                                        meshes=[{"vertices": c.rest_world, "triangles": c.triangles}
                                                for c in req.colliders])
             self.timings["engine_startup_s"] = time.monotonic() - t0

@@ -85,9 +85,10 @@ def quality_of(scene, *, live: bool = False) -> str:
 
 
 # ------------------------------------------------------------------ capabilities
-# Test harness only (reduced acceptance scenarios): accepted simplifications,
-# never set by the UI. Each one is recorded in the bake notes and sidecars.
-TEST_SIMPLIFICATIONS: set[str] = set()
+# Material Zone override key -> the shell material field it replaces (the same
+# artist values the panel shows; friction is the artist Surface Grip).
+ZONE_FIELDS = {"young-mod": "stretch_resistance", "bend": "bend_resistance", "friction": "surface_grip",
+               "deformation-damping": "shape_damping", "bending-damping": "fold_damping"}
 
 
 def _unsupported_object(obj, settings) -> str:
@@ -96,8 +97,6 @@ def _unsupported_object(obj, settings) -> str:
         return f"{obj.name}: {role.replace('_', ' ').title()} is not supported by the AETHER Engine (Cloth only)"
     if obj.type != "MESH":
         return f"{obj.name}: the AETHER Engine simulates mesh Cloth objects"
-    if len(getattr(settings, "material_zones", ())) and "material_zones" not in TEST_SIMPLIFICATIONS:
-        return f"{obj.name}: Material Zones are not supported by the AETHER Engine yet"
     if len(getattr(settings, "friction_regions", ())):
         return f"{obj.name}: Friction Regions are not supported by the AETHER Engine yet"
     if getattr(settings, "water_flow_enabled", False):
@@ -264,6 +263,55 @@ class _ClothCapture:
     pin_targets: list
     pc2_path: Path
     meta: dict
+    zones: tuple = ()                   # ((zone name, AetherMaterial), ...)
+    triangle_zones: np.ndarray | None = None
+
+
+def _material_zones(obj, shell, depsgraph, triangle_count: int):
+    """Enabled Material Zones as AETHER materials and the zone (1..) of each evaluated triangle.
+
+    A zone's material is the cloth's material with the zone's overrides; faces
+    of disabled zones and faces outside every zone use the cloth's material.
+    """
+    from dataclasses import replace
+    from . import material_zones
+    defined = list(getattr(obj.cloth_next, "material_zones", ()))
+    if not defined:
+        return (), None
+    try:
+        owners = material_zones.validate_ownership(obj)
+    except Exception as exc:  # ZoneError: artist-readable
+        raise AetherSceneError(str(exc), "CNX-E104") from exc
+    zones, index_of = [], {}
+    for zone in defined:
+        if not zone.enabled:
+            continue
+        fields = {ZONE_FIELDS[o.key]: float(o.value) for o in zone.overrides if o.key in ZONE_FIELDS}
+        unknown = sorted(o.key for o in zone.overrides if o.key not in ZONE_FIELDS)
+        if unknown:
+            raise AetherSceneError(f"{obj.name}, Material Zone {zone.name}: {', '.join(unknown)} is not supported "
+                                   "by the AETHER Engine", "CNX-E104")
+        try:
+            material = amat.map_material(replace(shell, **fields))
+        except amat.UnsupportedMaterial as exc:
+            raise AetherSceneError(f"{obj.name}, Material Zone {zone.name}: {exc}", "CNX-E104") from exc
+        zones.append((zone.name, material))
+        index_of[int(zone.token)] = len(zones)
+    evaluated = obj.evaluated_get(depsgraph)
+    mesh = evaluated.to_mesh()
+    try:
+        if len(mesh.polygons) != len(owners):
+            raise AetherSceneError(f"{obj.name}: modifiers change the faces of a mesh with Material Zones; apply "
+                                   "them before baking with the AETHER Engine", "CNX-E103")
+        mesh.calc_loop_triangles()
+        polygons = np.empty(len(mesh.loop_triangles), np.int32)
+        mesh.loop_triangles.foreach_get("polygon_index", polygons)
+    finally:
+        evaluated.to_mesh_clear()
+    if len(polygons) != triangle_count:
+        raise AetherSceneError(f"{obj.name}: Material Zone triangles do not match the exported mesh", "CNX-E103")
+    owner_zone = np.array([index_of.get(int(t), 0) for t in owners], np.int32)
+    return tuple(zones), owner_zone[polygons]
 
 
 def _cache_paths(obj, uuid: str) -> Path:
@@ -354,16 +402,15 @@ class AetherPreparation:
                         stiffness = 0.0 if hard else pin_stiffness(pins.pull_strength, material)
                 for note in amat.not_enforced(entry.material):
                     self.notes.append(f"{obj.name}: {note}")
-                if len(getattr(obj.cloth_next, "material_zones", ())) and "material_zones" in TEST_SIMPLIFICATIONS:
-                    self.notes.append(f"{obj.name}: REDUCED SCENARIO - Material Zones simulated with the base "
-                                      "material")
+                zones, triangle_zones = _material_zones(obj, entry.material, depsgraph, len(tris) // 3)
                 uuid = export_uuid(obj)
                 object_ids[str(obj.cloth_next.persistent_export_id)] = obj
                 matrix = np.array(obj.matrix_world, dtype=np.float64)
                 pc2_path = _cache_paths(obj, uuid)
-                meta = self._meta(entry, material, len(local))
+                meta = self._meta(entry, material, len(local), zones, triangle_zones)
                 self.cloths.append(_ClothCapture(obj.name, uuid, entry, local, world, tris, matrix, material,
-                                                 registered, pin_vertices, stiffness, follow, [], pc2_path, meta))
+                                                 registered, pin_vertices, stiffness, follow, [], pc2_path, meta,
+                                                 zones, triangle_zones))
             from . import object_properties
             for obj in snapshot.collider_objs:
                 local, world, tris = _evaluated(obj, depsgraph)
@@ -445,7 +492,7 @@ class AetherPreparation:
         surface = np.einsum("pk,pkj->pj", attachment["weights"], world[attachment["triangles"]])
         return (surface + attachment["offset"]).astype(np.float32)
 
-    def _meta(self, entry, material: amat.AetherMaterial, vertex_count: int) -> dict:
+    def _meta(self, entry, material: amat.AetherMaterial, vertex_count: int, zones=(), triangle_zones=None) -> dict:
         from . import validation_state
         object_identity = {"object_key": validation_state.object_key(entry.obj), "deformable_type": entry.role,
                            "topology_signature": entry.topology_signature,
@@ -458,7 +505,11 @@ class AetherPreparation:
             "backend": "AETHER_ENGINE", "preset": entry.preset_identifier, "deformable_type": entry.role,
             "material": asdict(entry.material),
             "aether": {"quality": self.quality, "mapping_version": amat.MAPPING_VERSION,
-                       "material": material.as_protocol(), "not_enforced": amat.not_enforced(entry.material)},
+                       "material": material.as_protocol(), "not_enforced": amat.not_enforced(entry.material),
+                       "material_zones": [{"name": name, "material": z.as_protocol(),
+                                           "triangles": int((triangle_zones == k + 1).sum())}
+                                          for k, (name, z) in enumerate(zones)] if triangle_zones is not None
+                       else []},
             "blender_start_frame": self.range.start, "blender_end_frame": self.range.end,
             "output_frame_count": self.range.output_count, "solver_step_count": self.range.solver_steps,
             "fps": self.fps,
@@ -526,7 +577,8 @@ class AetherPreparation:
         pins = []
         for i, c in enumerate(self.cloths):
             cloths.append(abake.ClothInput(c.uuid, c.obj_name, c.world, c.local, c.triangles, c.matrix,
-                                           c.material, c.registered, c.pc2_path, c.meta))
+                                           c.material, c.registered, c.pc2_path, c.meta,
+                                           tuple(z for _name, z in c.zones), c.triangle_zones))
             if len(c.pin_vertices):
                 targets = (np.stack(c.pin_targets).astype(np.float32)
                            if c.follow and c.pin_targets else None)

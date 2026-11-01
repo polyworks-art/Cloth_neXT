@@ -40,7 +40,7 @@ from typing import Any, Callable, Mapping, Sequence
 import numpy as np
 
 PROTOCOL_VERSION = 1
-API_VERSION = (1, 1)
+API_VERSION = (1, 2)
 FRAME_MAGIC = 0x31484541  # "AEH1"
 SHM_MAGIC = b"AETHSHM1"
 SHM_HEADER_BYTES = 4096
@@ -434,7 +434,9 @@ class EngineProcess:
             "self_collision": self_collision,
             "cloths": [{"positions": f32(c["positions"]), "triangles": i32(c["triangles"]),
                         "material": c.get("material", {}),
-                        **({"pins": i32(c["pins"])} if c.get("pins") is not None else {})} for c in cloths],
+                        **({"pins": i32(c["pins"])} if c.get("pins") is not None else {}),
+                        **({"zones": list(c["zones"]), "triangle_zones": i32(c["triangle_zones"])}
+                           if c.get("triangle_zones") is not None else {})} for c in cloths],
             "spheres": [{"center": list(map(float, s["center"])), "radius": float(s["radius"])} for s in spheres],
             "planes": [{"point": list(map(float, p["point"])), "normal": list(map(float, p["normal"]))} for p in planes],
             "meshes": [{"vertices": f32(m["vertices"]), "triangles": i32(m["triangles"])} for m in meshes],

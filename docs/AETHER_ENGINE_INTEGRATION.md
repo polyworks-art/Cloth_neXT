@@ -5,7 +5,7 @@
 **Base:**
 
 * Cloth NeXt Dev 2.9.52 (`bc329a5`).
-* AETHER Engine `d74cb33`: `AETHER Engine.exe` 0.4.6-dev, protocol 1, API 1.1.
+* AETHER Engine `492db12`: `AETHER Engine.exe` 0.4.6-dev, protocol 1, API 1.2 (1.2 adds Material Zones).
 
 **What an artist can do:**
 
@@ -62,15 +62,18 @@ attach (shared transactional Mesh Cache import) <----  StreamingPc2Writer + side
 |---|---|
 | cloth (mesh), multiple Cloth objects | yes |
 | per-cloth materials | yes |
+| Material Zones (Stretch, Bend, Friction, Shape and Fold Damping per face) | yes: per-triangle materials in the engine; bending at a zone border is the mean of both sides, friction per vertex the area-weighted mean |
+| Object Attachments (Cloth to Collider, Cloth to Cloth) | yes: compliant pins following the collider surface / seams holding the initial separation |
+| garments with edges shared by three or more triangles (Marvelous panel junctions) | yes: one bending hinge per pair of neighbouring panels at their rest angle |
 | self-collision (Enable Contact) | yes |
-| static and animated **mesh** colliders, including collision proxies | yes, CCD-checked |
+| static and animated **mesh** colliders, including collision proxies | yes, CCD-checked (collider-aware: cloth an animated collider runs into is carried with it) |
 | pins: static hard, static soft, Follow Animation hard and soft | yes. Hard: prescribed (registered pins or runtime hard pins). Soft: compliant attachments |
 | sewing (Sewing definitions between Cloth objects or within one) | yes; seams close over 1 s |
 | Normal / Animation / Fitting presets | yes; separate defaults for Live (Normal) and Bake (Fitting) |
 | live preview, recovery | yes |
 | Rods, Soft Bodies, Rigid Bodies, mixed simulation | **refused** |
 | Forces (wind, air), Water Flow / FLIP, pressure | **refused** (GAIA keeps the FLIP workflow) |
-| Material Zones, Friction Regions, Object Attachments, Pin Target Objects, Advanced Pin Motion, Soft Constraints | **refused** |
+| Friction Regions, Pin Target Objects, Advanced Pin Motion, Soft Constraints | **refused** |
 | animated, parented or constrained Cloth transform | **refused**: animate the cloth through pins instead |
 | modifiers that change the vertex count | **refused** (CNX-E103) |
 | Cloud bakes | **refused**: AETHER bakes run on this computer |
@@ -312,8 +315,7 @@ Draped sheet on a sphere, 48 frames, end to end (preparation, engine, PC2, sidec
 2. Strain limiting in AETHER, or an artist-facing decision on the not-enforced Stretch Limit.
 3. Validation on more GPUs, drivers and real garments. The **NEON / SW04** acceptance test is next, including the 1:1
    Marvelous comparison without FLIP.
-4. Material Zones, Friction Regions, Object Attachments and Advanced Pin Motion, or permanent refusals documented in
-   the UI.
+4. Friction Regions and Advanced Pin Motion, or permanent refusals documented in the UI.
 5. Collider-aware CCD for analytic colliders, if analytic colliders ever reach the AETHER path.
 6. A per-collider friction and gap model in AETHER.
 7. A GUI acceptance pass with the Bake window open (the automated runs disable the window; the controller path is the

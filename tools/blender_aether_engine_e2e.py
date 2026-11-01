@@ -302,6 +302,46 @@ def s_sewing(out: Path):
     return r
 
 
+@scenario("material_zones")
+def s_zones(out: Path):
+    """A hanging sheet whose lower half is a Material Zone with 1/20 the Stretch Resistance."""
+    clear_scene()
+    sheet = add_grid("Zoned", 0.6, (0, 0, 1.0), 16, rotation=(1.5708, 0, 0))
+    make_cloth(sheet, out, 1, 36)
+    world = [sheet.matrix_world @ v.co for v in sheet.data.vertices]
+    pin(sheet, [i for i, p in enumerate(world) if p.z > 1.29])
+    base = sheet.cloth_next.material.stretch_resistance if hasattr(sheet.cloth_next.material, "stretch_resistance") \
+        else 1000.0
+    for o in bpy.context.view_layer.objects:
+        o.select_set(o == sheet)
+    bpy.context.view_layer.objects.active = sheet
+    assert bpy.ops.clothnext.add_material_zone() == {"FINISHED"}
+    zone = sheet.cloth_next.material_zones[-1]
+    zone.name = "Soft lower half"
+    override = zone.overrides.add()
+    override.key, override.value = "young-mod", float(base) / 20.0
+    zones = importlib.import_module(f"{M}.blender.material_zones")
+    lower = [zone.token if sum(world[i].z for i in f.vertices) / len(f.vertices) < 1.0 else 0
+             for f in sheet.data.polygons]
+    zones.write_owners(sheet, lower)
+    r = bake()
+    err, frames, path = playback_error(sheet)
+    data = list(importlib.import_module(f"{M}.bake.pc2").iter_frames(path))
+    rest, last = np.asarray(data[0], np.float64), np.asarray(data[-1], np.float64)
+    edges = np.array([tuple(e.vertices) for e in sheet.data.edges])
+    strain = np.linalg.norm(last[edges[:, 0]] - last[edges[:, 1]], axis=1) / \
+        np.linalg.norm(rest[edges[:, 0]] - rest[edges[:, 1]], axis=1) - 1.0
+    z = np.array([0.5 * (world[a].z + world[b].z) for a, b in edges])
+    meta = importlib.import_module(f"{M}.bake.cache_metadata")
+    recorded = json.loads(meta.sidecar_path(path).read_text())["details"]["aether"]["material_zones"]
+    r.update(playback_error=err, pc2_frames=frames, zone_max_strain=round(float(strain[z < 1.0].max()), 4),
+             base_max_strain=round(float(strain[z > 1.0].max()), 4), sidecar_zones=recorded)
+    r["ok"] = (r["state"] == "FINISHED" and frames == 36 and err < 1e-5
+               and r["zone_max_strain"] > 3.0 * r["base_max_strain"] and len(recorded) == 1
+               and recorded[0]["triangles"] > 0)
+    return r
+
+
 @scenario("attachments")
 def s_attachments(out: Path):
     """Cloth -> animated Collider and Cloth -> Cloth Object Attachments."""
