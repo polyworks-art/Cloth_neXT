@@ -18,6 +18,7 @@ No ``bpy`` access ever happens on another thread.
 """
 from __future__ import annotations
 
+import os
 import time
 
 import bpy
@@ -28,6 +29,8 @@ from . import aether_engine_backend as backend
 
 LIVE_MARK = "cloth_next_aether_live"
 TICK_SECONDS = 1.0 / 60.0
+PANEL_REDRAW_SECONDS = 0.25          # the status line; the 3D views redraw on every new frame
+PROFILE = bool(os.environ.get("CLOTH_NEXT_AETHER_LIVE_PROFILE"))
 
 _session: "LiveSession | None" = None
 
@@ -56,6 +59,12 @@ class LiveSession:
         self.message = ""
         self.frames_shown = 0
         self.started = time.monotonic()
+        self.targets: list = []              # per preview: (mesh name, local 3x4 float32 or None, buffer)
+        self.profile: dict = {}
+        self._panel_redraw = 0.0
+        self._last_write = -1
+        self.drew = False
+        self._event_timer = None
         try:
             request = prep.request()
             self.engine = aclient.EngineProcess.start(status.identity.path)
@@ -105,6 +114,21 @@ class LiveSession:
         if len(mesh.vertices) != len(rest_local):
             raise backend.AetherSceneError(f"{original.name}: the preview mesh does not match the simulation",
                                            "CNX-E176")
+        # The preview is rewritten up to 30 times a second. Custom split normals (Marvelous
+        # exports carry them) and sharp edges make Blender compute corner normals on every
+        # update; the preview is shaded with plain vertex normals instead (measured on NEON).
+        # Every other generic attribute (selection, tool data) is copied on each evaluation
+        # too; the preview keeps only its positions, topology, UV maps and material indices.
+        keep = {"position", "material_index"} | {uv.name for uv in mesh.uv_layers}
+        drop = [a.name for a in mesh.attributes
+                if (a.name not in keep and not a.name.startswith(".")) or a.name.startswith((".select", ".uv_select"))]
+        for name in drop:
+            attribute = mesh.attributes.get(name)
+            try:
+                if attribute is not None:
+                    mesh.attributes.remove(attribute)
+            except RuntimeError:     # attributes Blender requires cannot be removed
+                pass
         mesh.vertices.foreach_set("co", rest_local.reshape(-1))
         mesh.update()
         preview = bpy.data.objects.new(f"{original.name} · AETHER Live", mesh)
@@ -118,7 +142,11 @@ class LiveSession:
             collection.objects.link(preview)
         self.hidden.append((original.name, bool(original.hide_get())))
         original.hide_set(True)
-        self.previews.append((original.name, preview.name, np.linalg.inv(matrix)))
+        inv = np.linalg.inv(matrix)
+        self.previews.append((original.name, preview.name, inv))
+        identity = np.allclose(inv, np.eye(4), atol=0.0, rtol=0.0)
+        self.targets.append((mesh.name, None if identity else inv[:3].astype(np.float32),
+                             np.empty((len(rest_local), 3), np.float32)))
 
     def _remove_previews(self) -> None:
         for _original, preview_name, _inv in self.previews:
@@ -151,10 +179,31 @@ class LiveSession:
     def play(self) -> None:
         self.command("run", {"realtime": True})
         self.paused = False
+        self._wake(True)
 
     def pause(self) -> None:
         self.command("pause")
         self.paused = True
+        self._wake(False)
+
+    def _wake(self, on: bool) -> None:
+        """While running, a window event timer keeps Blender's event loop from idling.
+
+        Without pending events the loop sleeps about 5 ms between the Live timer and the
+        redraw it tagged (measured on NEON: 23.5 instead of 25+ updates per second).
+        """
+        wm = getattr(bpy.context, "window_manager", None)
+        if wm is None:
+            return
+        if self._event_timer is not None:
+            try:
+                wm.event_timer_remove(self._event_timer)
+            except (ReferenceError, ValueError, RuntimeError):
+                pass
+            self._event_timer = None
+        window = getattr(bpy.context, "window", None) or next(iter(wm.windows), None)
+        if on and window is not None:
+            self._event_timer = wm.event_timer_add(1.0 / 120.0, window=window)
 
     def reset(self) -> None:
         self.pause()
@@ -162,6 +211,7 @@ class LiveSession:
         self.last_frame_seen = -1
 
     def stop(self) -> None:
+        self._wake(False)
         engine = self.engine
         self.engine = None
         if engine is not None:
@@ -191,18 +241,35 @@ class LiveSession:
         if scene.frame_current != self.last_timeline:
             self.last_timeline = scene.frame_current
             self._send_inputs()
+        self.drew = False
+        writes = self.session.frames.write_count
+        if writes == self._last_write:
+            return True                      # no new frame since the last tick
+        self._last_write = writes
+        t0 = time.perf_counter()
         got = self.session.frames.latest()
+        t1 = time.perf_counter()
         if got is not None and got[0] != self.last_frame_seen:
             frame, world, _t = got
             self.last_frame_seen = frame
-            for (original, preview_name, inv), (offset, n) in zip(self.previews, self.offsets):
-                preview = bpy.data.objects.get(preview_name)
-                if preview is None:
+            for (mesh_name, local, buf), (offset, n) in zip(self.targets, self.offsets):
+                mesh = bpy.data.meshes.get(mesh_name)
+                if mesh is None or len(mesh.vertices) != n:
                     return False
-                local = world[offset:offset + n].astype(np.float64) @ inv[:3, :3].T + inv[:3, 3]
-                preview.data.vertices.foreach_set("co", local.astype(np.float32).reshape(-1))
-                preview.data.update()
+                part = world[offset:offset + n]
+                if local is None:
+                    buf[...] = part
+                else:                        # single precision: the preview only displays the frame
+                    np.matmul(part, local[:, :3].T, out=buf)
+                    buf += local[:, 3]
+                # vertices.co, not attributes["position"]: the attribute API sends a geometry
+                # notifier that redraws every Properties editor on each frame (measured).
+                mesh.vertices.foreach_set("co", buf.reshape(-1))
+                mesh.update_tag()
             self.frames_shown += 1
+            self.drew = True
+            if PROFILE:
+                self.profile = {"read_ms": (t1 - t0) * 1000.0, "write_ms": (time.perf_counter() - t1) * 1000.0}
         return True
 
     def _send_inputs(self) -> None:
@@ -285,8 +352,27 @@ def _timer():
         if message:
             print(f"Cloth NeXt AETHER Live: {message}")
         return None
-    backend._tag_redraw()
+    _redraw(s)
     return TICK_SECONDS
+
+
+def _redraw(s: LiveSession) -> None:
+    """3D views on every new frame; the panels (status line) a few times a second."""
+    now = time.monotonic()
+    panels = now - s._panel_redraw >= PANEL_REDRAW_SECONDS
+    if panels:
+        s._panel_redraw = now
+    if not (s.drew or panels):
+        return
+    for window in getattr(getattr(bpy.context, "window_manager", None), "windows", ()):
+        for area in getattr(getattr(window, "screen", None), "areas", ()):
+            if area.type == "VIEW_3D" and s.drew:
+                # only the 3D region: headers, toolbars and the sidebar are unchanged
+                for region in area.regions:
+                    if region.type == "WINDOW":
+                        region.tag_redraw()
+            elif area.type == "PROPERTIES" and panels:
+                area.tag_redraw()
 
 
 def start(context) -> LiveSession:
