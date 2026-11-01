@@ -141,6 +141,10 @@ for edge-edge pairs, and a cheaper treatment of skinned colliders. NEON (static)
 
 ## D. Neck overlap
 
+> **Corrected in Milestone 5.2** ([AETHER_ANIMATED_CHARACTER_REPORT.md](AETHER_ANIMATED_CHARACTER_REPORT.md)): the neck
+> edges were the same engine mechanism as section C (cloth edges across smooth collider edges without a signed
+> contact). With signed collider edge contacts the neck shows 0 edges; the conclusion below is superseded.
+
 The MetaHuman head and body meshes interpenetrate at the neck (553 head vertices behind the body surface).
 `neck_prepare.py` builds a NEON copy whose head Collider is a copy of the head without those faces (the original head
 still renders). Results (Fitting):
