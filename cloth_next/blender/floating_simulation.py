@@ -691,6 +691,8 @@ def _draw_aether_menu(layout, context) -> None:
         layout.operator("clothnext.aether_live_toggle_pause",
                         text="Resume Live" if aether_engine_live.is_paused() else "Pause Live")
         layout.operator("clothnext.aether_live_reset", text="Reset Live")
+        layout.operator_context = "INVOKE_DEFAULT"
+        layout.operator("clothnext.aether_live_grab", text="Grab Cloth")
         layout.operator("clothnext.aether_live_stop", text="Stop Live")
     else:
         row = layout.row()

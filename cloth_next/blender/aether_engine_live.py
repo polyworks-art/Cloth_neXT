@@ -302,6 +302,44 @@ class LiveSession:
         if inputs:
             self.command("set_inputs", inputs)
 
+    # -------------------------------------------------- interactive grab (main thread)
+    def preview_hit(self, obj, polygon: int):
+        """(cloth index, local vertex indices) of a preview face, or None."""
+        names = [p for _o, p, _i in self.previews]
+        if obj is None or obj.name not in names:
+            return None
+        cloth = names.index(obj.name)
+        mesh = obj.data
+        if not 0 <= polygon < len(mesh.polygons):
+            return None
+        return cloth, list(mesh.polygons[polygon].vertices)
+
+    def grab(self, cloth: int, vertices: list, targets: np.ndarray, stiffness: float) -> tuple[list, list]:
+        """Compliant runtime pins on the grabbed vertices: (engine ids, indices into vertices)."""
+        taken = set(self.prep.cloths[cloth].registered.tolist()) | set(self.prep.cloths[cloth].pin_vertices.tolist())
+        for a in self.prep.attachments:
+            if a["cloth"] == cloth:
+                taken |= set(a["vertices"].tolist())
+        kept = [k for k, v in enumerate(vertices) if int(v) not in taken]   # pins and attachments win
+        adds = [{"cloth": cloth, "vertex": int(vertices[k]), "stiffness": float(stiffness),
+                 "target": aclient.f32(targets[k])} for k in kept]
+        if not adds:
+            return [], []
+        try:
+            reply = self.engine.request("set_inputs", {"pin_add": adds}, timeout=10)
+        except (aclient.EngineError, aclient.EngineGone, TimeoutError) as exc:
+            self.message = str(exc)
+            return [], []
+        return [int(i) for i in (reply.get("created") or {}).get("pin_ids", [])], kept
+
+    def move_grab(self, ids: list, targets: np.ndarray) -> None:
+        if ids:
+            self.command("set_inputs", {"pin_targets": {"ids": aclient.i32(ids), "targets": aclient.f32(targets)}})
+
+    def release(self, ids: list) -> None:
+        if ids:
+            self.command("set_inputs", {"pin_remove": {"ids": aclient.i32(ids), "release": "keep"}})
+
     def _drain_events(self) -> None:
         while True:
             try:
@@ -474,6 +512,85 @@ class CLOTHNEXT_OT_aether_live_reset(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class CLOTHNEXT_OT_aether_live_grab(bpy.types.Operator):
+    """Pull the cloth with the mouse while the Live Simulation runs (like grabbing in Marvelous)."""
+    bl_idname = "clothnext.aether_live_grab"
+    bl_label = "Grab Cloth"
+    bl_description = ("Drag the cloth of the Live Simulation with the left mouse button. The grabbed point follows "
+                      "the mouse in the view plane and is released when you let go. Right-click or Esc ends")
+    bl_options = {"REGISTER"}
+
+    strength: bpy.props.FloatProperty(name="Strength", default=1.0, min=0.01, max=10.0,
+                                      description="Pull strength (1 = ten times the cloth's membrane stiffness)")
+
+    @classmethod
+    def poll(cls, context):
+        return _session is not None and context.area is not None and context.area.type == "VIEW_3D"
+
+    def invoke(self, context, event):
+        if _session is None:
+            return {"CANCELLED"}
+        self.ids, self.offsets, self.depth = [], None, None
+        context.window.cursor_modal_set("HAND")
+        context.area.header_text_set("Grab Cloth: drag with the left mouse button · Right-click or Esc: done")
+        context.window_manager.modal_handler_add(self)
+        return {"RUNNING_MODAL"}
+
+    def _ray(self, context, event):
+        from bpy_extras import view3d_utils
+        region, rv3d = context.region, context.region_data
+        coord = (event.mouse_region_x, event.mouse_region_y)
+        origin = view3d_utils.region_2d_to_origin_3d(region, rv3d, coord)
+        direction = view3d_utils.region_2d_to_vector_3d(region, rv3d, coord)
+        hit, location, _normal, polygon, obj, _matrix = context.scene.ray_cast(
+            context.evaluated_depsgraph_get(), origin, direction)
+        return (location, polygon, obj) if hit else None
+
+    def _mouse_point(self, context, event):
+        from bpy_extras import view3d_utils
+        return np.array(view3d_utils.region_2d_to_location_3d(
+            context.region, context.region_data, (event.mouse_region_x, event.mouse_region_y), self.depth))
+
+    def _finish(self, context):
+        if _session is not None:
+            _session.release(self.ids)
+        self.ids = []
+        context.window.cursor_modal_restore()
+        context.area.header_text_set(None)
+        return {"FINISHED"}
+
+    def modal(self, context, event):
+        if _session is None or context.area is None:
+            return self._finish(context) if context.area is not None else {"CANCELLED"}
+        if event.type in {"RIGHTMOUSE", "ESC"} and event.value == "PRESS":
+            return self._finish(context)
+        if event.type == "LEFTMOUSE" and event.value == "PRESS":
+            found = self._ray(context, event)
+            hit = _session.preview_hit(found[2].original if found else None, found[1] if found else -1)
+            if hit is None:
+                return {"RUNNING_MODAL"}
+            cloth, vertices = hit
+            preview = bpy.data.objects[_session.previews[cloth][1]]
+            matrix = np.array(preview.matrix_world)
+            local = np.array([preview.data.vertices[v].co[:] for v in vertices])
+            world = local @ matrix[:3, :3].T + matrix[:3, 3]
+            self.depth = found[0]
+            self.offsets = world - np.array(found[0])
+            stiffness = backend.pin_stiffness(self.strength, _session.prep.cloths[cloth].material)
+            self.ids, kept = _session.grab(cloth, vertices, world.astype(np.float32), stiffness)
+            self.offsets = self.offsets[kept]
+            return {"RUNNING_MODAL"}
+        if event.type == "MOUSEMOVE" and self.ids:
+            point = self._mouse_point(context, event)
+            _session.move_grab(self.ids, (point + self.offsets).astype(np.float32))
+            return {"RUNNING_MODAL"}
+        if event.type == "LEFTMOUSE" and event.value == "RELEASE" and self.ids:
+            _session.release(self.ids)
+            self.ids = []
+            return {"RUNNING_MODAL"}
+        return {"PASS_THROUGH"}
+
+
 class CLOTHNEXT_OT_aether_live_stop(bpy.types.Operator):
     bl_idname = "clothnext.aether_live_stop"
     bl_label = "Stop Live Simulation"
@@ -490,7 +607,7 @@ class CLOTHNEXT_OT_aether_live_stop(bpy.types.Operator):
 
 
 CLASSES = (CLOTHNEXT_OT_aether_live_start, CLOTHNEXT_OT_aether_live_toggle_pause,
-           CLOTHNEXT_OT_aether_live_reset, CLOTHNEXT_OT_aether_live_stop)
+           CLOTHNEXT_OT_aether_live_reset, CLOTHNEXT_OT_aether_live_grab, CLOTHNEXT_OT_aether_live_stop)
 
 
 def _on_load_pre(*_args):
@@ -500,14 +617,28 @@ def _on_load_pre(*_args):
 _on_load_pre = getattr(getattr(bpy.app, "handlers", None), "persistent", lambda f: f)(_on_load_pre)
 
 
+_keymap_items: list = []
+
+
 def register_handlers() -> None:
     handlers = getattr(getattr(bpy.app, "handlers", None), "load_pre", None)
     if handlers is not None and _on_load_pre not in handlers:
         handlers.append(_on_load_pre)
+    kc = getattr(getattr(getattr(bpy.context, "window_manager", None), "keyconfigs", None), "addon", None)
+    if kc is not None and not _keymap_items:
+        km = kc.keymaps.new(name="3D View", space_type="VIEW_3D")
+        _keymap_items.append((km, km.keymap_items.new(CLOTHNEXT_OT_aether_live_grab.bl_idname, "G", "PRESS",
+                                                      ctrl=True, shift=True)))
 
 
 def shutdown() -> None:
     stop()
+    for km, item in _keymap_items:
+        try:
+            km.keymap_items.remove(item)
+        except (ReferenceError, RuntimeError):
+            pass
+    _keymap_items.clear()
     handlers = getattr(getattr(bpy.app, "handlers", None), "load_pre", None)
     if handlers is not None and _on_load_pre in handlers:
         handlers.remove(_on_load_pre)
