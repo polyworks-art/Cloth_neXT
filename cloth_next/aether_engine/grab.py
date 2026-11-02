@@ -25,7 +25,8 @@ HARD_CAP = float(__import__("os").environ.get("CLOTH_NEXT_GRAB_HARD_CAP", "2.0")
 CREEP = float(__import__("os").environ.get("CLOTH_NEXT_GRAB_CREEP", "0.005"))   # m
 # Only an overstretch that lasts brakes the grab: during a fast drag the cloth lags behind for a moment
 # and its stretch spikes past the cap. Braking on those spikes made fast pulls stiff and slow pulls
-# fluid (Tim: "like a non-Newtonian fluid").
+# fluid (Tim: "like a non-Newtonian fluid"). Past HARD_CAP it brakes at once (without that, a fast lift
+# stretched the ball sheet to 1.8 m like rubber, and it fell back slowly).
 SUSTAIN = float(__import__("os").environ.get("CLOTH_NEXT_GRAB_SUSTAIN", "0.4"))   # s
 
 
@@ -75,8 +76,9 @@ class GrabCap:
             self.over_since = None
         elif self.over_since is None:
             self.over_since = now
-        if (self.target is None or self.over_since is None or now - self.over_since < SUSTAIN
-                or not len(self.ring)):
+        hard = self.cap * HARD_CAP / STRETCH_CAP
+        if (self.target is None or self.over_since is None or not len(self.ring)
+                or (now - self.over_since < SUSTAIN and stretch <= hard)):
             self.target = proposed
             return proposed
         anchor = np.asarray(positions, np.float64)[self.ring].mean(0)
