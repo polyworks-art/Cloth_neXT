@@ -33,6 +33,11 @@ MAPPING_VERSION = 2
 LBF_IN2_TO_NM2 = 4.4482216152605 * 0.0254 ** 2   # 1 lbf in^2 in N m^2
 PPF_BEND_CALIBRATION = 14.3491                    # docs/MATERIAL_LIBRARY.md
 FRICTION_SCALE = 0.5                              # surface_grip -> coefficient (as for PPF)
+# Rayleigh damping [s] every AETHER cloth gets at least: fabric loses energy when it bends and
+# stretches, and without it AETHER's cloth kept swinging and wobbling where Marvelous falls calm and
+# heavy. 0.005 s matched Marvelous best on the black-box sphere drape (RMS to MD 102 vs 116 mm at
+# frame 30; 0.02 s already fell too slowly). Higher Shape / Fold Damping values are used as set.
+MIN_DAMPING = 0.005
 MIN_HALF_GAP = 1.0e-4                             # m; AETHER needs a positive contact gap
 # Measured (tools/aether_material_calibration.py, clamped cantilever, small
 # deflection): AETHER's discrete dihedral bending is 1.5-1.9x stiffer than the
@@ -103,9 +108,10 @@ FIELD_MAPPINGS = {
     "sideways_response": ("EXACT", "Poisson ratio."),
     "bend_resistance": ("APPROXIMATE", "Bending stiffness from the measured-bending calibration "
                                        "(N·m); dihedral discretization differs from PPF."),
-    "stretch_limit": ("APPROXIMATE", "Engine strain limit (API 1.3): a penalty plus a projection per substep keep "
-                                     "the principal stretch near the limit (a hard pull can pass it locally). "
-                                     "CLOTH_NEXT_AETHER_STRAIN_LIMIT=0 bakes without it (reported)."),
+    "stretch_limit": ("APPROXIMATE", "Enforced in the Live Simulation (engine strain limit, API 1.3: a penalty "
+                                     "plus a projection per substep). Bakes run without it and report it: with the "
+                                     "limit, animated characters got slower and intersected (NEON). "
+                                     "CLOTH_NEXT_AETHER_STRAIN_LIMIT=1 / 0 forces it on / off everywhere."),
     "shape_damping": ("APPROXIMATE", "Rayleigh membrane damping in seconds."),
     "fold_damping": ("APPROXIMATE", "Rayleigh bending damping in seconds."),
     "surface_grip": ("APPROXIMATE", "Coulomb coefficient = grip × 0.5; colliders use the cloth's value."),
@@ -137,29 +143,36 @@ def unsupported_controls(material) -> list[str]:
     return found
 
 
-def strain_limit_enabled() -> bool:
-    """Stretch Limit is enforced by the engine (API 1.3); CLOTH_NEXT_AETHER_STRAIN_LIMIT=0 switches it off."""
+def strain_limit_enabled(live: bool = False) -> bool:
+    """Stretch Limit is enforced in the Live Simulation, not in bakes.
+
+    With the limit, animated NEON bakes ran 2.5x slower and intersected the body (Normal), so bakes run
+    without it for now; the Live Simulation, where the artist pulls the cloth, keeps it.
+    CLOTH_NEXT_AETHER_STRAIN_LIMIT=1 / 0 forces it on / off for both."""
     import os
-    return os.environ.get("CLOTH_NEXT_AETHER_STRAIN_LIMIT") != "0"
+    forced = os.environ.get("CLOTH_NEXT_AETHER_STRAIN_LIMIT")
+    if forced in {"0", "1"}:
+        return forced == "1"
+    return live
 
 
-def not_enforced(material) -> list[str]:
+def not_enforced(material, live: bool = False) -> list[str]:
     """Active controls the AETHER Engine bakes without enforcing them.
 
     Reported to the artist on the panel, in the bake result and in the cache
     sidecar; never presented as exact. Stretch Limit is enabled in almost every
     bundled preset, so refusing it would refuse nearly every garment."""
     found = []
-    if getattr(material, "stretch_limit_enabled", False) and not strain_limit_enabled():
+    if getattr(material, "stretch_limit_enabled", False) and not strain_limit_enabled(live):
         found.append(f"Stretch Limit {float(getattr(material, 'maximum_stretch_percent', 0.0)):g} % "
-                     "(not enforced: switched off with CLOTH_NEXT_AETHER_STRAIN_LIMIT=0; stretch follows the "
+                     "(not enforced in AETHER bakes, only in the Live Simulation; stretch follows the "
                      "membrane stiffness)")
     return found
 
 
-def strain_limit(material) -> float:
-    """Stretch Limit as the engine's strain limit (0 = off, also when switched off by the environment)."""
-    if not getattr(material, "stretch_limit_enabled", False) or not strain_limit_enabled():
+def strain_limit(material, live: bool = False) -> float:
+    """Stretch Limit as the engine's strain limit (0 = off, in bakes or when switched off)."""
+    if not getattr(material, "stretch_limit_enabled", False) or not strain_limit_enabled(live):
         return 0.0
     percent = _finite("Maximum Stretch", getattr(material, "maximum_stretch_percent", 0.0))
     if percent <= 0.0:
@@ -180,7 +193,7 @@ def _finite(name: str, value: float) -> float:
     return value
 
 
-def map_material(material) -> AetherMaterial:
+def map_material(material, live: bool = False) -> AetherMaterial:
     """Physical AETHER material for one ShellMaterialSettings. Raises UnsupportedMaterial."""
     missing = unsupported_controls(material)
     if missing:
@@ -196,10 +209,10 @@ def map_material(material) -> AetherMaterial:
     gap = _finite("Collision Gap", material.collision_gap)
     return AetherMaterial(
         density=density, youngs=youngs, poisson=poisson, shear_scale=1.0, bend=bend,
-        stretch_damping=max(0.0, _finite("Shape Damping", material.shape_damping)),
-        bend_damping=max(0.0, _finite("Fold Damping", material.fold_damping)),
+        stretch_damping=max(MIN_DAMPING, _finite("Shape Damping", material.shape_damping)),
+        bend_damping=max(MIN_DAMPING, _finite("Fold Damping", material.fold_damping)),
         friction=max(0.0, _finite("Surface Grip", material.surface_grip)) * FRICTION_SCALE,
-        thickness=max(MIN_HALF_GAP, 0.5 * gap), strain_limit=strain_limit(material))
+        thickness=max(MIN_HALF_GAP, 0.5 * gap), strain_limit=strain_limit(material, live))
 
 
 def seam_stiffness(strength: float, a: AetherMaterial, b: AetherMaterial) -> float:

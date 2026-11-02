@@ -59,18 +59,32 @@ def test_measured_bending_presets_map_to_their_measurement():
 
 def test_stretch_limit_switched_off_is_reported_not_enforced(monkeypatch):
     monkeypatch.setenv("CLOTH_NEXT_AETHER_STRAIN_LIMIT", "0")
+    assert materials.map_material(ShellMaterialSettings(stretch_limit_enabled=True, maximum_stretch_percent=4.0),
+                                  live=True).strain_limit == 0.0
     m = ShellMaterialSettings(stretch_limit_enabled=True, maximum_stretch_percent=4.0)
     assert materials.map_material(m).strain_limit == 0.0          # baked without it
     assert materials.not_enforced(m) and "not enforced" in materials.not_enforced(m)[0]
 
 
-def test_stretch_limit_enforced_by_default(monkeypatch):
+def test_stretch_limit_enforced_in_live_not_in_bakes(monkeypatch):
     monkeypatch.delenv("CLOTH_NEXT_AETHER_STRAIN_LIMIT", raising=False)
     m = ShellMaterialSettings(stretch_limit_enabled=True, maximum_stretch_percent=4.0)
-    mapped = materials.map_material(m)
+    mapped = materials.map_material(m, live=True)
     assert mapped.strain_limit == pytest.approx(0.04)
     assert mapped.as_protocol()["strain_limit"] == pytest.approx(0.04)
-    assert materials.not_enforced(m) == []
+    assert materials.not_enforced(m, live=True) == []
+    assert materials.map_material(m).strain_limit == 0.0          # bakes run without it (reported)
+    assert materials.not_enforced(m) and "not enforced" in materials.not_enforced(m)[0]
+    monkeypatch.setenv("CLOTH_NEXT_AETHER_STRAIN_LIMIT", "1")
+    assert materials.map_material(m).strain_limit == pytest.approx(0.04)
+
+
+def test_minimum_damping_calms_cloth():
+    m = materials.map_material(ShellMaterialSettings(shape_damping=0.0, fold_damping=0.0))
+    assert m.stretch_damping == pytest.approx(materials.MIN_DAMPING)
+    assert m.bend_damping == pytest.approx(materials.MIN_DAMPING)
+    m = materials.map_material(ShellMaterialSettings(shape_damping=0.05, fold_damping=0.02))
+    assert m.stretch_damping == pytest.approx(0.05) and m.bend_damping == pytest.approx(0.02)
     off = materials.map_material(ShellMaterialSettings(stretch_limit_enabled=False, maximum_stretch_percent=4.0))
     assert off.strain_limit == 0.0 and "strain_limit" not in off.as_protocol()
 

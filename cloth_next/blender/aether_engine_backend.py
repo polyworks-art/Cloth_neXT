@@ -284,7 +284,7 @@ def _from_frame(local: np.ndarray, corners: np.ndarray) -> np.ndarray:
     return np.einsum("pij,pi->pj", _frames(corners), local)
 
 
-def _material_zones(obj, shell, depsgraph, triangle_count: int):
+def _material_zones(obj, shell, depsgraph, triangle_count: int, live: bool = False):
     """Enabled Material Zones as AETHER materials and the zone (1..) of each evaluated triangle.
 
     A zone's material is the cloth's material with the zone's overrides; faces
@@ -309,7 +309,7 @@ def _material_zones(obj, shell, depsgraph, triangle_count: int):
             raise AetherSceneError(f"{obj.name}, Material Zone {zone.name}: {', '.join(unknown)} is not supported "
                                    "by the AETHER Engine", "CNX-E104")
         try:
-            material = amat.map_material(replace(shell, **fields))
+            material = amat.map_material(replace(shell, **fields), live=live)
         except amat.UnsupportedMaterial as exc:
             raise AetherSceneError(f"{obj.name}, Material Zone {zone.name}: {exc}", "CNX-E104") from exc
         zones.append((zone.name, material))
@@ -405,7 +405,7 @@ class AetherPreparation:
                 if not np.isfinite(world).all():
                     raise AetherSceneError(f"{obj.name}: non-finite vertex coordinates", "CNX-E109")
                 try:
-                    material = amat.map_material(entry.material)
+                    material = amat.map_material(entry.material, live=live)
                 except amat.UnsupportedMaterial as exc:
                     raise AetherSceneError(f"{obj.name}: {exc}", "CNX-E104") from exc
                 pins = entry.pin_membership
@@ -423,9 +423,9 @@ class AetherPreparation:
                     else:
                         pin_vertices = indices
                         stiffness = 0.0 if hard else pin_stiffness(pins.pull_strength, material)
-                for note in amat.not_enforced(entry.material):
+                for note in amat.not_enforced(entry.material, live=live):
                     self.notes.append(f"{obj.name}: {note}")
-                zones, triangle_zones = _material_zones(obj, entry.material, depsgraph, len(tris) // 3)
+                zones, triangle_zones = _material_zones(obj, entry.material, depsgraph, len(tris) // 3, live=live)
                 # GAIA look: bending scaled for this mesh resolution (see materials.gaia_bending_factor)
                 t3 = tris.reshape(-1, 3)
                 edges = np.concatenate([world[t3[:, 1]] - world[t3[:, 0]], world[t3[:, 2]] - world[t3[:, 1]]])
