@@ -5,7 +5,7 @@ version change or deployment. GAIA unchanged.
 
 | component | Milestone 5.3 | this pass |
 |---|---|---|
-| AETHER Engine | `010740b` (build `1339fe67b78d7686`, API 1.2) | `98a1178` (**API 1.3**, host protocol 1) |
+| AETHER Engine | `010740b` (build `1339fe67b78d7686`, API 1.2) | `2b68a09` (**API 1.3**, host protocol 1) |
 | Cloth NeXt | `0eab4fb` | `e9deb1e` + this report |
 
 The goal was "AETHER must feel like real Marvelous cloth". This pass adds three things:
@@ -253,6 +253,46 @@ against 1.003 without limits. A soft penalty (3) fixes NEON but fails the `strai
 stays off in Cloth NeXt.
 
 Correction: `14ffd37` was reported green on a stale test binary. `ba7278a` reverted it.
+
+## 3d. The vest as stiff as in GAIA (engine `2b68a09`, default)
+
+Cloth-cloth contacts now keep half the gap in two cases, and the full gap otherwise:
+
+* between different cloths;
+* within one cloth, when the pair moves less than half the gap relative to each other over the substep.
+
+Exceptions:
+
+* Hard pins and their 2 rings keep the full gap (`pin_rings`), because the CCD may revert a pin to its substep start.
+* Making pins kinematic in the CCD instead was tried in three variants. Each broke the pinned fold swept by a ball, or
+  the untangling, so the CCD is unchanged.
+* A sleeve pinched by a bending elbow keeps the full gap and stays intact.
+
+**Vest deformation over the bake (Blender, static NEON, Fitting):**
+
+| | median | p95 | max |
+|---|---|---|---|
+| GAIA | 0.37 mm | 0.83 mm | 2.2 mm |
+| AETHER this morning | 1.99 mm | 10.9 mm | 17.7 mm |
+| AETHER now | 0.47 mm | 1.05 mm | 2.5 mm |
+
+Frame-to-frame jitter of all three garments is below 0.002 mm.
+
+![GAIA / AETHER before / AETHER now](aether_production/neon_vest_gaia_before_now.png)
+
+**Blender regression with the staged engine:**
+
+| scene | ms per frame | before |
+|---|---|---|
+| ball | 8.6 / 15.7 | |
+| static NEON | 12.6 / 18.9 / 24.5 | 13.3 / 19.6 / 26.1 |
+| animated NEON | 111 / 127 / 141 | 112 / 135 / 155 |
+
+* 0 intersections in every scene;
+* largest stretch in animated NEON 1.69x / 1.76x / 1.41x;
+* kill + resume byte-identical.
+
+Engine tests 37/37 after a full rebuild, host 10/10.
 
 ## 4. Strain limiting (engine API 1.3, experimental in Cloth NeXt)
 
