@@ -107,6 +107,13 @@ def _logger():
             handler=logging.NullHandler()
         handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
         logger.addHandler(handler); logger.setLevel(logging.INFO)
+        # Account window and PolyWorks service log through their module loggers;
+        # without this their warnings (e.g. why the service counted as offline)
+        # never reached companion.log.
+        for name in ("companion.account_window","cloth_next.polyworks"):
+            child=logging.getLogger(name)
+            if handler not in child.handlers:
+                child.addHandler(handler); child.setLevel(logging.INFO)
     return logger
 
 LOG=_logger()

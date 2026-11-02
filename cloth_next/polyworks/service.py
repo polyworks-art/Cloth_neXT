@@ -132,6 +132,13 @@ class AccountService:
 
     # Error bookkeeping ---------------------------------------------------------
     def _offline(self, state: dict, exc: ApiError) -> ServiceError:
+        # Never log arguments or bodies; the code, HTTP status and the low-level
+        # cause (DNS, TLS, timeout, ...) are what tells a real outage from a bug.
+        cause = exc.__cause__
+        LOG.warning("PolyWorks service %s: code=%s status=%s request_id=%s cause=%s",
+                    "error" if exc.status else "unreachable", exc.code, exc.status or "-",
+                    exc.request_id or "-",
+                    f"{type(cause).__name__}: {str(cause)[:160]}" if cause else "-")
         now = self.clock()
         connection = state["connection"]
         step = connection["retry_step"]
@@ -170,11 +177,26 @@ class AccountService:
             return self._session_dead(state)
         return ServiceError(exc.code, request_id=exc.request_id, retry_after=exc.retry_after)
 
-    def _online(self, state: dict) -> None:
+    def _online(self, state: dict, *, checked_in: bool = False) -> None:
+        """A request succeeded. Only a full refresh (``checked_in``) moves the
+        next licence check-in out by CHECK_IN_INTERVAL; any other successful
+        call (GAIA access, devices, ...) must not postpone it, and after an
+        offline phase it makes the pending check-in due right away."""
         now = self.clock()
-        state["connection"].update(online=True, last_success_at=utc_now_iso(now),
-                                   last_attempt_at=utc_now_iso(now), last_error=None,
-                                   next_check_at=utc_now_iso(now + CHECK_IN_INTERVAL), retry_step=0)
+        connection = state["connection"]
+        if checked_in:
+            next_check = utc_now_iso(now + CHECK_IN_INTERVAL)
+        elif connection["online"] is not True or connection["next_check_at"] is None:
+            next_check = utc_now_iso(now)
+        else:
+            next_check = connection["next_check_at"]
+        connection.update(online=True, last_success_at=utc_now_iso(now),
+                          last_attempt_at=utc_now_iso(now), last_error=None,
+                          next_check_at=next_check, retry_step=0)
+        # An authenticated request succeeded, so the session is confirmed again.
+        account = state["account"]
+        if account["signed_in"] and account["session"] == "unverified":
+            account["session"] = "active"
 
     # Sign-in -------------------------------------------------------------------------
     def start_device_link(self) -> DeviceLink:
@@ -270,7 +292,7 @@ class AccountService:
         state["account"].update(signed_in=True, session="active", email=account["email"],
                                 email_verified=account["email_verified"])
         state["licenses"] = licenses
-        self._online(state)
+        self._online(state, checked_in=True)
         entitlement = self.store.read_entitlement()
         if check_in and entitlement:
             self._check_in(state, token, entitlement)

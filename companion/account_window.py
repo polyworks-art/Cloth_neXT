@@ -33,6 +33,13 @@ from companion.onboarding_window import (BG, LINE, MUTED, ONBOARDING_FONT as FON
                                          WHITE as FG, InfoWindow, _register_onboarding_fonts)
 
 LOG = logging.getLogger(__name__)
+
+# Closed windows and trays stay referenced for the rest of the process. A worker
+# thread that is still waiting on the network holds the object through its
+# closure; if that worker dropped the last reference, the Tk interpreter would
+# be deleted from the wrong thread and Tcl aborts the whole process
+# (Tcl_Panic "Tcl_AsyncDelete: async handler deleted by the wrong thread").
+_RETIRED: list = []
 # Results that leave everything working: shown as a notice, not as an error.
 SOFT_ERRORS = frozenset({"authorization_pending", "network_unavailable", "service_unavailable",
                          "server_error", "rate_limited"})
@@ -875,6 +882,7 @@ class AccountWindow:
         if self.closed:
             return
         self.closed = True
+        _RETIRED.append(self)
         self.link = None
         for identifier in self._after:
             try:
@@ -1030,6 +1038,7 @@ class AccountTray:
         if self.closed:
             return
         self.closed = True
+        _RETIRED.append(self)
         if self.window is not None:
             self.window.close()
         self.icon.stop()
