@@ -163,7 +163,7 @@ def _aether_live_running():
 
 # AETHER main button: hold and pull right to choose Live or Bake (option pills right of the button)
 _MODE_OPTIONS = (("LIVE", "LIVE"), ("BAKE", "BAKE"))
-_MODE_PILL = 64          # option pill width (layout units)
+_MODE_PILL = 52          # option pill width (layout units)
 _MODE_GAP = 6
 _MODE_OPEN_PULL = 10     # pixels (layout units) of pull before the options appear
 
@@ -466,11 +466,10 @@ def _draw():
                 blf, "CANCEL", x+bake_x*s, y+23*s-1.5*(s/_LAYOUT_SCALE),
                 82*s, round(14*s), _TEXT if snapshot.can_cancel else _MUTED)
         elif aether_live and _aether_live_running():
-            _centered_label(blf, "■ STOP", x+bake_x*s, y+23*s-1.5*(s/_LAYOUT_SCALE),
-                            82*s, round(14*s), _TEXT)
+            # stop: a rounded white square
+            _rounded(shader, batch_for_shader, x+(bake_x+33)*s, y+19*s, 16*s, 16*s, 3*s, _TEXT)
         elif aether_live and quality.live:
-            _centered_label(blf, "▶ LIVE", x+bake_x*s, y+23*s-1.5*(s/_LAYOUT_SCALE),
-                            82*s, round(14*s), _TEXT)
+            _asset_icon(gpu, batch_for_shader, "play", x+(bake_x+29)*s, y+15*s, 24*s)
         else:
             # Icon only: croissant = This Computer, cloud = Cloud (as the panel).
             cloud = physics_ui.bake_location(context) == "CLOUD"
@@ -494,8 +493,9 @@ def _draw():
                 hovered = key == mode_pull.hovered
                 color = _CYAN if hovered else (_BLUE if current else _SURFACE)
                 _rounded(shader, batch_for_shader, ox, bake_y, ow, bake_height, 17*s, color)
-                _centered_label(blf, dict(_MODE_OPTIONS)[key], ox, y+23*s-1.5*(s/_LAYOUT_SCALE), ow,
-                                round(14*s), _TEXT)
+                icon = "play" if key == "LIVE" else ("cloud" if physics_ui.bake_location(context) == "CLOUD"
+                                                     else "bake")
+                _asset_icon(gpu, batch_for_shader, icon, ox + ow/2 - 12*s, y+15*s, 24*s)
         quick_assign.draw(context, blf, gpu, batch_for_shader, shader)
     finally:
         gpu.state.blend_set("NONE")
