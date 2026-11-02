@@ -886,6 +886,35 @@ class CLOTHNEXT_OT_toggle_floating_ui(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class CLOTHNEXT_GT_pill_button(bpy.types.Gizmo):
+    """A click target exactly the size of a painted toolbar pill (the built-in 2D button is a small circle)."""
+    bl_idname = "CLOTHNEXT_GT_pill_button"
+    __slots__ = ("half_w", "half_h", "radius", "glow")
+
+    def setup(self):
+        self.half_w = self.half_h = self.radius = 10.0
+        self.glow = True
+
+    def _rect(self):
+        t = self.matrix_basis.translation
+        return t.x - self.half_w, t.y - self.half_h, 2 * self.half_w, 2 * self.half_h
+
+    def test_select(self, context, location):
+        x, y, w, h = self._rect()
+        return 0 if x <= location[0] <= x + w and y <= location[1] <= y + h else -1
+
+    def draw(self, context):
+        if not (self.is_highlight and self.glow):
+            return
+        import gpu
+        from gpu_extras.batch import batch_for_shader
+        x, y, w, h = self._rect()
+        shader = gpu.shader.from_builtin("UNIFORM_COLOR")
+        gpu.state.blend_set("ALPHA")
+        _rounded(shader, batch_for_shader, x, y, w, h, min(self.radius, h / 2, w / 2), (*_CYAN[:3], 0.22))
+        gpu.state.blend_set("NONE")
+
+
 class CLOTHNEXT_GT_floating_simulation(bpy.types.GizmoGroup):
     bl_idname = "CLOTHNEXT_GT_floating_simulation"
     bl_label = "Cloth NeXt New Look"
@@ -903,13 +932,7 @@ class CLOTHNEXT_GT_floating_simulation(bpy.types.GizmoGroup):
                          "clothnext.bake", "clothnext.bake_cancel",
                          "clothnext.companion_open_logs", "clothnext.quick_assign",
                          "clothnext.pull_detach", "clothnext.pull_resume", "clothnext.aether_run_button"):
-            gizmo = self.gizmos.new("GIZMO_GT_button_2d")
-            gizmo.icon = "BLANK1"
-            gizmo.draw_options = set()
-            gizmo.color = _SURFACE[:3]
-            gizmo.alpha = 0.01
-            gizmo.color_highlight = _CYAN[:3]
-            gizmo.alpha_highlight = 0.30
+            gizmo = self.gizmos.new(CLOTHNEXT_GT_pill_button.bl_idname)
             props = gizmo.target_set_operator(operator)
             if operator == "wm.call_menu":
                 props.name = CLOTHNEXT_MT_floating_quality.bl_idname
@@ -938,17 +961,21 @@ class CLOTHNEXT_GT_floating_simulation(bpy.types.GizmoGroup):
                      ((_w+18*ui)/s, 27),
                      (_w/(2*s), 54 + 31*ui/s), (27, 27),
                      (resume_center, 27), (177 + quality_width, 27))
-        for gizmo, (dx, dy) in zip(self._buttons, positions):
+        # half extents (layout units) of each painted shape: folder, quality, bake, cancel, logs,
+        # quick assign, logo, resume, AETHER main button
+        bake_h = (_h - 16*s) / (2*s)
+        halves = ((23, bake_h), (quality_width/2, bake_h), (41, bake_h), (41, bake_h), (12, 12),
+                  (16*ui/s, 16*ui/s), (27, 27), (_RESUME_EXTENSION*resume_fraction/2 + 1, bake_h - 2),
+                  (41, bake_h))
+        for gizmo, (dx, dy), (hw, hh) in zip(self._buttons, positions, halves):
             gizmo.matrix_basis = Matrix.Translation((x+dx*s, y+dy*s, 0))
-            gizmo.scale_basis = (12*ui if gizmo is self._buttons[4]
-                                 else max(16*ui, 19*s))
+            gizmo.half_w, gizmo.half_h = hw*s, hh*s
+            gizmo.radius = 17*s
+            gizmo.scale_basis = max(gizmo.half_w, gizmo.half_h)
         self._buttons[6].hide = snapshot.active
-        self._buttons[6].alpha_highlight = 0.0
+        self._buttons[6].glow = False
         self._buttons[0].hide = snapshot.active
         self._buttons[1].hide = snapshot.active
-        self._buttons[1].color_highlight = (
-            _DIR_MISSING if quality and quality.identifier == "EXTREME"
-            else _CYAN)[:3]
         aether = quality is not None and getattr(quality, "live", None) is not None
         self._buttons[2].hide = snapshot.active or not (model and model.enabled) or aether
         self._buttons[8].hide = snapshot.active or not aether
@@ -957,11 +984,11 @@ class CLOTHNEXT_GT_floating_simulation(bpy.types.GizmoGroup):
         self._buttons[5].hide = not bool(quick_assign.valid_roles(context))
         self._buttons[7].hide = (not _resume_available(context)
                                  or resume_fraction < 0.55)
-        self._buttons[7].alpha_highlight = 0.0
+        self._buttons[7].glow = False
         # Blender does not guarantee refresh() for each timer-driven redraw.
         # Keep hit targets at the same translated position as the painted bar.
         for gizmo in self._buttons:
-            if gizmo.matrix_basis.translation.y + gizmo.scale_basis < 0:
+            if gizmo.matrix_basis.translation.y + gizmo.half_h < 0:
                 gizmo.hide = True
 
     def draw_prepare(self, context):
@@ -969,7 +996,7 @@ class CLOTHNEXT_GT_floating_simulation(bpy.types.GizmoGroup):
 
 
 CLASSES = quick_assign.CLASSES + (CLOTHNEXT_OT_pull_detach, CLOTHNEXT_OT_pull_resume, CLOTHNEXT_OT_aether_run_button,
-           CLOTHNEXT_MT_floating_quality, CLOTHNEXT_OT_toggle_floating_ui,
+           CLOTHNEXT_MT_floating_quality, CLOTHNEXT_OT_toggle_floating_ui, CLOTHNEXT_GT_pill_button,
            CLOTHNEXT_GT_floating_simulation)
 
 

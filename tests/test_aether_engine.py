@@ -57,15 +57,15 @@ def test_measured_bending_presets_map_to_their_measurement():
     assert checked >= 5
 
 
-def test_stretch_limit_is_reported_not_enforced(monkeypatch):
-    monkeypatch.delenv("CLOTH_NEXT_AETHER_STRAIN_LIMIT", raising=False)
+def test_stretch_limit_switched_off_is_reported_not_enforced(monkeypatch):
+    monkeypatch.setenv("CLOTH_NEXT_AETHER_STRAIN_LIMIT", "0")
     m = ShellMaterialSettings(stretch_limit_enabled=True, maximum_stretch_percent=4.0)
     assert materials.map_material(m).strain_limit == 0.0          # baked without it
     assert materials.not_enforced(m) and "not enforced" in materials.not_enforced(m)[0]
 
 
-def test_stretch_limit_experimental_strain_limit(monkeypatch):
-    monkeypatch.setenv("CLOTH_NEXT_AETHER_STRAIN_LIMIT", "1")
+def test_stretch_limit_enforced_by_default(monkeypatch):
+    monkeypatch.delenv("CLOTH_NEXT_AETHER_STRAIN_LIMIT", raising=False)
     m = ShellMaterialSettings(stretch_limit_enabled=True, maximum_stretch_percent=4.0)
     mapped = materials.map_material(m)
     assert mapped.strain_limit == pytest.approx(0.04)

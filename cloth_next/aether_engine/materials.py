@@ -103,9 +103,9 @@ FIELD_MAPPINGS = {
     "sideways_response": ("EXACT", "Poisson ratio."),
     "bend_resistance": ("APPROXIMATE", "Bending stiffness from the measured-bending calibration "
                                        "(N·m); dihedral discretization differs from PPF."),
-    "stretch_limit": ("UNSUPPORTED", "Not enforced by default: baked without it and reported (panel, result, "
-                                     "cache sidecar). The engine's strain limit (API 1.3) is experimental "
-                                     "(CLOTH_NEXT_AETHER_STRAIN_LIMIT=1): on NEON it crumpled a sewn band."),
+    "stretch_limit": ("APPROXIMATE", "Engine strain limit (API 1.3): a penalty plus a projection per substep keep "
+                                     "the principal stretch near the limit (a hard pull can pass it locally). "
+                                     "CLOTH_NEXT_AETHER_STRAIN_LIMIT=0 bakes without it (reported)."),
     "shape_damping": ("APPROXIMATE", "Rayleigh membrane damping in seconds."),
     "fold_damping": ("APPROXIMATE", "Rayleigh bending damping in seconds."),
     "surface_grip": ("APPROXIMATE", "Coulomb coefficient = grip × 0.5; colliders use the cloth's value."),
@@ -138,9 +138,9 @@ def unsupported_controls(material) -> list[str]:
 
 
 def strain_limit_enabled() -> bool:
-    """The engine strain limit is experimental: only with CLOTH_NEXT_AETHER_STRAIN_LIMIT=1."""
+    """Stretch Limit is enforced by the engine (API 1.3); CLOTH_NEXT_AETHER_STRAIN_LIMIT=0 switches it off."""
     import os
-    return os.environ.get("CLOTH_NEXT_AETHER_STRAIN_LIMIT") == "1"
+    return os.environ.get("CLOTH_NEXT_AETHER_STRAIN_LIMIT") != "0"
 
 
 def not_enforced(material) -> list[str]:
@@ -152,13 +152,13 @@ def not_enforced(material) -> list[str]:
     found = []
     if getattr(material, "stretch_limit_enabled", False) and not strain_limit_enabled():
         found.append(f"Stretch Limit {float(getattr(material, 'maximum_stretch_percent', 0.0)):g} % "
-                     "(not enforced: the AETHER Engine's strain limit is experimental; stretch follows the "
+                     "(not enforced: switched off with CLOTH_NEXT_AETHER_STRAIN_LIMIT=0; stretch follows the "
                      "membrane stiffness)")
     return found
 
 
 def strain_limit(material) -> float:
-    """Stretch Limit as the engine's strain limit (0 = off, also while the feature is experimental)."""
+    """Stretch Limit as the engine's strain limit (0 = off, also when switched off by the environment)."""
     if not getattr(material, "stretch_limit_enabled", False) or not strain_limit_enabled():
         return 0.0
     percent = _finite("Maximum Stretch", getattr(material, "maximum_stretch_percent", 0.0))

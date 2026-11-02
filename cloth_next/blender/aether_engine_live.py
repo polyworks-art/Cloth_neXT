@@ -664,7 +664,10 @@ class CLOTHNEXT_OT_aether_live_grab(bpy.types.Operator):
                       "Clicks elsewhere work as usual")
     bl_options = {"INTERNAL"}
 
-    strength: bpy.props.FloatProperty(name="Strength", default=1.0, min=0.01, max=10.0,
+    # 0.2: the grab spring is twice the cloth's membrane stiffness. At 1 (ten times) it overpowered the
+    # Stretch Limit around the grabbed point (NEON vest: 2.3x local stretch); at 0.2 about 1.4x and the
+    # garment follows as a whole.
+    strength: bpy.props.FloatProperty(name="Strength", default=0.2, min=0.01, max=10.0,
                                       description="Pull strength (1 = ten times the cloth's membrane stiffness)")
 
     @classmethod
