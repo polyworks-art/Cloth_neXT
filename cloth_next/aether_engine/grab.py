@@ -9,13 +9,18 @@ from __future__ import annotations
 
 import numpy as np
 
-# Largest edge stretch around the grab (relative to the rest length) before the grab stops following.
-STRETCH_CAP = 1.15
-RINGS = 2   # topological rings around the grabbed vertices that are watched
+# Largest edge stretch of the grabbed cloth (relative to its length when grabbed) before the grab stops
+# following. Measured with the whole cloth watched (RINGS 0); NEON vest pulled 15 cm off the body:
+#   cap 1.3 / 1.6: the point sticks to the target (0 mm), 1.06-1.5x max stretch 2 s after letting go,
+#   0-2 overstretched edges; a 2-ring watch at 1.3 missed the soft Inlay zone (3.7x, 20 edges kept).
+#   Ball sheet lifted by one point: 0.31 m (1.3) / 0.49 m (1.6) before it stops, no cap 2.6 m (rubber).
+# CLOTH_NEXT_GRAB_CAP / CLOTH_NEXT_GRAB_RINGS override them for tests.
+STRETCH_CAP = float(__import__("os").environ.get("CLOTH_NEXT_GRAB_CAP", "1.6"))
+RINGS = int(__import__("os").environ.get("CLOTH_NEXT_GRAB_RINGS", "0"))   # rings watched (0 = whole cloth)
 
 
 class GrabCap:
-    """Watches the edges near the grabbed vertices and decides whether the grab target may move on."""
+    """Watches the cloth's edges (or those near the grab) and decides whether the grab target may move on."""
 
     def __init__(self, triangles: np.ndarray, rest: np.ndarray, vertices, start: np.ndarray | None = None,
                  cap: float = STRETCH_CAP, rings: int = RINGS):
@@ -28,6 +33,8 @@ class GrabCap:
         for _ in range(rings):
             hit = near[edges[:, 0]] | near[edges[:, 1]]
             near[edges[hit].ravel()] = True
+        if rings <= 0:
+            near[:] = True
         self.edges = edges[near[edges[:, 0]] & near[edges[:, 1]]]
         near[np.asarray(vertices, np.int64)] = False
         self.ring = np.nonzero(near)[0]   # the cloth the grab pulls against

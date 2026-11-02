@@ -310,13 +310,13 @@ def test_grab_follows_the_mouse_until_the_cloth_would_overstretch():
     rest = np.stack([X.ravel(), Y.ravel(), np.zeros(121)], 1)
     tris = [[j * 11 + i, j * 11 + i + 1, j * 11 + i + 12] for j in range(10) for i in range(10)]
     tris += [[j * 11 + i, j * 11 + i + 12, j * 11 + i + 11] for j in range(10) for i in range(10)]
-    cap = grab.GrabCap(np.array(tris), rest, [60])
+    cap = grab.GrabCap(np.array(tris), rest, [60], cap=1.15)
     assert cap.stretch(rest) == pytest.approx(1.0)
     mouse = rest[[60]] + [0.0, 0.0, 0.05]
     assert np.allclose(cap.follow(mouse, rest, [60]), mouse)            # relaxed cloth: sticks to the mouse
     pulled = rest.copy()
     pulled[60, 2] = 0.08                                                 # its edges now 1.28x
-    assert cap.stretch(pulled) > grab.STRETCH_CAP
+    assert cap.stretch(pulled) > cap.cap
     further = rest[[60]] + [0.0, 0.0, 0.3]
     assert np.allclose(cap.follow(further, pulled, [60]), mouse)        # overstretched: stops
     back = rest[[60]] + [0.0, 0.0, 0.04]
