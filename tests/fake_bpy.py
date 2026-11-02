@@ -239,11 +239,34 @@ def make_module() -> types.ModuleType:
     class Scene:
         pass
 
+    class UIList:
+        pass
+
+    class WindowManager:
+        pass
+
+    class Material:
+        pass
+
+    class TOPBAR_MT_window:
+        _draw_funcs: list = []
+
+        @classmethod
+        def append(cls, draw_func):
+            cls._draw_funcs.append(draw_func)
+
+        @classmethod
+        def remove(cls, draw_func):
+            cls._draw_funcs.remove(draw_func)
+
+    TOPBAR_MT_window._draw_funcs = []
+
     types_module = types.SimpleNamespace(
         PropertyGroup=PropertyGroup, Operator=Operator, Panel=Panel, Menu=Menu,
         Gizmo=Gizmo, GizmoGroup=GizmoGroup, SpaceView3D=SpaceView3D,
         AddonPreferences=AddonPreferences, Object=Object, Scene=Scene,
-        PHYSICS_PT_add=PHYSICS_PT_add)
+        PHYSICS_PT_add=PHYSICS_PT_add, UIList=UIList, WindowManager=WindowManager,
+        Material=Material, TOPBAR_MT_window=TOPBAR_MT_window)
 
     props_module = types.SimpleNamespace(
         BoolProperty=lambda **kw: _PropDef("BOOL", **kw),

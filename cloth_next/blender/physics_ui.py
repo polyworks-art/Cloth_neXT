@@ -1608,6 +1608,13 @@ class CLOTHNEXT_PT_sewing(_ClothNextSubpanel, bpy.types.Panel):
 
     def draw(self, context):
         layout, scene = self.layout, context.scene
+        pressure = context.object.cloth_next.pressure
+        if pressure.sewing_enabled:
+            # Legacy loose-edge Sewing from files before the path workflow:
+            # visible only while it is on, so it can be switched off.
+            box = layout.box()
+            box.prop(pressure, "sewing_enabled", text="Legacy Loose-Edge Sewing")
+            box.label(text="Not supported by AETHER; use Sewing definitions", icon="INFO")
         op = sewing.CLOTHNEXT_OT_edit_sewing.bl_idname
         top = layout.row(align=True)
         top.scale_y = 1.25

@@ -1,0 +1,35 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.53",
+  "title": "What's New in Cloth NeXt 2.9.53",
+  "subtitle": "PATTERN NeXt: draw garments, get cloth.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/check.png",
+      "title": "PATTERN NeXt workspace",
+      "description": "Draw patterns in a locked 2D editor next to your 3D view. Polygon, Rectangle, Ellipse and Curve tools, point and curve editing, snapping and measurements."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Filled the moment you close it",
+      "description": "Every pattern becomes a triangulated Cloth NeXt cloth panel at your Particle Distance, and seams you draw become Cloth NeXt sewing."
+    },
+    {
+      "icon": "icons/refresh.png",
+      "title": "AETHER Engine (experimental)",
+      "description": "The native GPU cloth engine for Live Simulation and Bake is included. Choose AETHER as the Engine on Windows with an NVIDIA GPU."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}

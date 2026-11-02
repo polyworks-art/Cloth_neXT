@@ -63,6 +63,10 @@ def _frame_values(obj, frame):
 
 
 def _draw():
+    # The PATTERN NeXt 2D editor shows patterns only, never 3D overlays.
+    from .pattern_next.workspace import is_pattern_area
+    if is_pattern_area(bpy.context):
+        return
     import gpu
     from gpu_extras.batch import batch_for_shader
     scene = bpy.context.scene

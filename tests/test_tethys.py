@@ -371,6 +371,84 @@ def test_contact_crop_and_source_requirements(tmp_path):
     assert contact_export.crop(dry, (-0.2, -0.2, -0.2), (0.2, 0.2, 0.2)) is None
 
 
+def _pool_surface(top, lo=-0.5, hi=0.5, bottom=-0.9):
+    corners = np.array([[x, y, z] for x in (lo, hi) for y in (lo, hi) for z in (bottom, top)], float)
+    quads = [(0, 1, 3, 2), (4, 6, 7, 5), (0, 4, 5, 1), (2, 3, 7, 6), (0, 2, 6, 4), (1, 5, 7, 3)]
+    return corners, np.array([t for a, b, c, d in quads for t in ((a, b, c), (a, c, d))])
+
+
+def _sampled_contact(block, z, low=0.25, high=0.75):
+    """The engine's contact reading: trilinear support through a smoothstep."""
+    q = (np.array([0.013, -0.021, z]) - block.origin) / block.spacing
+    base = np.floor(q).astype(int)
+    frac = q - base
+    value = 0.0
+    for dz in (0, 1):
+        for dy in (0, 1):
+            for dx in (0, 1):
+                w = ((frac[0] if dx else 1 - frac[0]) * (frac[1] if dy else 1 - frac[1])
+                     * (frac[2] if dz else 1 - frac[2]))
+                value += w * block.influence[base[2] + dz, base[1] + dy, base[0] + dx]
+    t = min(1.0, max(0.0, (value - low) / (high - low)))
+    return t * t * (3 - 2 * t)
+
+
+def test_liquid_surface_puts_the_water_line_on_the_real_water():
+    """Particle support saturates a cell above the water; the surface mesh does not."""
+    from cloth_next.gaia.water_field import grid_dimensions, reconstruct
+    lo, hi = np.full(3, -1.0), np.full(3, 1.0)
+    dims = grid_dimensions(lo, hi, 100)
+    spacing = 2.0 / (dims[2] - 1)
+    rng = np.random.default_rng(4)
+    s = spacing / 2
+    g = np.arange(-0.45, 0.45, s)
+    points = np.stack(np.meshgrid(g, g, np.arange(-0.6, 0.0, s) + s / 2, indexing="ij"), -1).reshape(-1, 3)
+    points += rng.uniform(-s / 2, s / 2, points.shape)
+    points[:, 2] = np.minimum(points[:, 2], -1e-6)
+    field = reconstruct(points, np.zeros_like(points), lo, hi, dims)
+    lower, upper = (-0.2, -0.2, -0.3), (0.2, 0.2, 0.3)
+
+    def water_line(block):
+        heights = np.linspace(-2 * spacing, 2 * spacing, 801)
+        contact = np.array([_sampled_contact(block, z) for z in heights])
+        return heights[np.argmin(abs(contact - 0.5))] / spacing
+
+    assert water_line(contact_export.crop(field, lower, upper)) > 0.8      # the reported bug
+    surface = _pool_surface(top=0.0)
+    assert abs(water_line(contact_export.crop(field, lower, upper, surface))) < 0.02
+    # Water far below the block still counts as inside (parity over the full ray).
+    deep = contact_export.crop(field, lower, upper, _pool_surface(top=0.5, bottom=-5.0))
+    assert deep.influence.min() == 1.0
+
+
+def test_contact_source_finds_liquid_surfaces(tmp_path):
+    from cloth_next.gaia.container import write_water_container
+    from cloth_next.gaia.mantaflow import write_bobj, write_bounds
+    from cloth_next.gaia.water_field import WaterVelocityField
+    field = WaterVelocityField((-1.0, -1.0, -1.0), (1.0, 1.0, 1.0), np.zeros((20, 20, 20, 3), np.float32),
+                               np.ones((20, 20, 20), np.float32))
+    folder = tmp_path / "bakefiles"
+    folder.mkdir()
+    offset = np.array([0.25, -0.5, 1.0])
+    matrix = np.eye(4)
+    matrix[:3, 3] = (1.0, 2.0, 3.0)
+    vertices, faces = _pool_surface(top=0.0)
+    provider = {"sampling": "all-liquid-particles", "cache": str(folder), "cache_matrix": matrix.tolist()}
+    path = tmp_path / "water.gaia"
+    write_water_container(path, {"fps": 24.0, "fingerprint": "f", "provider": provider},
+                          [(1, 0.0, field), (2, 1 / 24, field)])
+    write_bobj(folder / "000001.bobj", vertices + offset, faces)
+    write_bounds(folder / "bounds000001.bbox", offset, offset + 1, 0.1)
+    assert contact_export.inspect_source(path).surfaces is None       # frame 2 has no surface
+    write_bobj(folder / "000002.bobj", vertices + offset, faces)
+    write_bounds(folder / "bounds000002.bbox", offset, offset + 1, 0.1)
+    source = contact_export.inspect_source(path)
+    assert source.surfaces == folder and source.recipe == contact_export.SURFACE_RECIPE
+    assert len(source.surface_stamps(1, 2)) == 4
+    world, triangles = source.surface(2)
+    assert np.allclose(world, vertices + (1.0, 2.0, 3.0), atol=1e-6) and np.array_equal(triangles, faces)
+
+
 # ------------------------------------------------------------- packaging
 
 def _zip(path, files):

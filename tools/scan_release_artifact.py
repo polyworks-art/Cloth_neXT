@@ -38,7 +38,9 @@ FORBIDDEN_FILE_PATTERNS = (
 )
 ALLOWED_EXECUTABLES = {"bin/cloth-next-bake.exe", "bin/cloth-next-bake",
                        # Bundled native TETHYS Engine (Cloth NeXt's own, not PPF material).
-                       "bin/tethys engine.exe", "bin/tethys-engine"}
+                       "bin/tethys engine.exe", "bin/tethys-engine",
+                       # Bundled native AETHER Engine (Cloth NeXt's own GPU cloth engine).
+                       "bin/aether engine.exe"}
 
 FORBIDDEN_DIRECTORIES = (
     "solver",

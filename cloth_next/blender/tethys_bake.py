@@ -306,7 +306,8 @@ def prepare(context, obj) -> BakePlan:
         "object": object_uuid(obj),
         "fingerprints": tcache.fingerprints(
             settings=record, sources={"pc2": cloth.pc2_sha256, "water": contact.fingerprint,
-                                      "frames": [first, last]},
+                                      "frames": [first, last], "contact": contact.recipe,
+                                      "surfaces": contact.surface_stamps(first, last)},
             materials={"rows": rows, "engine": engine_values.values()}, topology=topology),
         "frames": [first, last], "protocol": protocol.PROTOCOL_VERSION,
     }

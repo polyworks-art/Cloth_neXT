@@ -285,6 +285,10 @@ def redraw(window):
 
 
 def _draw_overlay():
+    # The PATTERN NeXt 2D editor shows patterns only, never 3D overlays.
+    from .pattern_next.workspace import is_pattern_area
+    if is_pattern_area(bpy.context):
+        return
     context = bpy.context
     operator = _sessions.get(context.window.as_pointer()) if context.window else None
     if operator is None or context.scene != operator.scene or context.view_layer != operator.view_layer:
@@ -308,6 +312,10 @@ def _draw_overlay():
 
 
 def _draw_feedback():
+    # The PATTERN NeXt 2D editor shows patterns only, never 3D overlays.
+    from .pattern_next.workspace import is_pattern_area
+    if is_pattern_area(bpy.context):
+        return
     context = bpy.context
     operator = _sessions.get(context.window.as_pointer()) if context.window else None
     if operator is None or not operator.state.feedback or time.monotonic() > operator.state.feedback_until:

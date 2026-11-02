@@ -1451,6 +1451,10 @@ def _visible_records(scene):
 
 
 def _draw_overlay():
+    # The PATTERN NeXt 2D editor shows patterns only, never 3D overlays.
+    from .pattern_next.workspace import is_pattern_area
+    if is_pattern_area(bpy.context):
+        return
     context = bpy.context
     try:
         view = _view_for_context(context)
@@ -1463,6 +1467,10 @@ def _draw_overlay():
 
 
 def _draw_overlay_pixels():
+    # The PATTERN NeXt 2D editor shows patterns only, never 3D overlays.
+    from .pattern_next.workspace import is_pattern_area
+    if is_pattern_area(bpy.context):
+        return
     context = bpy.context
     try:
         view = _view_for_context(context)

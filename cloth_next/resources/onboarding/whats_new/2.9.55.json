@@ -1,0 +1,30 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.55",
+  "title": "What's New in Cloth NeXt 2.9.55",
+  "subtitle": "Older scenes run with AETHER again.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/check.png",
+      "title": "AETHER and older scenes",
+      "description": "A hidden Sewing switch from earlier versions no longer stops the AETHER Engine on cloth without loose edges. Where it still matters, the Sewing panel shows it so you can turn it off."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Water line on the liquid surface",
+      "description": "TETHYS Wetness reads the liquid surface of your FLIP cache, so the water line on clothing sits exactly at the water instead of a few centimetres above it."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}

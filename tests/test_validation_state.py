@@ -333,8 +333,8 @@ def test_handlers_registered_exactly_once(env):
     assert sum(getattr(f, "_clothnext_shared_water", False) for f in handlers.depsgraph_update_post) == 1
     assert sum(getattr(f, "_clothnext_wind_geometry", False) for f in handlers.depsgraph_update_post) == 1
     # Validation, role colors, recovery, image-cache, linked Colliders,
-    # orphan attachments, Wind preview and shared Water Flow.
-    assert len(handlers.load_post) == 8
+    # orphan attachments, Wind preview, shared Water Flow and PATTERN NeXt.
+    assert len(handlers.load_post) == 9
     assert sum(getattr(f, "_clothnext_shared_water", False) for f in handlers.load_post) == 1
     assert sum(getattr(f, "_clothnext_wind_overlay", False) for f in handlers.load_post) == 1
     assert sum(getattr(f, "_clothnext_wind_redraw", False) for f in handlers.frame_change_post) == 1
@@ -346,8 +346,10 @@ def test_handlers_registered_exactly_once(env):
                 if getattr(f, "_clothnext_validation_handler", False)]) == 1
     assert len([f for f in handlers.load_post
                 if getattr(f, "_clothnext_recovery_handler", False)]) == 1
-    assert len(handlers.undo_post) == 2
-    assert len(handlers.redo_post) == 2
+    for rows in (handlers.load_post, handlers.undo_post, handlers.redo_post):
+        assert sum(getattr(f, "_clothnext_pattern_handler", False) for f in rows) == 1
+    assert len(handlers.undo_post) == 3
+    assert len(handlers.redo_post) == 3
 
 
 def test_validation_handlers_are_persistent_across_file_loads(env):
