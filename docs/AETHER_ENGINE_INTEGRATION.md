@@ -131,11 +131,11 @@ copied:
 | Surface Weight (kg/m²) | density | exact |
 | Stretch Resistance (density-normalized) | membrane modulus = Stretch × Surface Weight (N/m) | approximate (StVK membrane) |
 | Sideways Response | Poisson ratio (< 0.5) | exact |
-| Bend Resistance | B = Bend × Weight / 14.3491 × 2.86967·10⁻³ N·m (inverts the MIT calibration in `MATERIAL_LIBRARY.md`), handed to AETHER as 0.6 B | approximate, calibrated |
+| Bend Resistance | B = Bend × Weight / 14.3491 × 2.86967·10⁻³ N·m (inverts the MIT calibration in `MATERIAL_LIBRARY.md`), handed to AETHER as 0.6 B, then scaled by the mesh-resolution factor below | approximate, calibrated |
 | Shape / Fold Damping (s) | Rayleigh membrane / bending damping (s) | approximate |
 | Surface Grip | Coulomb coefficient = grip × 0.5 (the coefficient the default solver receives) | approximate; colliders use the cloth's value |
 | Collision Gap | cloth half-gap = gap / 2 | approximate; colliders use the cloth's gap |
-| Stretch Limit | **not enforced**, reported (below) | unsupported |
+| Stretch Limit | **not enforced**, reported (below); engine strain limiting (API 1.3) only with `CLOTH_NEXT_AETHER_STRAIN_LIMIT=1` | experimental |
 | Surface Offset, Shrink, Inflate / Pressure, Permanent Stretch or Bends, flat bend rest, Shape-Preserving model, loose-edge Sewing | **refused** | unsupported |
 | Sewing Strength 0–100 | seam stiffness = strength / 100 × 10 × mean membrane modulus (2μ+λ) of both panels | approximate |
 | Soft Pin pull strength | attachment stiffness = pull × 10 × (2μ+λ) | approximate |
@@ -153,6 +153,11 @@ copied:
   (ratios 0.53–0.65 over five resolutions and aspect ratios). The mapping therefore passes 0.6 B, leaving a residual of
   ±10 % that depends on the mesh.
 * The MIT presets' physical bending equals their measured value in SI (test).
+* **GAIA look (resolution factor):** on coarse meshes the dihedral bending folds far less than GAIA. Against real GAIA
+  bakes of the same sheet at three resolutions the factor that matched the folds was 0.17 / 0.055 / 0.01 at a median
+  edge of 10.4 / 20.8 / 41.7 mm. `materials.gaia_bending_factor` interpolates these log-log per cloth (median edge of
+  the rest mesh), extrapolates the last slope towards finer meshes and clamps to [0.005, 1].
+  `CLOTH_NEXT_AETHER_GAIA_BENDING=0` turns it off. See `docs/validation/AETHER_PRODUCTION_READINESS_REPORT.md`.
 
 **Stretch Limit:**
 
@@ -161,6 +166,14 @@ copied:
   * as a panel note ("… · not enforced by AETHER");
   * in the bake result message;
   * as `details.aether.not_enforced` in every cache sidecar.
+* The engine has strain limiting since API 1.3 (`ae_set_cloth_strain_limit`: a penalty on principal Green strain plus
+  a pin-anchored projection). On NEON the penalty fights the seams and crumples the sewn band below the chest, so
+  Cloth NeXt only sends limits with `CLOTH_NEXT_AETHER_STRAIN_LIMIT=1`.
+
+**Kept drape (Marvelous style):** **Stop & Keep** ends a Live Simulation and stores the positions as the shape key
+`Cloth NeXt Drape` (value 1) on the original object; the basis stays the pattern / rest shape. The next Live
+Simulation or Bake starts from the drape with the basis as rest shape (seams count as sewn, PC2 sample 0 is the drape,
+the drape is part of the scene digest). **Clear Drape** removes the key.
 
 ## 5. UI behavior
 
@@ -298,7 +311,7 @@ Draped sheet on a sphere, 48 frames, end to end (preparation, engine, PC2, sidec
 ## 10. Known limitations
 
 * Experimental; validated on one GPU (RTX 4070 SUPER), Windows only (the engine is Windows-only).
-* Stretch Limit is not enforced (reported). Bending carries a ±10 % mesh-dependent residual after calibration. Friction
+* Stretch Limit is not enforced (reported). Bending follows GAIA through a resolution factor fitted on one sheet scene. Friction
   and collision gap of colliders follow the cloth's values.
 * Seams close over 1 s from their separation at Bake Start. A seam already closed in the rest pose is simply held.
   Seam strength scales a modulus-based default and is not the GAIA force unit.
@@ -308,11 +321,14 @@ Draped sheet on a sphere, 48 frames, end to end (preparation, engine, PC2, sidec
   simulated cage with the original materials.
 * The end-of-bake publication blocks the UI once for about 0.25 s at 50k vertices (shared publication step).
 * Bit-identical resume requires the same engine build and GPU; anything else is refused, never approximated.
+* Engine stretch guard (`169c9c0`): a frame whose largest stretch jumps above 2.0 by more than 0.3 is repeated with
+  twice the substeps (up to 16x, only while it helps); see `docs/validation/AETHER_PRODUCTION_READINESS_REPORT.md`.
 
 ## 11. Remaining release blockers
 
 1. Vendor and stage the engine in the release workflows, add the packaged-ZIP integrity check, and sign the binary.
-2. Strain limiting in AETHER, or an artist-facing decision on the not-enforced Stretch Limit.
+2. Strain limiting that coexists with seams (the API 1.3 penalty crumples sewn bands), or an artist-facing decision on the
+   not-enforced Stretch Limit.
 3. Validation on more GPUs, drivers and real garments. The **NEON / SW04** acceptance test is next, including the 1:1
    Marvelous comparison without FLIP.
 4. Friction Regions and Advanced Pin Motion, or permanent refusals documented in the UI.
