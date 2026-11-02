@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Live grab: a hard grab that follows the mouse until the cloth around it would overstretch.
 
 Marvelous (black-box, NEON): the grabbed point sticks exactly to the mouse; pulled very far it simply
