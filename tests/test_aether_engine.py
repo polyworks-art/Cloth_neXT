@@ -75,6 +75,18 @@ def test_stretch_limit_experimental_strain_limit(monkeypatch):
     assert off.strain_limit == 0.0 and "strain_limit" not in off.as_protocol()
 
 
+def test_gaia_bending_factor_follows_mesh_resolution(monkeypatch):
+    monkeypatch.delenv("CLOTH_NEXT_AETHER_GAIA_BENDING", raising=False)
+    for edge, factor in materials.GAIA_BENDING_POINTS:
+        assert materials.gaia_bending_factor(edge) == pytest.approx(factor, rel=1e-6)
+    assert materials.gaia_bending_factor(0.0104) > materials.gaia_bending_factor(0.0208) > materials.gaia_bending_factor(0.0417)
+    assert materials.gaia_bending_factor(0.001) == 1.0          # very fine meshes keep the mapped bending
+    assert materials.gaia_bending_factor(1.0) == pytest.approx(0.005)
+    assert materials.gaia_bending_factor(0.0) == 1.0
+    monkeypatch.setenv("CLOTH_NEXT_AETHER_GAIA_BENDING", "0")
+    assert materials.gaia_bending_factor(0.0417) == 1.0
+
+
 @pytest.mark.parametrize("change,label", [
     ({"stretch_plasticity_enabled": True}, "Permanent Stretch"),
     ({"shrink_percent": 3.0}, "Shrink"),

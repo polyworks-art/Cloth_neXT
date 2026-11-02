@@ -426,6 +426,14 @@ class AetherPreparation:
                 for note in amat.not_enforced(entry.material):
                     self.notes.append(f"{obj.name}: {note}")
                 zones, triangle_zones = _material_zones(obj, entry.material, depsgraph, len(tris) // 3)
+                # GAIA look: bending scaled for this mesh resolution (see materials.gaia_bending_factor)
+                t3 = tris.reshape(-1, 3)
+                edges = np.concatenate([world[t3[:, 1]] - world[t3[:, 0]], world[t3[:, 2]] - world[t3[:, 1]]])
+                factor = amat.gaia_bending_factor(float(np.median(np.linalg.norm(edges, axis=1)))) if len(t3) else 1.0
+                if factor != 1.0:
+                    from dataclasses import replace as _replace
+                    material = _replace(material, bend=material.bend * factor)
+                    zones = tuple((name, _replace(z, bend=z.bend * factor)) for name, z in zones)
                 uuid = export_uuid(obj)
                 object_ids[str(obj.cloth_next.persistent_export_id)] = obj
                 matrix = np.array(obj.matrix_world, dtype=np.float64)

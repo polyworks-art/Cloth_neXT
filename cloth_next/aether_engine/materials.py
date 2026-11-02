@@ -40,6 +40,33 @@ MIN_HALF_GAP = 1.0e-4                             # m; AETHER needs a positive c
 # and aspect ratios). The mapping hands it 0.6 x B so the drape matches B.
 DISCRETE_BENDING_CALIBRATION = 0.6
 
+# GAIA look (production readiness, measured 2026-11-02): with the same Cloth NeXt material, GAIA folds
+# a 1 m sheet over a sphere like AETHER with far less bending stiffness, and how much less depends on
+# the mesh resolution (GAIA's bending is not resolution-consistent, AETHER's is). Matched on the GAIA
+# test drape by the mean fold angle and the shape distance at three resolutions (median edge -> factor):
+# 41.7 mm -> 0.01, 20.8 mm -> 0.055, 10.4 mm -> 0.17. Interpolated in log-log, extrapolated with the
+# last slope towards finer meshes, never above 1. CLOTH_NEXT_AETHER_GAIA_BENDING=0 keeps the
+# continuum calibration alone.
+GAIA_BENDING_POINTS = ((0.0104, 0.17), (0.0208, 0.055), (0.0417, 0.01))
+
+
+def gaia_bending_factor(median_edge: float) -> float:
+    """Bending multiplier that makes AETHER fold like GAIA at this mesh resolution (1 = off)."""
+    import os
+    if os.environ.get("CLOTH_NEXT_AETHER_GAIA_BENDING") == "0" or not (median_edge > 0.0):
+        return 1.0
+    pts = [(math.log(h), math.log(f)) for h, f in GAIA_BENDING_POINTS]
+    x = math.log(median_edge)
+    if x <= pts[0][0]:
+        (x0, y0), (x1, y1) = pts[0], pts[1]
+    elif x >= pts[-1][0]:
+        (x0, y0), (x1, y1) = pts[-2], pts[-1]
+    else:
+        i = next(k for k in range(len(pts) - 1) if pts[k][0] <= x <= pts[k + 1][0])
+        (x0, y0), (x1, y1) = pts[i], pts[i + 1]
+    y = y0 + (y1 - y0) * (x - x0) / (x1 - x0)
+    return max(0.005, min(1.0, math.exp(y)))
+
 
 class UnsupportedMaterial(ValueError):
     """A material control is active that AETHER cannot represent."""
