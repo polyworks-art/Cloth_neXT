@@ -693,7 +693,7 @@ def _draw_aether_menu(layout, context) -> None:
         layout.operator("clothnext.aether_live_reset", text="Reset Live")
         layout.operator_context = "INVOKE_DEFAULT"
         layout.operator("clothnext.aether_live_grab", text="Grab Cloth")
-        layout.operator("clothnext.aether_live_stop", text="Stop Live")
+        layout.operator("clothnext.aether_live_stop", text="Stop & Keep Live")
     else:
         row = layout.row()
         row.enabled = not busy

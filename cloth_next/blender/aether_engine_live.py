@@ -95,12 +95,22 @@ class LiveSession:
                                      for s in request.seams]
             if setup:
                 self.engine.request("set_inputs", setup)
+            # Draped state (Marvelous style): start from the stored drape, the rest shape stays the basis.
+            self.start_state = None
+            if any(d is not None for d in prep.drape_world):
+                self.start_state = np.concatenate([d if d is not None else c.rest_world
+                                                   for d, c in zip(prep.drape_world, request.cloths)]).astype(np.float32)
+                self._send_start_state()
             offset = 0
-            for c in request.cloths:
+            for c, drape in zip(request.cloths, prep.drape_world):
                 n = len(c.rest_local)
                 self.offsets.append((offset, n))
                 offset += n
-                self._make_preview(bpy.data.objects[c.object_name], c.rest_local, c.world_matrix)
+                shown = c.rest_local
+                if drape is not None:
+                    inv = np.linalg.inv(c.world_matrix)
+                    shown = (drape.astype(np.float64) @ inv[:3, :3].T + inv[:3, 3]).astype(np.float32)
+                self._make_preview(bpy.data.objects[c.object_name], shown, c.world_matrix)
         except Exception:
             prep.close()
             self.stop()
@@ -132,6 +142,8 @@ class LiveSession:
         mesh.vertices.foreach_set("co", rest_local.reshape(-1))
         mesh.update()
         preview = bpy.data.objects.new(f"{original.name} · AETHER Live", mesh)
+        if mesh.shape_keys is not None:      # the copied keys would override the written positions
+            preview.shape_key_clear()
         preview[LIVE_MARK] = original.name
         preview.matrix_world = original.matrix_world.copy()
         for slot_index, slot in enumerate(original.material_slots):
@@ -205,13 +217,45 @@ class LiveSession:
         if on and window is not None:
             self._event_timer = wm.event_timer_add(1.0 / 120.0, window=window)
 
+    def _send_start_state(self) -> None:
+        if self.start_state is None:
+            return
+        self.engine.request("set_state", {"positions": aclient.f32(self.start_state),
+                                          "velocities": aclient.f32(np.zeros_like(self.start_state))}, timeout=60)
+
     def reset(self) -> None:
         self.pause()
         self.command("reset")
+        if self.start_state is not None:
+            try:
+                self._send_start_state()
+            except Exception as exc:  # noqa: BLE001 - shown on the panel
+                self.message = str(exc)
         self.last_frame_seen = -1
 
-    def stop(self) -> None:
+    def keep_drape(self) -> int:
+        """Store the current simulated positions as each original object's drape key (Marvelous style)."""
+        from . import aether_drape
+        if self.engine is None or not self.engine.alive or self.last_frame_seen < 1:
+            return 0
+        positions, _velocities, _frame = self.engine.get_state()
+        kept = 0
+        for (original, _preview, inv), (offset, n) in zip(self.previews, self.offsets):
+            obj = bpy.data.objects.get(original)
+            if obj is None or len(obj.data.vertices) != n:
+                continue
+            world = positions[offset:offset + n].astype(np.float64)
+            aether_drape.store_drape(obj, (world @ inv[:3, :3].T + inv[:3, 3]).astype(np.float32))
+            kept += 1
+        return kept
+
+    def stop(self, keep: bool = False) -> None:
         self._wake(False)
+        if keep:
+            try:
+                self.message = f"Kept the drape of {self.keep_drape()} Cloth object(s)"
+            except Exception as exc:  # noqa: BLE001 - never block stopping
+                self.message = f"Drape not kept: {exc}"
         engine = self.engine
         self.engine = None
         if engine is not None:
@@ -426,12 +470,12 @@ def start(context) -> LiveSession:
     return _session
 
 
-def stop() -> None:
+def stop(keep: bool = False) -> None:
     global _session
     s = _session
     _session = None
     if s is not None:
-        s.stop()
+        s.stop(keep=keep)
     if bpy.app.timers.is_registered(_timer):
         bpy.app.timers.unregister(_timer)
 
@@ -701,20 +745,47 @@ class CLOTHNEXT_OT_aether_live_grab(bpy.types.Operator):
 class CLOTHNEXT_OT_aether_live_stop(bpy.types.Operator):
     bl_idname = "clothnext.aether_live_stop"
     bl_label = "Stop Live Simulation"
-    bl_description = "Stop the Live Simulation, remove the preview objects and show the original Cloth objects"
-    bl_options = {"REGISTER"}
+    bl_description = ("Stop the Live Simulation and keep the cloth where it is (Marvelous style): the draped "
+                      "positions are stored as the shape key 'Cloth NeXt Drape', the next Live Simulation or "
+                      "Bake continues from them. Clear Drape returns to the rest shape")
+    bl_options = {"REGISTER", "UNDO"}
+
+    keep: bpy.props.BoolProperty(name="Keep Drape", default=True,
+                                 description="Keep the simulated drape on the Cloth objects")
 
     @classmethod
     def poll(cls, context):
         return _session is not None
 
     def execute(self, context):
-        stop()
+        stop(keep=self.keep)
+        return {"FINISHED"}
+
+
+class CLOTHNEXT_OT_aether_clear_drape(bpy.types.Operator):
+    bl_idname = "clothnext.aether_clear_drape"
+    bl_label = "Clear Drape"
+    bl_description = ("Remove the kept drape (shape key 'Cloth NeXt Drape') from the Cloth objects, so they "
+                      "show and simulate from their rest shape again")
+    bl_options = {"REGISTER", "UNDO"}
+
+    @classmethod
+    def poll(cls, context):
+        from . import aether_drape
+        return _session is None and any(aether_drape.drape_block(o) is not None for o in context.scene.objects
+                                        if getattr(o, "type", "") == "MESH")
+
+    def execute(self, context):
+        from . import aether_drape
+        cleared = sum(1 for o in list(context.scene.objects)
+                      if getattr(o, "type", "") == "MESH" and aether_drape.clear_drape(o))
+        self.report({"INFO"}, f"Cleared the drape of {cleared} object(s)")
         return {"FINISHED"}
 
 
 CLASSES = (CLOTHNEXT_OT_aether_live_start, CLOTHNEXT_OT_aether_live_toggle_pause,
-           CLOTHNEXT_OT_aether_live_reset, CLOTHNEXT_OT_aether_live_grab, CLOTHNEXT_OT_aether_live_stop)
+           CLOTHNEXT_OT_aether_live_reset, CLOTHNEXT_OT_aether_live_grab, CLOTHNEXT_OT_aether_live_stop,
+           CLOTHNEXT_OT_aether_clear_drape)
 
 
 def _on_load_pre(*_args):

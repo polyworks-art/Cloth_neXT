@@ -68,6 +68,8 @@ class ClothInput:
     material_meta: dict             # cache sidecar seed (fingerprints, identities, details)
     zones: tuple[AetherMaterial, ...] = ()       # Material Zones (engine API 1.2), zone k at [k - 1]
     triangle_zones: np.ndarray | None = None     # (T,) int32, 0 = base material
+    start_world: np.ndarray | None = None        # (V, 3) float32: kept drape the simulation starts from
+    start_local: np.ndarray | None = None        # the same in object space (PC2 sample 0)
 
 
 @dataclass(frozen=True)
@@ -156,6 +158,9 @@ def scene_digest(request: BakeRequest) -> str:
         if c.triangle_zones is not None:
             h.update(json.dumps([z.as_protocol() for z in c.zones], sort_keys=True).encode())
             _digest_arrays(h, c.triangle_zones)
+        if c.start_world is not None:
+            h.update(b"drape")
+            _digest_arrays(h, c.start_world)
     for c in request.colliders:
         _digest_arrays(h, c.triangles, c.rest_world)
     for s in request.seams:
@@ -191,11 +196,13 @@ def frame_inputs(request: BakeRequest, step: int) -> dict:
         if adds:
             inp["pin_add"] = adds
         if request.seams:
+            # from a kept drape the seams are already sewn
             inp["seam_add"] = [{"cloth_a": s.cloth_a, "cloth_b": s.cloth_b, "chain_a": list(s.chain_a),
-                                "chain_b": list(s.chain_b), "stiffness": s.stiffness, "progress": 0.0}
+                                "chain_b": list(s.chain_b), "stiffness": s.stiffness,
+                                "progress": 1.0 if s.closing and draped(request) else 0.0}
                                for s in request.seams]
     closing = [{"id": i + 1, "progress": min(1.0, (step + 1) / max(1, s.closure_frames))}
-               for i, s in enumerate(request.seams) if s.closing]
+               for i, s in enumerate(request.seams) if s.closing and not draped(request)]
     if closing:
         inp["seam_progress"] = closing
     # runtime pin ids are 1.. in pin_add order (engine ids are deterministic)
@@ -214,6 +221,18 @@ def frame_inputs(request: BakeRequest, step: int) -> dict:
     if meshes:
         inp["mesh_colliders"] = meshes
     return inp
+
+
+def draped(request: BakeRequest) -> bool:
+    return any(c.start_world is not None for c in request.cloths)
+
+
+def start_positions(request: BakeRequest) -> np.ndarray | None:
+    """Concatenated start state (world) when some cloth starts from a kept drape, else None."""
+    if not draped(request):
+        return None
+    return np.concatenate([c.start_world if c.start_world is not None else c.rest_world
+                           for c in request.cloths]).astype(np.float32)
 
 
 def session_cloth(c: ClothInput) -> dict:
@@ -371,7 +390,7 @@ class BakeRunner:
                                        frame_count=self.request.output_count, start_frame=0.0,
                                        sample_rate=1.0, resume_path=temp)
             if w.frames_written == 0:
-                w.write_frame(c.rest_local)
+                w.write_frame(c.start_local if c.start_local is not None else c.rest_local)
             writers.append(w)
         return writers
 
@@ -397,7 +416,8 @@ class BakeRunner:
                                        self_collision=req.self_collision,
                                        cloths=[session_cloth(c) for c in req.cloths],
                                        meshes=[{"vertices": c.rest_world, "triangles": c.triangles}
-                                               for c in req.colliders])
+                                               for c in req.colliders],
+                                       start_positions=start_positions(req))
             self.timings["engine_startup_s"] = time.monotonic() - t0
             if session.vertex_count != sum(len(c.rest_world) for c in req.cloths):
                 raise AetherBakeError("The AETHER scene does not match the exported cloth", "CNX-E176")

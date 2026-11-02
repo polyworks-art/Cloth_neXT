@@ -428,7 +428,8 @@ class EngineProcess:
     def create_session(self, *, mode: str, quality: str, fps: float, cloths: Sequence[Mapping[str, Any]],
                        spheres=(), planes=(), meshes=(), gravity=(0.0, 0.0, -9.81), air_damping: float | None = None,
                        self_collision: bool = True, ring_slots: int | None = None,
-                       allow_experimental: Sequence[str] = (), timeout: float = 300.0) -> Session:
+                       allow_experimental: Sequence[str] = (), timeout: float = 300.0,
+                       start_positions=None) -> Session:
         fields: dict[str, Any] = {
             "mode": mode, "quality": quality, "fps": fps, "gravity": list(gravity),
             "self_collision": self_collision,
@@ -447,6 +448,8 @@ class EngineProcess:
             fields["ring_slots"] = ring_slots
         if allow_experimental:
             fields["allow_experimental"] = list(allow_experimental)
+        if start_positions is not None:   # e.g. a kept drape (the cloths' positions stay the rest shape)
+            fields["start_positions"] = f32(start_positions)
         r = self.request("create_session", fields, timeout=timeout)
         s = Session(r["vertex_count"], r["cloth_offsets"], r["shm_name"], r["shm_bytes"], r["slot_count"],
                     r["scene_hash"], r["mode"], r["quality"], r["fps"])

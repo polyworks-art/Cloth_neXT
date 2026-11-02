@@ -745,12 +745,18 @@ def _draw_aether_section(layout, context, bake_active: bool) -> bool:
                       text="Resume" if aether_engine_live.is_paused() else "Pause",
                       icon="PLAY" if aether_engine_live.is_paused() else "PAUSE")
         live.operator("clothnext.aether_live_reset", text="Reset", icon="FILE_REFRESH")
-        live.operator("clothnext.aether_live_stop", text="Stop", icon="CANCEL")
+        live.operator("clothnext.aether_live_stop", text="Stop & Keep", icon="PINNED")
         layout.label(text="Grab Cloth: in the 3D View (Ctrl Shift G), drag the cloth with the mouse", icon="VIEW_PAN")
         layout.label(text=aether_engine_live.status_line())
     else:
         live.enabled = not bake_active
-        live.operator("clothnext.aether_live_start", text="Start Live Simulation", icon="PLAY")
+        from . import aether_drape
+        draped = any(aether_drape.drape_block(o) is not None for o in context.scene.objects
+                     if getattr(o, "type", "") == "MESH")
+        live.operator("clothnext.aether_live_start", text="Continue Live Simulation" if draped
+                      else "Start Live Simulation", icon="PLAY")
+        if draped:
+            live.operator("clothnext.aether_clear_drape", text="Clear Drape", icon="LOOP_BACK")
     if not bake_active and aether_engine_backend.recovery_available(context):
         box = layout.box()
         box.label(text="An AETHER bake was interrupted", icon="RECOVER_LAST")

@@ -374,13 +374,19 @@ class AetherPreparation:
         self.blender_version = solver_test._blender_version()
         self.stack = ExitStack()
         self.cloths: list[_ClothCapture] = []
+        self.drape_world: list = []   # per cloth: draped start positions (world) or None
         self.notes: list[str] = []
         self.attachments: list[dict] = []
         self.colliders: list[dict] = []
         self.frame = self.range.start + 1
         self.started = time.monotonic()
         try:
+            from . import aether_drape
             depsgraph = context.evaluated_depsgraph_get()
+            # Draped state (Marvelous style): the simulation starts from the drape key, the rest shape is
+            # captured with the key muted.
+            drapes = {entry.obj.name: aether_drape.drape_local(entry.obj) for entry in snapshot.deformables}
+            self.stack.enter_context(aether_drape.drape_muted([entry.obj for entry in snapshot.deformables]))
             for entry in snapshot.deformables:
                 self.stack.enter_context(without_owned_playback(entry.obj, update=depsgraph.update))
             scene.frame_set(self.start_frame)
@@ -428,6 +434,12 @@ class AetherPreparation:
                 self.cloths.append(_ClothCapture(obj.name, uuid, entry, local, world, tris, matrix, material,
                                                  registered, pin_vertices, stiffness, follow, [], pc2_path, meta,
                                                  zones, triangle_zones))
+                drape = drapes.get(obj.name)
+                if drape is not None and len(drape) != len(local):
+                    raise AetherSceneError(f"{obj.name}: the stored drape does not match the mesh; use Clear Drape",
+                                           "CNX-E103")
+                self.drape_world.append(None if drape is None else
+                                        (drape.astype(np.float64) @ matrix[:3, :3].T + matrix[:3, 3]).astype(np.float32))
             from . import object_properties
             for obj in snapshot.collider_objs:
                 local, world, tris = _evaluated(obj, depsgraph)
@@ -597,9 +609,15 @@ class AetherPreparation:
         cloths = []
         pins = []
         for i, c in enumerate(self.cloths):
+            drape = self.drape_world[i] if i < len(self.drape_world) else None
+            start_local = None
+            if drape is not None:
+                inv = np.linalg.inv(c.matrix)
+                start_local = (drape.astype(np.float64) @ inv[:3, :3].T + inv[:3, 3]).astype(np.float32)
             cloths.append(abake.ClothInput(c.uuid, c.obj_name, c.world, c.local, c.triangles, c.matrix,
                                            c.material, c.registered, c.pc2_path, c.meta,
-                                           tuple(z for _name, z in c.zones), c.triangle_zones))
+                                           tuple(z for _name, z in c.zones), c.triangle_zones,
+                                           drape, start_local))
             if len(c.pin_vertices):
                 targets = (np.stack(c.pin_targets).astype(np.float32)
                            if c.follow and c.pin_targets else None)
