@@ -28,6 +28,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import math
+import os
 
 MAPPING_VERSION = 2
 LBF_IN2_TO_NM2 = 4.4482216152605 * 0.0254 ** 2   # 1 lbf in^2 in N m^2
@@ -42,7 +43,8 @@ FRICTION_SCALE = 0.5                              # surface_grip -> coefficient 
 # stays Live-only: with it, the animated NEON vest snagged (Animation quality: 5.5x stretched edges,
 # 20 cloth-cloth intersections); stretch damping alone is clean in all three qualities.
 # Higher Shape / Fold Damping values are used as set.
-MIN_DAMPING = 0.005
+MIN_DAMPING = float(os.environ.get("CLOTH_NEXT_AETHER_MIN_DAMPING", "0.005"))
+MIN_FOLD_DAMPING = float(os.environ.get("CLOTH_NEXT_AETHER_MIN_FOLD_DAMPING", "0.005"))   # Live only
 MIN_HALF_GAP = 1.0e-4                             # m; AETHER needs a positive contact gap
 # Measured (tools/aether_material_calibration.py, clamped cantilever, small
 # deflection): AETHER's discrete dihedral bending is 1.5-1.9x stiffer than the
@@ -215,7 +217,7 @@ def map_material(material, live: bool = False) -> AetherMaterial:
     return AetherMaterial(
         density=density, youngs=youngs, poisson=poisson, shear_scale=1.0, bend=bend,
         stretch_damping=max(MIN_DAMPING, _finite("Shape Damping", material.shape_damping)),
-        bend_damping=max(MIN_DAMPING if live else 0.0, _finite("Fold Damping", material.fold_damping)),
+        bend_damping=max(MIN_FOLD_DAMPING if live else 0.0, _finite("Fold Damping", material.fold_damping)),
         friction=max(0.0, _finite("Surface Grip", material.surface_grip)) * FRICTION_SCALE,
         thickness=max(MIN_HALF_GAP, 0.5 * gap), strain_limit=strain_limit(material, live))
 

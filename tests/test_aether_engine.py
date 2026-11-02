@@ -318,14 +318,16 @@ def test_grab_follows_the_mouse_until_the_cloth_would_overstretch():
     pulled[60, 2] = 0.08                                                 # its edges now 1.28x
     assert cap.stretch(pulled) > cap.cap
     further = rest[[60]] + [0.0, 0.0, 0.3]
-    crept = cap.follow(further, pulled, [60])                            # overstretched: only creeps on
+    assert np.allclose(cap.follow(further, pulled, [60], now=0.0), further)   # a short spike: still follows
+    cap.target = mouse
+    crept = cap.follow(further, pulled, [60], now=1.0)                  # overstretched for 1 s: only creeps on
     assert np.allclose(crept, mouse + [0.0, 0.0, grab.CREEP])
     torn = rest.copy()
     torn[60, 2] = 0.2                                                    # far past the hard cap: stops
     assert cap.stretch(torn) > cap.cap * grab.HARD_CAP / grab.STRETCH_CAP
-    assert np.allclose(cap.follow(further, torn, [60]), crept)
+    assert np.allclose(cap.follow(further, torn, [60], now=1.1), crept)
     back = rest[[60]] + [0.0, 0.0, 0.04]
-    assert np.allclose(cap.follow(back, pulled, [60]), back)            # easing off always works
+    assert np.allclose(cap.follow(back, pulled, [60], now=1.2), back)   # easing off always works
 
 
 def test_grab_on_cloth_that_already_hangs_stretched_can_move():

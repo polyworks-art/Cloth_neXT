@@ -7,6 +7,8 @@ hard grab without a limit stretched the cloth around it 5-18x (NEON vest), which
 """
 from __future__ import annotations
 
+import time
+
 import numpy as np
 
 # Largest edge stretch of the grabbed cloth (relative to its length when grabbed) before the grab stops
@@ -21,6 +23,10 @@ RINGS = int(__import__("os").environ.get("CLOTH_NEXT_GRAB_RINGS", "0"))   # ring
 # so a heavy cloth that needs more stretch to come along still follows, slowly; beyond HARD_CAP it stops.
 HARD_CAP = float(__import__("os").environ.get("CLOTH_NEXT_GRAB_HARD_CAP", "2.0"))
 CREEP = float(__import__("os").environ.get("CLOTH_NEXT_GRAB_CREEP", "0.005"))   # m
+# Only an overstretch that lasts brakes the grab: during a fast drag the cloth lags behind for a moment
+# and its stretch spikes past the cap. Braking on those spikes made fast pulls stiff and slow pulls
+# fluid (Tim: "like a non-Newtonian fluid").
+SUSTAIN = float(__import__("os").environ.get("CLOTH_NEXT_GRAB_SUSTAIN", "0.4"))   # s
 
 
 class GrabCap:
@@ -49,6 +55,7 @@ class GrabCap:
             self.rest = np.maximum(self.rest, np.linalg.norm(x[self.edges[:, 0]] - x[self.edges[:, 1]], axis=1))
         self.cap = float(cap)
         self.target = None
+        self.over_since = None
 
     def stretch(self, positions: np.ndarray) -> float:
         if not len(self.edges):
@@ -56,14 +63,20 @@ class GrabCap:
         x = np.asarray(positions, np.float64)
         return float((np.linalg.norm(x[self.edges[:, 0]] - x[self.edges[:, 1]], axis=1) / self.rest).max())
 
-    def follow(self, proposed: np.ndarray, positions: np.ndarray, grabbed) -> np.ndarray:
+    def follow(self, proposed: np.ndarray, positions: np.ndarray, grabbed, now: float | None = None) -> np.ndarray:
         """The grab target for this mouse position: the mouse while the cloth allows it, else where it stopped.
 
         Past the cap the target only moves where it does not pull further away from the cloth around
         it (back toward it, or along it), so the artist can always ease off."""
         proposed = np.asarray(proposed, np.float64)
         stretch = self.stretch(positions)
-        if self.target is None or stretch <= self.cap or not len(self.ring):
+        now = time.monotonic() if now is None else now
+        if stretch <= self.cap:
+            self.over_since = None
+        elif self.over_since is None:
+            self.over_since = now
+        if (self.target is None or self.over_since is None or now - self.over_since < SUSTAIN
+                or not len(self.ring)):
             self.target = proposed
             return proposed
         anchor = np.asarray(positions, np.float64)[self.ring].mean(0)
