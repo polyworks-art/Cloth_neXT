@@ -218,6 +218,22 @@ def _animated_bounds(context):
     return x, y, width, height, scale
 
 
+def covers(context, x: float, y: float) -> bool:
+    """True if the region point (x, y) of context.region is on the shown toolbar (with a small margin).
+
+    The Live grab asks first, so a click on a button over a mesh reaches the button."""
+    if not visible(context):
+        return False
+    bounds = _animated_bounds(context)
+    if bounds is None:
+        return False
+    bx, by, width, height, scale = bounds
+    m = 8 * scale
+    # the LIVE | BAKE options open to the right of the main button
+    right = width + (_MODE_PILL * 2 + _MODE_GAP + 20) * scale
+    return bx - m <= x <= bx + right + m and by - m <= y <= by + height + m
+
+
 def _state(context):
     scene = getattr(context, "scene", None)
     snapshot = shared_controller.snapshot()

@@ -634,6 +634,17 @@ def _view3d_under(window, event):
     return None, None
 
 
+def _over_toolbar(context, region, event) -> bool:
+    """True if the mouse is on the floating toolbar of this 3D View region."""
+    from . import floating_simulation
+    try:
+        area = next((a for a in context.window.screen.areas if any(r == region for r in a.regions)), None)
+        with context.temp_override(area=area, region=region):
+            return floating_simulation.covers(bpy.context, event.mouse_x - region.x, event.mouse_y - region.y)
+    except (AttributeError, RuntimeError, TypeError):
+        return False
+
+
 def start_grab(context) -> None:
     """Start the always-on grab of the Live Simulation in the window of ``context``."""
     if _grab_operator is not None or _session is None:
@@ -783,7 +794,8 @@ class CLOTHNEXT_OT_aether_live_grab(bpy.types.Operator):
                 self.over_cloth = False
             elif now - self.hover_at >= self.HOVER_INTERVAL:
                 self.hover_at = now
-                self.over_cloth = self._hit(context, region, rv3d, event)[1] is not None
+                self.over_cloth = (not _over_toolbar(context, region, event)
+                                   and self._hit(context, region, rv3d, event)[1] is not None)
             self._set_cursor(self.over_cloth)
             for r in (previous, region):
                 if r is not None:
@@ -791,8 +803,8 @@ class CLOTHNEXT_OT_aether_live_grab(bpy.types.Operator):
             return {"PASS_THROUGH"}
         if event.type == "LEFTMOUSE" and event.value == "PRESS" and not self.ids:
             region, rv3d = _view3d_under(self.window, event)
-            if region is None:
-                return {"PASS_THROUGH"}
+            if region is None or _over_toolbar(context, region, event):
+                return {"PASS_THROUGH"}   # the floating toolbar's buttons win over the cloth below them
             found, hit = self._hit(context, region, rv3d, event)
             if hit is None:
                 return {"PASS_THROUGH"}   # not the cloth: select, navigate etc. as usual
