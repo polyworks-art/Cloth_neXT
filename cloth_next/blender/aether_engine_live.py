@@ -776,9 +776,30 @@ class CLOTHNEXT_OT_aether_live_grab(bpy.types.Operator):
     def cancel(self, context):
         self._finish(context)
 
+    def _let_go(self):
+        if self.ids and _session is not None:
+            _session.release(self.ids)
+        self.ids = []
+
     def modal(self, context, event):
+        try:
+            return self._modal(context, event)
+        except Exception:  # noqa: BLE001 - never leave the cloth held by a grab that lost its operator
+            self._let_go()
+            self.swallow = False
+            import traceback
+            traceback.print_exc()
+            return {"PASS_THROUGH"}
+
+    def _modal(self, context, event):
         if _session is None:
             return self._finish(context)
+        if self.ids and (event.type in {"WINDOW_DEACTIVATE", "ESC", "RIGHTMOUSE"}
+                         or (event.type == "LEFTMOUSE" and event.value in {"PRESS", "DOUBLE_CLICK"})):
+            # a lost release (mouse let go outside Blender, focus change): let go now, never keep holding
+            self._let_go()
+            self.swallow = True
+            return {"RUNNING_MODAL"}
         if event.type in {"MOUSEMOVE", "INBETWEEN_MOUSEMOVE"}:
             if self.ids:   # dragging: follow the mouse in the plane the grab started in
                 self.mouse = (event.mouse_x - self.region.x, event.mouse_y - self.region.y)
@@ -823,8 +844,7 @@ class CLOTHNEXT_OT_aether_live_grab(bpy.types.Operator):
             self._set_cursor(True)
             return {"RUNNING_MODAL"}
         if event.type == "LEFTMOUSE" and event.value == "RELEASE" and self.ids:
-            _session.release(self.ids)
-            self.ids = []
+            self._let_go()
             self.swallow = True
             return {"RUNNING_MODAL"}
         if event.type == "LEFTMOUSE" and (self.ids or (self.swallow and event.value in {"CLICK", "CLICK_DRAG"})):
