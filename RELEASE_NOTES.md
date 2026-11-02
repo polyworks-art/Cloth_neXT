@@ -1,4 +1,8 @@
-# Cloth NeXt 2.9.53
+# Cloth NeXt 2.9.54
+
+Wetness now ends exactly at the water: TETHYS reads the liquid surface of your FLIP cache, so the water line on clothing no longer sits a few centimetres above the liquid.
+
+## 2.9.53
 
 PATTERN NeXt arrives: a new workspace where you draw garment patterns in a precise 2D editor and get a filled, triangulated cloth panel the moment you close the outline. Edit points and curves, sew edges together, and arrange the panels in 3D, all as regular Cloth NeXt cloth. This build also includes the experimental AETHER Engine for fast GPU cloth on Windows.
 

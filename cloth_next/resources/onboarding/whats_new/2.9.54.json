@@ -1,0 +1,35 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.54",
+  "title": "What's New in Cloth NeXt 2.9.54",
+  "subtitle": "Wetness ends where the water ends.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/check.png",
+      "title": "Water line on the liquid surface",
+      "description": "TETHYS Wetness reads the liquid surface of your FLIP cache, so the water line on clothing sits exactly at the water instead of a few centimetres above it."
+    },
+    {
+      "icon": "icons/refresh.png",
+      "title": "Rebake once",
+      "description": "Wetness bakes from an earlier version are baked again the next time, with the corrected water line."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "PATTERN NeXt workspace",
+      "description": "Draw patterns in a locked 2D editor next to your 3D view. Polygon, Rectangle, Ellipse and Curve tools, point and curve editing, snapping and measurements."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}
