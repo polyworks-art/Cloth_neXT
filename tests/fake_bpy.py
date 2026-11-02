@@ -186,6 +186,9 @@ def make_module() -> types.ModuleType:
     class Menu:
         pass
 
+    class Gizmo:
+        pass
+
     class GizmoGroup:
         pass
 
@@ -238,7 +241,7 @@ def make_module() -> types.ModuleType:
 
     types_module = types.SimpleNamespace(
         PropertyGroup=PropertyGroup, Operator=Operator, Panel=Panel, Menu=Menu,
-        GizmoGroup=GizmoGroup, SpaceView3D=SpaceView3D,
+        Gizmo=Gizmo, GizmoGroup=GizmoGroup, SpaceView3D=SpaceView3D,
         AddonPreferences=AddonPreferences, Object=Object, Scene=Scene,
         PHYSICS_PT_add=PHYSICS_PT_add)
 
