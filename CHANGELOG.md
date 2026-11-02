@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.9.55 - 2026-11-02
+
+- AETHER Engine: older files with the former loose-edge Sewing switch no longer stop the AETHER Engine with CNX-E106 when the object has no loose edges. Where loose edges really exist, the switch is shown in the Sewing panel again so it can be turned off; use Sewing definitions instead.
+
 ## 2.9.54 - 2026-11-02
 
 - TETHYS Wetness: the water line on the cloth sits where the liquid really is. Wetness contact now comes from the liquid surface mesh (FLIP surface, or the surface prepared for Houdini/LiquiGen) instead of the particle field, which reached about one Water Flow cell above the water. In the NEON scene the line was 3 to 4 cm too high. Wetness bakes made with an earlier version bake again once.

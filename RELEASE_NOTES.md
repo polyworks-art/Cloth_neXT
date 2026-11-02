@@ -1,4 +1,8 @@
-# Cloth NeXt 2.9.54
+# Cloth NeXt 2.9.55
+
+Older scenes run with the AETHER Engine again: a hidden Sewing switch from earlier versions no longer blocks Live Simulation and Bake on cloth that has nothing to sew.
+
+## 2.9.54
 
 Wetness now ends exactly at the water: TETHYS reads the liquid surface of your FLIP cache, so the water line on clothing no longer sits a few centimetres above the liquid.
 
