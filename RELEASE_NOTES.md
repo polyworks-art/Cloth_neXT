@@ -1,4 +1,8 @@
-# Cloth NeXt 2.9.55
+# Cloth NeXt 2.9.56
+
+AETHER feels much closer to Marvelous Designer: cloth rests calmly, fitted garments keep their shape, Grab is always on in the Live Simulation and pulls the garment as a whole, and Stop & Keep lets you drape once and continue from there.
+
+## 2.9.55
 
 Older scenes run with the AETHER Engine again: a hidden Sewing switch from earlier versions no longer blocks Live Simulation and Bake on cloth that has nothing to sew.
 

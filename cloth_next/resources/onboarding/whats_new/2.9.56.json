@@ -1,0 +1,40 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.56",
+  "title": "What's New in Cloth NeXt 2.9.56",
+  "subtitle": "AETHER feels closer to Marvelous.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/check.png",
+      "title": "Calm, firm cloth",
+      "description": "Resting garments no longer jitter, fitted garments hold their shape, and cloth falls calm instead of wobbling."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Grab is always on",
+      "description": "In the Live Simulation, drag the cloth with the left mouse button. The Stretch Limit holds while you pull, so the garment follows as a whole."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Drape once, continue",
+      "description": "Stop & Keep keeps the drape; the next Live Simulation or Bake starts from it. Clear Drape returns to the rest shape."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Toolbar with icons",
+      "description": "Preset icons, one main button for Live, Stop and Bake (hold and pull right to switch), and buttons that react on their whole area."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}

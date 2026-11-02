@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.9.56 - 2026-11-02
+
+- AETHER Engine: resting cloth no longer jitters (layered garments rest calmly instead of being pushed a full collision gap apart), and fitted garments hold their shape like in GAIA.
+- AETHER Live Simulation: Grab is always on: drag the cloth with the left mouse button, clicks elsewhere work as usual. The Stretch Limit is enforced while you pull, so garments follow as a whole instead of stretching like rubber.
+- AETHER cloth gets a little internal damping, so it falls calm and heavy instead of wobbling.
+- Stop & Keep: stopping the Live Simulation keeps the drape; the next Live Simulation or Bake continues from it (Clear Drape returns to the rest shape).
+- New Look toolbar with the AETHER Engine: icons for the presets (Normal, Animation, Fitting), one main button (Live, Stop, Bake; hold and pull right to switch Live / Bake), click targets cover the whole buttons.
+- Bending follows GAIA on coarse meshes; very fast character motion no longer tears the cloth in rare frames.
+
 ## 2.9.55 - 2026-11-02
 
 - AETHER Engine: older files with the former loose-edge Sewing switch no longer stop the AETHER Engine with CNX-E106 when the object has no loose edges. Where loose edges really exist, the switch is shown in the Sewing panel again so it can be turned off; use Sewing definitions instead.
