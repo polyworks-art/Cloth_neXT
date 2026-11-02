@@ -40,7 +40,7 @@ from typing import Any, Callable, Mapping, Sequence
 import numpy as np
 
 PROTOCOL_VERSION = 1
-API_VERSION = (1, 2)
+API_VERSION = (1, 3)
 FRAME_MAGIC = 0x31484541  # "AEH1"
 SHM_MAGIC = b"AETHSHM1"
 SHM_HEADER_BYTES = 4096

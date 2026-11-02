@@ -57,10 +57,14 @@ def test_measured_bending_presets_map_to_their_measurement():
     assert checked >= 5
 
 
-def test_stretch_limit_is_reported_not_enforced():
+def test_stretch_limit_is_enforced_as_strain_limit():
     m = ShellMaterialSettings(stretch_limit_enabled=True, maximum_stretch_percent=4.0)
-    materials.map_material(m)                         # baked
-    assert materials.not_enforced(m) and "not enforced" in materials.not_enforced(m)[0]
+    mapped = materials.map_material(m)
+    assert mapped.strain_limit == pytest.approx(0.04)
+    assert mapped.as_protocol()["strain_limit"] == pytest.approx(0.04)
+    assert materials.not_enforced(m) == []
+    off = materials.map_material(ShellMaterialSettings(stretch_limit_enabled=False, maximum_stretch_percent=4.0))
+    assert off.strain_limit == 0.0 and "strain_limit" not in off.as_protocol()
 
 
 @pytest.mark.parametrize("change,label", [
