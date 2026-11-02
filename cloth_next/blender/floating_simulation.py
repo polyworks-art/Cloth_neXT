@@ -146,8 +146,34 @@ def _aether_quality(scene):
     if scene is None or solver_backends.active_backend_id(scene) is not BackendId.AETHER_ENGINE:
         return None
     from types import SimpleNamespace
-    key = str(getattr(getattr(scene, "cloth_next_solver", None), "aether_bake_quality", "FITTING"))
-    return SimpleNamespace(identifier=key, label=f"AETHER {key.title()}")
+    settings = getattr(scene, "cloth_next_solver", None)
+    live = str(getattr(settings, "aether_run_mode", "LIVE")) == "LIVE"
+    key = str(getattr(settings, "aether_live_quality" if live else "aether_bake_quality",
+                      "NORMAL" if live else "FITTING"))
+    return SimpleNamespace(identifier=key, label=key.title(), live=live)
+
+
+def _aether_live_running():
+    try:
+        from . import aether_engine_live
+        return aether_engine_live.is_running()
+    except Exception:  # noqa: BLE001 - drawing must never fail
+        return False
+
+
+# AETHER main button: hold and pull right to choose Live or Bake (option pills right of the button)
+_MODE_OPTIONS = (("LIVE", "LIVE"), ("BAKE", "BAKE"))
+_MODE_PILL = 64          # option pill width (layout units)
+_MODE_GAP = 6
+_MODE_OPEN_PULL = 10     # pixels (layout units) of pull before the options appear
+
+
+def _mode_option_rects(bounds, quality_width):
+    """[(key, x, width)] of the Live / Bake option pills right of the main button."""
+    bx, _by, _w, _h, s = bounds
+    left = bx + (136 + quality_width + 82 + 10) * s
+    return [(key, left + k * (_MODE_PILL + _MODE_GAP) * s, _MODE_PILL * s)
+            for k, (key, _label) in enumerate(_MODE_OPTIONS)]
 
 
 def _quality_width(context):
@@ -429,10 +455,17 @@ def _draw():
                         x+114*s, y+46*s, round(12*s), _TEXT)
         _centered_label(blf, (quality.label if quality else "Custom") + " ▾",
                         x+126*s, y+23*s, quality_width*s, round(13*s), _TEXT)
+        aether_live = bool(quality is not None and getattr(quality, "live", None) is not None)
         if snapshot.active:
             _centered_label(
                 blf, "CANCEL", x+bake_x*s, y+23*s-1.5*(s/_LAYOUT_SCALE),
                 82*s, round(14*s), _TEXT if snapshot.can_cancel else _MUTED)
+        elif aether_live and _aether_live_running():
+            _centered_label(blf, "■ STOP", x+bake_x*s, y+23*s-1.5*(s/_LAYOUT_SCALE),
+                            82*s, round(14*s), _TEXT)
+        elif aether_live and quality.live:
+            _centered_label(blf, "▶ LIVE", x+bake_x*s, y+23*s-1.5*(s/_LAYOUT_SCALE),
+                            82*s, round(14*s), _TEXT)
         else:
             # Icon only: croissant = This Computer, cloud = Cloud (as the panel).
             cloud = physics_ui.bake_location(context) == "CLOUD"
@@ -445,6 +478,19 @@ def _draw():
                 blf, "◷",
                 x+(bake_x+82+_RESUME_EXTENSION/2)*s, y+27*s,
                             round(17*s), resume_text)
+        mode_pull = _pull_sessions.get(quick_assign.region_key(context))
+        if getattr(mode_pull, "kind", "") == "mode" and mode_pull.open:
+            rects = _mode_option_rects(bounds, quality_width)
+            # the options sit on their own toolbar-coloured backing, like the bar they come out of
+            _rounded(shader, batch_for_shader, rects[0][1] - 6*s, y, rects[-1][1] + rects[-1][2] - rects[0][1] + 12*s,
+                     h, 25*s, _BG)
+            for key, ox, ow in rects:
+                current = key == mode_pull.current
+                hovered = key == mode_pull.hovered
+                color = _CYAN if hovered else (_BLUE if current else _SURFACE)
+                _rounded(shader, batch_for_shader, ox, bake_y, ow, bake_height, 17*s, color)
+                _centered_label(blf, dict(_MODE_OPTIONS)[key], ox, y+23*s-1.5*(s/_LAYOUT_SCALE), ow,
+                                round(14*s), _TEXT)
         quick_assign.draw(context, blf, gpu, batch_for_shader, shader)
     finally:
         gpu.state.blend_set("NONE")
@@ -633,9 +679,113 @@ class CLOTHNEXT_OT_pull_resume(bpy.types.Operator):
         self.finish()
 
 
+class CLOTHNEXT_OT_aether_run_button(bpy.types.Operator):
+    """The New Look toolbar's main button with the AETHER Engine."""
+    bl_idname = "clothnext.aether_run_button"
+    bl_label = "Live / Bake"
+    bl_description = ("Click: start the Live Simulation or bake, as shown (STOP ends a running Live Simulation "
+                      "and keeps the drape). Hold and pull right to switch between Live and Bake")
+    bl_options = {"REGISTER", "BLOCKING"}
+
+    @classmethod
+    def poll(cls, context):
+        return (getattr(context.area, "type", None) == "VIEW_3D"
+                and getattr(context.region, "type", None) == "WINDOW"
+                and visible(context) and _aether_quality(context.scene) is not None)
+
+    def invoke(self, context, event):
+        if event.type != "LEFTMOUSE" or event.value != "PRESS" or not self.poll(context):
+            return {"CANCELLED"}
+        if shared_controller.snapshot().active:
+            return {"CANCELLED"}
+        if _aether_live_running():
+            from . import aether_engine_live
+            aether_engine_live.stop(keep=True)
+            _tag_redraw(context)
+            return {"FINISHED"}
+        self.key = quick_assign.region_key(context)
+        if self.key in _pull_sessions:
+            return {"CANCELLED"}
+        self.window, self.area, self.region = context.window, context.area, context.region
+        self.wm = context.window_manager
+        self.bounds = _animated_bounds(context)
+        if self.bounds is None:
+            return {"CANCELLED"}
+        self.kind = "mode"
+        self.start_x = event.mouse_region_x
+        self.open = False
+        self.hovered = None
+        self.current = str(context.scene.cloth_next_solver.aether_run_mode)
+        self.targets = ()
+        _pull_sessions[self.key] = self
+        try:
+            self.wm.modal_handler_add(self)
+        except Exception:
+            self.finish()
+            raise
+        self.area.tag_redraw()
+        return {"RUNNING_MODAL"}
+
+    def valid_context(self, context):
+        try:
+            return (_registered and visible(context) and context.window == self.window
+                    and context.area == self.area and context.region == self.region)
+        except (ReferenceError, AttributeError):
+            return False
+
+    def _hover(self, x):
+        for key, ox, ow in _mode_option_rects(self.bounds, _quality_width(bpy.context)):
+            if ox <= x <= ox + ow:
+                return key
+        return None
+
+    def modal(self, context, event):
+        if _pull_sessions.get(getattr(self, "key", None)) is not self:
+            return {"CANCELLED"}
+        if (event.type == "WINDOW_DEACTIVATE"
+                or (event.type in {"ESC", "RIGHTMOUSE"} and event.value == "PRESS")):
+            self.finish()
+            return {"CANCELLED"}
+        x = event.mouse_x - self.region.x
+        if event.type in {"MOUSEMOVE", "INBETWEEN_MOUSEMOVE"}:
+            if not self.open and x - self.start_x > _MODE_OPEN_PULL * self.bounds[4]:
+                self.open = True
+            if self.open:
+                self.hovered = self._hover(x)
+            self.area.tag_redraw()
+            return {"RUNNING_MODAL"}
+        if event.type == "LEFTMOUSE" and event.value == "RELEASE":
+            opened, chosen = self.open, self._hover(x) if self.open else None
+            self.finish()
+            settings = context.scene.cloth_next_solver
+            if opened:   # a pull only switches the mode
+                if chosen is not None and chosen != str(settings.aether_run_mode):
+                    settings.aether_run_mode = chosen
+                _tag_redraw(context)
+                return {"FINISHED"} if chosen else {"CANCELLED"}
+            if str(settings.aether_run_mode) == "LIVE":
+                result = bpy.ops.clothnext.aether_live_start("EXEC_DEFAULT")
+            else:
+                result = bpy.ops.clothnext.bake("INVOKE_DEFAULT")
+            _tag_redraw(context)
+            return {"FINISHED"} if "FINISHED" in result or "RUNNING_MODAL" in result else {"CANCELLED"}
+        return {"RUNNING_MODAL"}
+
+    def finish(self):
+        if _pull_sessions.get(getattr(self, "key", None)) is self:
+            del _pull_sessions[self.key]
+        try:
+            self.area.tag_redraw()
+        except (ReferenceError, AttributeError):
+            pass
+
+    def cancel(self, context):
+        self.finish()
+
+
 def _draw_pull(context, bounds, blf, shader, batch):
     operator = _pull_sessions.get(quick_assign.region_key(context))
-    if operator is None:
+    if operator is None or getattr(operator, "kind", "") == "mode":
         return
     x, y, _, h, s = bounds
     gesture = operator.gesture
@@ -676,32 +826,16 @@ def _draw_pull(context, bounds, blf, shader, batch):
 
 
 def _draw_aether_menu(layout, context) -> None:
-    """New Look toolbar menu with the AETHER Engine selected: presets, Live, Recovery."""
-    from . import aether_engine_backend, aether_engine_live
+    """New Look toolbar menu with the AETHER Engine selected: the preset of the current mode (Live or Bake)."""
+    from . import aether_engine_live
     settings = context.scene.cloth_next_solver
-    busy = shared_controller.snapshot().active
-    layout.label(text="AETHER Engine Bake preset")
+    live = str(settings.aether_run_mode) == "LIVE"
+    prop = "aether_live_quality" if live else "aether_bake_quality"
+    locked = shared_controller.snapshot().active or (live and aether_engine_live.is_running())
     for key, label in (("NORMAL", "Normal"), ("ANIMATION", "Animation"), ("FITTING", "Fitting")):
         row = layout.row()
-        row.enabled = not busy
-        row.prop_enum(settings, "aether_bake_quality", key, text=label)
-    layout.separator()
-    layout.label(text=f"Live Simulation · {settings.aether_live_quality.title()}")
-    if aether_engine_live.is_running():
-        layout.operator("clothnext.aether_live_toggle_pause",
-                        text="Resume Live" if aether_engine_live.is_paused() else "Pause Live")
-        layout.operator("clothnext.aether_live_reset", text="Reset Live")
-        layout.operator_context = "INVOKE_DEFAULT"
-        layout.operator("clothnext.aether_live_grab", text="Grab Cloth")
-        layout.operator("clothnext.aether_live_stop", text="Stop & Keep Live")
-    else:
-        row = layout.row()
-        row.enabled = not busy
-        row.operator("clothnext.aether_live_start", text="Start Live Simulation")
-    if not busy and aether_engine_backend.recovery_available(context):
-        layout.separator()
-        layout.operator("clothnext.aether_resume_bake", text="Resume Interrupted Bake")
-        layout.operator("clothnext.aether_discard_recovery", text="Discard Interrupted Bake")
+        row.enabled = not locked
+        row.prop_enum(settings, prop, key, text=label)
 
 
 class CLOTHNEXT_MT_floating_quality(bpy.types.Menu):
@@ -758,7 +892,7 @@ class CLOTHNEXT_GT_floating_simulation(bpy.types.GizmoGroup):
         for operator in ("clothnext.set_cache_directory", "wm.call_menu",
                          "clothnext.bake", "clothnext.bake_cancel",
                          "clothnext.companion_open_logs", "clothnext.quick_assign",
-                         "clothnext.pull_detach", "clothnext.pull_resume"):
+                         "clothnext.pull_detach", "clothnext.pull_resume", "clothnext.aether_run_button"):
             gizmo = self.gizmos.new("GIZMO_GT_button_2d")
             gizmo.icon = "BLANK1"
             gizmo.draw_options = set()
@@ -793,7 +927,7 @@ class CLOTHNEXT_GT_floating_simulation(bpy.types.GizmoGroup):
                      (177 + quality_width, 27),
                      ((_w+18*ui)/s, 27),
                      (_w/(2*s), 54 + 31*ui/s), (27, 27),
-                     (resume_center, 27))
+                     (resume_center, 27), (177 + quality_width, 27))
         for gizmo, (dx, dy) in zip(self._buttons, positions):
             gizmo.matrix_basis = Matrix.Translation((x+dx*s, y+dy*s, 0))
             gizmo.scale_basis = (12*ui if gizmo is self._buttons[4]
@@ -805,7 +939,9 @@ class CLOTHNEXT_GT_floating_simulation(bpy.types.GizmoGroup):
         self._buttons[1].color_highlight = (
             _DIR_MISSING if quality and quality.identifier == "EXTREME"
             else _CYAN)[:3]
-        self._buttons[2].hide = snapshot.active or not (model and model.enabled)
+        aether = quality is not None and getattr(quality, "live", None) is not None
+        self._buttons[2].hide = snapshot.active or not (model and model.enabled) or aether
+        self._buttons[8].hide = snapshot.active or not aether
         self._buttons[3].hide = not snapshot.active or not snapshot.can_cancel
         self._buttons[4].hide = True
         self._buttons[5].hide = not bool(quick_assign.valid_roles(context))
@@ -822,7 +958,8 @@ class CLOTHNEXT_GT_floating_simulation(bpy.types.GizmoGroup):
         self.refresh(context)
 
 
-CLASSES = quick_assign.CLASSES + (CLOTHNEXT_OT_pull_detach, CLOTHNEXT_OT_pull_resume, CLOTHNEXT_MT_floating_quality, CLOTHNEXT_OT_toggle_floating_ui,
+CLASSES = quick_assign.CLASSES + (CLOTHNEXT_OT_pull_detach, CLOTHNEXT_OT_pull_resume, CLOTHNEXT_OT_aether_run_button,
+           CLOTHNEXT_MT_floating_quality, CLOTHNEXT_OT_toggle_floating_ui,
            CLOTHNEXT_GT_floating_simulation)
 
 

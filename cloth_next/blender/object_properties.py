@@ -935,6 +935,12 @@ class CLOTHNEXT_PG_solver_backend_settings(bpy.types.PropertyGroup):
     aether_live_quality: bpy.props.EnumProperty(
         name="AETHER Live Quality", default="NORMAL", items=_AETHER_QUALITY_ITEMS,
         description="AETHER Engine preset for Live Simulation (fixed while it runs)")
+    aether_run_mode: bpy.props.EnumProperty(
+        name="AETHER Run Mode", default="LIVE",
+        items=(("LIVE", "Live", "The toolbar's main button starts the Live Simulation"),
+               ("BAKE", "Bake", "The toolbar's main button bakes the simulation")),
+        description="What the New Look toolbar's main button does with the AETHER Engine (hold it and pull "
+                    "right to switch)")
     aether_checkpoint_interval: bpy.props.IntProperty(
         name="Checkpoint Interval", default=24, min=1, soft_max=240,
         description="AETHER Engine bakes save a recovery checkpoint every this many frames")

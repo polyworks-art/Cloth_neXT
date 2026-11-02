@@ -746,7 +746,7 @@ def _draw_aether_section(layout, context, bake_active: bool) -> bool:
                       icon="PLAY" if aether_engine_live.is_paused() else "PAUSE")
         live.operator("clothnext.aether_live_reset", text="Reset", icon="FILE_REFRESH")
         live.operator("clothnext.aether_live_stop", text="Stop & Keep", icon="PINNED")
-        layout.label(text="Grab Cloth: in the 3D View (Ctrl Shift G), drag the cloth with the mouse", icon="VIEW_PAN")
+        layout.label(text="Grab Cloth: drag the cloth with the left mouse button in the 3D View", icon="VIEW_PAN")
         layout.label(text=aether_engine_live.status_line())
     else:
         live.enabled = not bake_active

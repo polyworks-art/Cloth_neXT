@@ -520,6 +520,7 @@ class CLOTHNEXT_OT_aether_live_start(bpy.types.Operator):
             self.report({"ERROR"}, f"{getattr(exc, 'code', '')} {message}".strip())
             return {"CANCELLED"}
         session.play()
+        start_grab(context)   # Grab Cloth is always on while the Live Simulation runs
         return {"FINISHED"}
 
 
@@ -618,28 +619,66 @@ def _inverted_icon(floating_simulation, name: str) -> str:
     return inverted
 
 
+_grab_operator = None   # the running always-on grab (one per Live Simulation)
+
+
+def _view3d_under(window, event):
+    """(region, region_3d) of the 3D View WINDOW region under the mouse, or (None, None)."""
+    for area in getattr(getattr(window, "screen", None), "areas", ()):
+        if area.type != "VIEW_3D":
+            continue
+        for region in area.regions:
+            if (region.type == "WINDOW" and region.x <= event.mouse_x < region.x + region.width
+                    and region.y <= event.mouse_y < region.y + region.height):
+                return region, area.spaces.active.region_3d
+    return None, None
+
+
+def start_grab(context) -> None:
+    """Start the always-on grab of the Live Simulation in the window of ``context``."""
+    if _grab_operator is not None or _session is None:
+        return
+    window = getattr(context, "window", None)
+    if window is None:
+        windows = bpy.context.window_manager.windows
+        window = windows[0] if len(windows) else None
+    if window is None:
+        return
+    for area in window.screen.areas:
+        if area.type != "VIEW_3D":
+            continue
+        region = next((r for r in area.regions if r.type == "WINDOW"), None)
+        if region is None:
+            continue
+        with context.temp_override(window=window, area=area, region=region):
+            bpy.ops.clothnext.aether_live_grab("INVOKE_DEFAULT")
+        return
+
+
 class CLOTHNEXT_OT_aether_live_grab(bpy.types.Operator):
     """Pull the cloth with the mouse while the Live Simulation runs (like grabbing in Marvelous)."""
     bl_idname = "clothnext.aether_live_grab"
     bl_label = "Grab Cloth"
-    bl_description = ("Drag the cloth of the Live Simulation with the left mouse button. The grabbed point follows "
-                      "the mouse in the view plane and is released when you let go. Right-click or Esc ends")
-    bl_options = {"REGISTER"}
+    bl_description = ("Always on while the Live Simulation runs: drag the cloth with the left mouse button. The "
+                      "grabbed point follows the mouse in the view plane and is released when you let go. "
+                      "Clicks elsewhere work as usual")
+    bl_options = {"INTERNAL"}
 
     strength: bpy.props.FloatProperty(name="Strength", default=1.0, min=0.01, max=10.0,
                                       description="Pull strength (1 = ten times the cloth's membrane stiffness)")
 
     @classmethod
     def poll(cls, context):
-        return _session is not None and context.area is not None and context.area.type == "VIEW_3D"
+        return _session is not None and _grab_operator is None
 
     # the pinch point of the icon (assets/icons/aether_grab_cursor.png), as a fraction from bottom-left
     HOTSPOT = (0.48, 0.53)
     # the icon fills its square; the system hand cursor fills about 22 of its 32 px box
     CURSOR_FILL = 22.0 / 32.0
+    HOVER_INTERVAL = 0.05   # s between hover ray casts while the mouse moves
 
     def _draw_cursor(self, context):
-        if context.region != self.region or self.mouse is None:
+        if context.region != self.region or self.mouse is None or not (self.ids or self.over_cloth):
             return
         import gpu
         from gpu_extras.batch import batch_for_shader
@@ -661,65 +700,100 @@ class CLOTHNEXT_OT_aether_live_grab(bpy.types.Operator):
         gpu.state.blend_set("NONE")
 
     def invoke(self, context, event):
-        if _session is None:
+        global _grab_operator
+        if _session is None or _grab_operator is not None:
             return {"CANCELLED"}
         self.ids, self.offsets, self.depth = [], None, None
-        self.region, self.mouse = context.region, (event.mouse_region_x, event.mouse_region_y)
+        self.region, self.rv3d, self.mouse = None, None, None
+        self.over_cloth, self.hover_at, self.cursor_hidden, self.swallow = False, 0.0, False, False
         self.light_bg = False
+        self.window = context.window
         self._handle = bpy.types.SpaceView3D.draw_handler_add(self._draw_cursor, (context,), "WINDOW", "POST_PIXEL")
-        context.window.cursor_modal_set("NONE")   # the grab icon is drawn at the mouse instead
-        context.area.header_text_set("Grab Cloth: drag with the left mouse button · Right-click or Esc: done")
         context.window_manager.modal_handler_add(self)
+        _grab_operator = self
         return {"RUNNING_MODAL"}
 
-    def _ray(self, context, event):
+    def _hit(self, context, region, rv3d, event):
+        """(ray hit, (cloth, vertices) of the Live preview face under the mouse or None)."""
         from bpy_extras import view3d_utils
-        region, rv3d = context.region, context.region_data
-        coord = (event.mouse_region_x, event.mouse_region_y)
+        coord = (event.mouse_x - region.x, event.mouse_y - region.y)
         origin = view3d_utils.region_2d_to_origin_3d(region, rv3d, coord)
         direction = view3d_utils.region_2d_to_vector_3d(region, rv3d, coord)
         hit, location, _normal, polygon, obj, _matrix = context.scene.ray_cast(
             context.evaluated_depsgraph_get(), origin, direction)
-        return (location, polygon, obj) if hit else None
+        found = (location, polygon, obj) if hit else None
+        return found, _session.preview_hit(found[2].original if found else None, found[1] if found else -1)
 
-    def _mouse_point(self, context, event):
+    def _mouse_point(self, event):
         from bpy_extras import view3d_utils
         return np.array(view3d_utils.region_2d_to_location_3d(
-            context.region, context.region_data, (event.mouse_region_x, event.mouse_region_y), self.depth))
+            self.region, self.rv3d, (event.mouse_x - self.region.x, event.mouse_y - self.region.y), self.depth))
+
+    def _set_cursor(self, hidden: bool) -> None:
+        if hidden != self.cursor_hidden:
+            try:
+                if hidden:
+                    self.window.cursor_modal_set("NONE")   # the grab icon is drawn at the mouse instead
+                else:
+                    self.window.cursor_modal_restore()
+            except (ReferenceError, AttributeError):
+                pass
+            self.cursor_hidden = hidden
 
     def _finish(self, context):
+        global _grab_operator
         if _session is not None:
             _session.release(self.ids)
         self.ids = []
         if getattr(self, "_handle", None) is not None:
             bpy.types.SpaceView3D.draw_handler_remove(self._handle, "WINDOW")
             self._handle = None
-        context.window.cursor_modal_restore()
-        context.area.header_text_set(None)
-        context.area.tag_redraw()
+        self._set_cursor(False)
+        if _grab_operator is self:
+            _grab_operator = None
+        try:
+            for area in self.window.screen.areas:
+                if area.type == "VIEW_3D":
+                    area.tag_redraw()
+        except (ReferenceError, AttributeError):
+            pass
         return {"FINISHED"}
 
+    def cancel(self, context):
+        self._finish(context)
+
     def modal(self, context, event):
-        if _session is None or context.area is None:
-            if context.area is not None:
-                return self._finish(context)
-            if getattr(self, "_handle", None) is not None:
-                bpy.types.SpaceView3D.draw_handler_remove(self._handle, "WINDOW")
-                self._handle = None
-            context.window.cursor_modal_restore()
-            return {"CANCELLED"}
-        if event.type in {"RIGHTMOUSE", "ESC"} and event.value == "PRESS":
+        if _session is None:
             return self._finish(context)
-        if event.type == "MOUSEMOVE":
-            inside = 0 <= event.mouse_region_x < context.region.width and 0 <= event.mouse_region_y < context.region.height
-            self.mouse = (event.mouse_region_x, event.mouse_region_y) if inside else None
-            context.window.cursor_modal_set("NONE" if inside else "DEFAULT")
-            context.region.tag_redraw()
-        if event.type == "LEFTMOUSE" and event.value == "PRESS":
-            found = self._ray(context, event)
-            hit = _session.preview_hit(found[2].original if found else None, found[1] if found else -1)
-            if hit is None:
+        if event.type in {"MOUSEMOVE", "INBETWEEN_MOUSEMOVE"}:
+            if self.ids:   # dragging: follow the mouse in the plane the grab started in
+                self.mouse = (event.mouse_x - self.region.x, event.mouse_y - self.region.y)
+                _session.move_grab(self.ids, (self._mouse_point(event) + self.offsets).astype(np.float32))
+                self.region.tag_redraw()
                 return {"RUNNING_MODAL"}
+            region, rv3d = _view3d_under(self.window, event)
+            previous = self.region
+            self.region, self.rv3d = region, rv3d
+            self.mouse = (event.mouse_x - region.x, event.mouse_y - region.y) if region else None
+            now = time.monotonic()
+            if region is None:
+                self.over_cloth = False
+            elif now - self.hover_at >= self.HOVER_INTERVAL:
+                self.hover_at = now
+                self.over_cloth = self._hit(context, region, rv3d, event)[1] is not None
+            self._set_cursor(self.over_cloth)
+            for r in (previous, region):
+                if r is not None:
+                    r.tag_redraw()
+            return {"PASS_THROUGH"}
+        if event.type == "LEFTMOUSE" and event.value == "PRESS" and not self.ids:
+            region, rv3d = _view3d_under(self.window, event)
+            if region is None:
+                return {"PASS_THROUGH"}
+            found, hit = self._hit(context, region, rv3d, event)
+            if hit is None:
+                return {"PASS_THROUGH"}   # not the cloth: select, navigate etc. as usual
+            self.region, self.rv3d = region, rv3d
             cloth, vertices = hit
             preview = bpy.data.objects[_session.previews[cloth][1]]
             matrix = np.array(preview.matrix_world)
@@ -729,16 +803,20 @@ class CLOTHNEXT_OT_aether_live_grab(bpy.types.Operator):
             self.offsets = world - np.array(found[0])
             stiffness = backend.pin_stiffness(self.strength, _session.prep.cloths[cloth].material)
             self.ids, kept = _session.grab(cloth, vertices, world.astype(np.float32), stiffness)
+            self.swallow = True
             self.offsets = self.offsets[kept]
-            return {"RUNNING_MODAL"}
-        if event.type == "MOUSEMOVE" and self.ids:
-            point = self._mouse_point(context, event)
-            _session.move_grab(self.ids, (point + self.offsets).astype(np.float32))
+            self._set_cursor(True)
             return {"RUNNING_MODAL"}
         if event.type == "LEFTMOUSE" and event.value == "RELEASE" and self.ids:
             _session.release(self.ids)
             self.ids = []
+            self.swallow = True
             return {"RUNNING_MODAL"}
+        if event.type == "LEFTMOUSE" and (self.ids or (self.swallow and event.value in {"CLICK", "CLICK_DRAG"})):
+            # the drag and click Blender derives from our press: no box select or move of the preview
+            return {"RUNNING_MODAL"}
+        if event.type == "LEFTMOUSE":
+            self.swallow = False
         return {"PASS_THROUGH"}
 
 
@@ -802,11 +880,6 @@ def register_handlers() -> None:
     handlers = getattr(getattr(bpy.app, "handlers", None), "load_pre", None)
     if handlers is not None and _on_load_pre not in handlers:
         handlers.append(_on_load_pre)
-    kc = getattr(getattr(getattr(bpy.context, "window_manager", None), "keyconfigs", None), "addon", None)
-    if kc is not None and not _keymap_items:
-        km = kc.keymaps.new(name="3D View", space_type="VIEW_3D")
-        _keymap_items.append((km, km.keymap_items.new(CLOTHNEXT_OT_aether_live_grab.bl_idname, "G", "PRESS",
-                                                      ctrl=True, shift=True)))
 
 
 def shutdown() -> None:
