@@ -17,6 +17,10 @@ import numpy as np
 # CLOTH_NEXT_GRAB_CAP / CLOTH_NEXT_GRAB_RINGS override them for tests.
 STRETCH_CAP = float(__import__("os").environ.get("CLOTH_NEXT_GRAB_CAP", "1.6"))
 RINGS = int(__import__("os").environ.get("CLOTH_NEXT_GRAB_RINGS", "0"))   # rings watched (0 = whole cloth)
+# Between the cap and HARD_CAP the grab keeps creeping toward the mouse by CREEP per call (30 Hz: 0.15 m/s),
+# so a heavy cloth that needs more stretch to come along still follows, slowly; beyond HARD_CAP it stops.
+HARD_CAP = float(__import__("os").environ.get("CLOTH_NEXT_GRAB_HARD_CAP", "2.0"))
+CREEP = float(__import__("os").environ.get("CLOTH_NEXT_GRAB_CREEP", "0.005"))   # m
 
 
 class GrabCap:
@@ -58,10 +62,17 @@ class GrabCap:
         Past the cap the target only moves where it does not pull further away from the cloth around
         it (back toward it, or along it), so the artist can always ease off."""
         proposed = np.asarray(proposed, np.float64)
-        if self.target is None or self.stretch(positions) <= self.cap or not len(self.ring):
+        stretch = self.stretch(positions)
+        if self.target is None or stretch <= self.cap or not len(self.ring):
             self.target = proposed
             return proposed
         anchor = np.asarray(positions, np.float64)[self.ring].mean(0)
         if np.linalg.norm(proposed - anchor, axis=1).mean() <= np.linalg.norm(self.target - anchor, axis=1).mean():
             self.target = proposed
+        elif stretch <= self.cap * HARD_CAP / STRETCH_CAP:
+            step = proposed - self.target
+            dist = float(np.linalg.norm(step, axis=1).max())
+            if dist > CREEP:
+                step *= CREEP / dist
+            self.target = self.target + step
         return self.target
