@@ -5,7 +5,7 @@ version change or deployment. GAIA unchanged.
 
 | component | Milestone 5.3 | this pass |
 |---|---|---|
-| AETHER Engine | `010740b` (build `1339fe67b78d7686`, API 1.2) | `169c9c0` (build `f1073dfc1c089f0c`, **API 1.3**, host protocol 1) |
+| AETHER Engine | `010740b` (build `1339fe67b78d7686`, API 1.2) | `be9afb6` (build `55538b6e29a49b91`, **API 1.3**, host protocol 1) |
 | Cloth NeXt | `0eab4fb` | `e9deb1e` + this report |
 
 The goal was "AETHER must feel like real Marvelous cloth". This pass adds three things:
@@ -128,6 +128,60 @@ Static NEON, 248 frames, with the final engine:
 
 * In 5.3 these were 12.9 / 18.9 / 25.3 ms. The softer bending costs about 6 %.
 * The guard repeats frame 1 once, where the seams pull the panels together (about 75 ms extra, once).
+
+## 3b. Calm resting cloth (engine `be9afb6`)
+
+Tim noticed the vest in NEON jittering. Measured on the settled drape (static NEON, Fitting, frames 124-248):
+
+* GAIA's vest moves less than 0.01 mm per frame.
+* AETHER's vest moved 0.46 mm on average and up to 10 mm, with random sign.
+* It was worst at the back on waist height, where the vest lies on the second garment piece.
+
+Both rejected hypotheses made it worse, and were reverted:
+
+* one symmetric stiffness per cloth-cloth contact;
+* a halved contact step in the sweeps.
+
+Measured: switching self-collision off made it 70x calmer, so the cloth-cloth contact causes it. More solver iterations
+made it worse. Without the Newton step it was 4x calmer.
+
+**Cause:** the global Newton step sees cloth-cloth contacts only through the lagged set. In a resting layered garment it
+pushed vertices up to half an edge into the neighbouring layer every substep, and the VBD sweeps pushed them back.
+
+**Fix:**
+
+* The Newton step's motion of a vertex *towards* each lagged cloth-cloth partner is limited to 0.1 x its shortest
+  edge (`newton_trust_self_contact`).
+* Tangential motion and motion away from the partner are free.
+* A plain tighter trust region on such vertices also calmed it, but slowed attachments pulling cloth out of a crumple.
+
+Replay, 3 trajectories each, frame-to-frame acceleration (mm):
+
+| | vest | band | trousers |
+|---|---|---|---|
+| before | 0.58 | 0.30 | 0.11 |
+| after | 0.14 | 0.15 | 0.10 |
+
+There were 0 intersections and the cost did not change.
+
+In Blender with the staged engine:
+
+* the vest's p99 movement per frame went from 2-5 mm to 0.5-1 mm;
+* static NEON: 13.3 / 19.6 / 26.1 ms per frame;
+* animated NEON: 112 / 135 / 155 ms per frame;
+* 0 intersections everywhere; kill + resume byte-identical.
+
+![vest movement per frame, before / now / GAIA](aether_production/neon_vest_jitter.png)
+
+Engine tests 37/37. Two thresholds were adjusted with the measured spread:
+
+* `runtime_pins`: the compliant pin's lag in a crumple measured 2.0-3.3 cm across solver settings, so the limit is now
+  4 cm. A lost attachment stays near 10 cm.
+* `untangle_hardening`: the plain reference run got calmer (3.08 → 2.02 m/s) while the recovery is unchanged
+  (3.49 m/s), so the margin is now 1.5 m/s.
+
+Still open: GAIA settles completely, while AETHER keeps a residual of about 0.5 mm. Slow slip bursts of about 100
+vertices still occur; a better static-friction model is the next lever.
 
 ## 4. Strain limiting (engine API 1.3, experimental in Cloth NeXt)
 
