@@ -729,6 +729,7 @@ class CLOTHNEXT_OT_aether_live_grab(bpy.types.Operator):
         if _session is None or _grab_operator is not None:
             return {"CANCELLED"}
         self.ids, self.offsets, self.depth = [], None, None
+        self._timer, self.desired = None, None
         self.region, self.rv3d, self.mouse = None, None, None
         self.over_cloth, self.hover_at, self.cursor_hidden, self.swallow = False, 0.0, False, False
         self.light_bg = False
@@ -767,9 +768,7 @@ class CLOTHNEXT_OT_aether_live_grab(bpy.types.Operator):
 
     def _finish(self, context):
         global _grab_operator
-        if _session is not None:
-            _session.release(self.ids)
-        self.ids = []
+        self._let_go()
         if getattr(self, "_handle", None) is not None:
             bpy.types.SpaceView3D.draw_handler_remove(self._handle, "WINDOW")
             self._handle = None
@@ -791,6 +790,17 @@ class CLOTHNEXT_OT_aether_live_grab(bpy.types.Operator):
         if self.ids and _session is not None:
             _session.release(self.ids)
         self.ids = []
+        self.desired = None
+        if getattr(self, "_timer", None) is not None:
+            self.window_manager.event_timer_remove(self._timer)
+            self._timer = None
+
+    def _follow(self):
+        """Move the grab toward the mouse as far as the cloth allows (again on every tick while held:
+        a grab that stopped catches up once the cloth around it has followed)."""
+        if self.ids and self.desired is not None:
+            _session.move_grab(self.ids, self.cap.follow(self.desired, _preview_world(self.cloth),
+                                                         self.grabbed).astype(np.float32))
 
     def modal(self, context, event):
         try:
@@ -811,12 +821,14 @@ class CLOTHNEXT_OT_aether_live_grab(bpy.types.Operator):
             self._let_go()
             self.swallow = True
             return {"RUNNING_MODAL"}
+        if event.type == "TIMER" and self.ids:
+            self._follow()
+            return {"PASS_THROUGH"}
         if event.type in {"MOUSEMOVE", "INBETWEEN_MOUSEMOVE"}:
             if self.ids:   # dragging: follow the mouse in the plane the grab started in
                 self.mouse = (event.mouse_x - self.region.x, event.mouse_y - self.region.y)
-                proposed = self._mouse_point(event) + self.offsets
-                _session.move_grab(self.ids, self.cap.follow(proposed, _preview_world(self.cloth),
-                                                             self.grabbed).astype(np.float32))
+                self.desired = self._mouse_point(event) + self.offsets
+                self._follow()
                 self.region.tag_redraw()
                 return {"RUNNING_MODAL"}
             region, rv3d = _view3d_under(self.window, event)
@@ -857,6 +869,10 @@ class CLOTHNEXT_OT_aether_live_grab(bpy.types.Operator):
             self.offsets = self.offsets[kept]
             self.cloth, self.grabbed = cloth, [vertices[k] for k in kept]
             self.cap = agrab.GrabCap(capture.triangles, capture.world, self.grabbed, start=_preview_world(cloth))
+            self.desired = None
+            if self.ids:
+                self.window_manager = context.window_manager
+                self._timer = context.window_manager.event_timer_add(1.0 / 30.0, window=self.window)
             self._set_cursor(True)
             return {"RUNNING_MODAL"}
         if event.type == "LEFTMOUSE" and event.value == "RELEASE" and self.ids:
