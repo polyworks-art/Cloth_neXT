@@ -300,7 +300,10 @@ def test_offline_keeps_entitlement_and_backs_off_then_recovers(backend, make_ser
         assert round(parse_iso(connection["next_check_at"]) - clock.value) == expected
     view = service.view()
     assert view.status == LicenseStatus.OFFLINE_VERIFIED and view.authorized
-    assert view.message == messages.OFFLINE
+    # A 5xx answer means the server was reached: never "unable to reach".
+    assert view.message == messages.COMPANION["server_error"]
+    assert view.connection_problem == messages.COMPANION["server_error"]
+    assert "unreachable" not in view.session_label
     backend.edge_503 = True
     backend.offline = False
     with pytest.raises(ServiceError) as edge:
@@ -320,6 +323,43 @@ def test_network_error_when_server_is_gone(backend, make_service):
         service.refresh()
     assert gone.value.code == "network_unavailable"
     assert service.view().account_label == "Signed in"
+    assert service.view().connection_problem == messages.OFFLINE
+    assert "service unreachable" in service.view().session_label
+
+
+def test_other_successful_call_confirms_session_and_keeps_check_in_due(backend, make_service):
+    """A GAIA access query after an offline phase must not leave the session
+    "unverified" nor postpone the overdue licence check-in by hours."""
+    from cloth_next.polyworks.state import parse_iso
+    clock = Clock()
+    clock.value = float(int(__import__("time").time()))
+    user = backend.add_user("due@example.com")
+    license_id = backend.add_license(user)
+    backend.clock = clock
+    service = make_service(clock=clock)
+    sign_in(service, backend, user)
+    service.activate(license_id, "Here")
+    backend.offline = True
+    with pytest.raises(ServiceError):
+        service.refresh()
+    assert service.state()["account"]["session"] == "unverified"
+    backend.offline = False
+    clock.value += 120
+    service.gaia_access()
+    state = service.state()
+    assert state["account"]["session"] == "active"
+    assert state["connection"]["online"] is True
+    assert parse_iso(state["connection"]["next_check_at"]) <= clock.value
+    checked_before = state["check_in"]["at"]
+    clock.value += 1
+    assert service.sync_if_due() is not None  # due: the check-in runs now
+    state = service.state()
+    assert state["check_in"]["status"] == "valid" and state["check_in"]["at"] != checked_before
+    # While online, other calls leave the next check-in where the refresh put it.
+    planned = state["connection"]["next_check_at"]
+    clock.value += 60
+    service.gaia_access()
+    assert service.state()["connection"]["next_check_at"] == planned
 
 
 def test_session_expiry_keeps_offline_entitlement(backend, make_service):

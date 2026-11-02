@@ -33,6 +33,13 @@ from companion.onboarding_window import (BG, LINE, MUTED, ONBOARDING_FONT as FON
                                          WHITE as FG, InfoWindow, _register_onboarding_fonts)
 
 LOG = logging.getLogger(__name__)
+
+# Closed windows and trays stay referenced for the rest of the process. A worker
+# thread that is still waiting on the network holds the object through its
+# closure; if that worker dropped the last reference, the Tk interpreter would
+# be deleted from the wrong thread and Tcl aborts the whole process
+# (Tcl_Panic "Tcl_AsyncDelete: async handler deleted by the wrong thread").
+_RETIRED: list = []
 # Results that leave everything working: shown as a notice, not as an error.
 SOFT_ERRORS = frozenset({"authorization_pending", "network_unavailable", "service_unavailable",
                          "server_error", "rate_limited"})
@@ -89,13 +96,31 @@ def _plural(count, word):
     return f"{count} {word}" + ("" if count == 1 else "s")
 
 
+# One named Tk font per style and Tk root, alive for the whole process. A Font
+# per widget is deleted ("font delete") as soon as Python collects the widget
+# object, e.g. when the licence/device rows are rebuilt, while canvas text items
+# or Entries may still use it. With Tk 8.6.12 (bundled Python 3.11) that ends in
+# a double free: Tcl_Panic "alloc: invalid block" in Tk_FreeFont on the next
+# canvas redraw, which killed the whole Companion (tcl86t.dll 0x80000003).
+_FONTS: dict = {}
+
+
+def _shared_font(widget, **spec):
+    root = widget._root()
+    key = (str(root), id(root), tuple(sorted(spec.items())))
+    font = _FONTS.get(key)
+    if font is None:
+        font = _FONTS[key] = tkfont.Font(root=root, **spec)
+    return font
+
+
 class WelcomeButton(tk.Canvas):
     """The Welcome screen's rounded monochrome button."""
 
     def __init__(self, parent, label, command, *, primary=False):
         self.label, self.command, self.primary = label, command, primary
         self.enabled = True
-        self.font = tkfont.Font(family=FONT, size=8, weight="bold")
+        self.font = _shared_font(parent, family=FONT, size=8, weight="bold")
         super().__init__(parent, width=self.font.measure(label) + 30, height=29,
                          bg=parent.cget("bg"), highlightthickness=0, bd=0, cursor="hand2")
         self.canvas = self
@@ -136,7 +161,7 @@ class WelcomeEntry(tk.Canvas):
     HEIGHT = 29
 
     def __init__(self, parent, variable, *, secret=False, width=20):
-        self.font = tkfont.Font(family=FONT, size=9)
+        self.font = _shared_font(parent, family=FONT, size=9)
         super().__init__(parent, width=self.font.measure("0") * width + 24, height=self.HEIGHT,
                          bg=parent.cget("bg"), highlightthickness=0, bd=0, cursor="xterm")
         self.canvas = self
@@ -875,6 +900,7 @@ class AccountWindow:
         if self.closed:
             return
         self.closed = True
+        _RETIRED.append(self)
         self.link = None
         for identifier in self._after:
             try:
@@ -1030,6 +1056,7 @@ class AccountTray:
         if self.closed:
             return
         self.closed = True
+        _RETIRED.append(self)
         if self.window is not None:
             self.window.close()
         self.icon.stop()
