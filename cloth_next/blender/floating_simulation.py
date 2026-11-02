@@ -180,7 +180,7 @@ def _quality_width(context):
     scene = getattr(context, "scene", None)
     aether = _aether_quality(scene)
     if aether is not None:
-        return max(66, 25 + 8 * len(aether.label)) + 22   # + the preset icon
+        return 46   # the preset's icon only (as the folder button)
     elif scene is None:
         label = "Custom"
     else:
@@ -454,11 +454,9 @@ def _draw():
         _centered_glyph(blf, "✓" if directory_ok else "×",
                         x+114*s, y+46*s, round(12*s), _TEXT)
         if quality is not None and getattr(quality, "live", None) is not None:
-            # AETHER: the preset's icon, then its name
+            # AETHER: the preset's icon only; the menu names the presets
             _asset_icon(gpu, batch_for_shader, f"quality_{quality.identifier.lower()}",
-                        x+(126+10)*s, y+16*s, 22*s)
-            _centered_label(blf, quality.label + " ▾", x+(126+22)*s, y+23*s, (quality_width-22)*s,
-                            round(13*s), _TEXT)
+                        x+(126+11)*s, y+15*s, 24*s)
         else:
             _centered_label(blf, (quality.label if quality else "Custom") + " ▾",
                             x+126*s, y+23*s, quality_width*s, round(13*s), _TEXT)
