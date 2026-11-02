@@ -79,12 +79,11 @@ def test_stretch_limit_enforced_in_live_not_in_bakes(monkeypatch):
     assert materials.map_material(m).strain_limit == pytest.approx(0.04)
 
 
-def test_minimum_damping_calms_live_cloth():
-    m = materials.map_material(ShellMaterialSettings(shape_damping=0.0, fold_damping=0.0), live=True)
-    assert m.stretch_damping == pytest.approx(materials.MIN_DAMPING)
-    assert m.bend_damping == pytest.approx(materials.MIN_DAMPING)
-    baked = materials.map_material(ShellMaterialSettings(shape_damping=0.0, fold_damping=0.0))
-    assert baked.stretch_damping == 0.0 and baked.bend_damping == 0.0
+def test_minimum_damping_calms_cloth():
+    for live in (True, False):
+        m = materials.map_material(ShellMaterialSettings(shape_damping=0.0, fold_damping=0.0), live=live)
+        assert m.stretch_damping == pytest.approx(materials.MIN_DAMPING)
+        assert m.bend_damping == pytest.approx(materials.MIN_DAMPING)
     m = materials.map_material(ShellMaterialSettings(shape_damping=0.05, fold_damping=0.02), live=True)
     assert m.stretch_damping == pytest.approx(0.05) and m.bend_damping == pytest.approx(0.02)
     off = materials.map_material(ShellMaterialSettings(stretch_limit_enabled=False, maximum_stretch_percent=4.0))

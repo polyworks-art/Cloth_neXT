@@ -33,11 +33,12 @@ MAPPING_VERSION = 2
 LBF_IN2_TO_NM2 = 4.4482216152605 * 0.0254 ** 2   # 1 lbf in^2 in N m^2
 PPF_BEND_CALIBRATION = 14.3491                    # docs/MATERIAL_LIBRARY.md
 FRICTION_SCALE = 0.5                              # surface_grip -> coefficient (as for PPF)
-# Rayleigh damping [s] every cloth of the AETHER Live Simulation gets at least: fabric loses energy when
-# it bends and stretches, and without it AETHER's cloth kept swinging and wobbling where Marvelous falls
-# calm and heavy. 0.005 s matched Marvelous best on the black-box sphere drape (RMS to MD 102 vs 116 mm
-# at frame 30; 0.02 s already fell too slowly). Bakes do not get it: on the animated NEON character it
-# doubled the cost and let the cloth intersect the body (76 frames, Normal); without it 0.
+# Rayleigh damping [s] every AETHER cloth gets at least (Live Simulation and bakes): fabric loses energy
+# when it bends and stretches, and without it AETHER's cloth kept swinging and wobbling where Marvelous
+# falls calm and heavy. 0.005 s matched Marvelous best on the black-box sphere drape (RMS to MD 102 vs
+# 116 mm at frame 30; 0.02 s already fell too slowly). Bakes get it since engine 7feac19 (damping turns
+# with the cloth): before, it held back cloth riding on the turning NEON character (380 ms/frame, body
+# intersections); now 115 ms/frame and 0 intersections, as fast as undamped.
 # Higher Shape / Fold Damping values are used as set.
 MIN_DAMPING = 0.005
 MIN_HALF_GAP = 1.0e-4                             # m; AETHER needs a positive contact gap
@@ -211,8 +212,8 @@ def map_material(material, live: bool = False) -> AetherMaterial:
     gap = _finite("Collision Gap", material.collision_gap)
     return AetherMaterial(
         density=density, youngs=youngs, poisson=poisson, shear_scale=1.0, bend=bend,
-        stretch_damping=max(MIN_DAMPING if live else 0.0, _finite("Shape Damping", material.shape_damping)),
-        bend_damping=max(MIN_DAMPING if live else 0.0, _finite("Fold Damping", material.fold_damping)),
+        stretch_damping=max(MIN_DAMPING, _finite("Shape Damping", material.shape_damping)),
+        bend_damping=max(MIN_DAMPING, _finite("Fold Damping", material.fold_damping)),
         friction=max(0.0, _finite("Surface Grip", material.surface_grip)) * FRICTION_SCALE,
         thickness=max(MIN_HALF_GAP, 0.5 * gap), strain_limit=strain_limit(material, live))
 
