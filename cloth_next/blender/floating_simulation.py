@@ -180,7 +180,7 @@ def _quality_width(context):
     scene = getattr(context, "scene", None)
     aether = _aether_quality(scene)
     if aether is not None:
-        label = aether.label
+        return max(66, 25 + 8 * len(aether.label)) + 22   # + the preset icon
     elif scene is None:
         label = "Custom"
     else:
@@ -453,8 +453,15 @@ def _draw():
         _asset_icon(gpu, batch_for_shader, "folder", x+81*s, y+17*s, 20*s)
         _centered_glyph(blf, "✓" if directory_ok else "×",
                         x+114*s, y+46*s, round(12*s), _TEXT)
-        _centered_label(blf, (quality.label if quality else "Custom") + " ▾",
-                        x+126*s, y+23*s, quality_width*s, round(13*s), _TEXT)
+        if quality is not None and getattr(quality, "live", None) is not None:
+            # AETHER: the preset's icon, then its name
+            _asset_icon(gpu, batch_for_shader, f"quality_{quality.identifier.lower()}",
+                        x+(126+10)*s, y+16*s, 22*s)
+            _centered_label(blf, quality.label + " ▾", x+(126+22)*s, y+23*s, (quality_width-22)*s,
+                            round(13*s), _TEXT)
+        else:
+            _centered_label(blf, (quality.label if quality else "Custom") + " ▾",
+                            x+126*s, y+23*s, quality_width*s, round(13*s), _TEXT)
         aether_live = bool(quality is not None and getattr(quality, "live", None) is not None)
         if snapshot.active:
             _centered_label(
@@ -832,10 +839,15 @@ def _draw_aether_menu(layout, context) -> None:
     live = str(settings.aether_run_mode) == "LIVE"
     prop = "aether_live_quality" if live else "aether_bake_quality"
     locked = shared_controller.snapshot().active or (live and aether_engine_live.is_running())
+    from . import icon_registry
+    current = str(getattr(settings, prop))
     for key, label in (("NORMAL", "Normal"), ("ANIMATION", "Animation"), ("FITTING", "Fitting")):
         row = layout.row()
         row.enabled = not locked
-        row.prop_enum(settings, prop, key, text=label)
+        op = row.operator("wm.context_set_enum", text=label, depress=key == current,
+                          **icon_registry.icon_kwargs(f"quality_{key.lower()}", "NONE"))
+        op.data_path = f"scene.cloth_next_solver.{prop}"
+        op.value = key
 
 
 class CLOTHNEXT_MT_floating_quality(bpy.types.Menu):

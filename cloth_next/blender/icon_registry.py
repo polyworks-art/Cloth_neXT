@@ -14,13 +14,13 @@ _NAMES = ("cloth_next", "gaia_engine", "gaia_water", "cloth", "rod", "soft_body"
           "solver_settings", "engine", "result", "diagnostics",
           "maintenance", "add", "download", "gpu", "health", "link",
           "monitor", "question", "remove", "settings", "update", "upload",
-          "validate", "cloud", "tethys")
+          "validate", "cloud", "tethys", "quality_normal", "quality_animation", "quality_fitting")
 
 
 # Icons whose preview pixels are set directly from the PNG. Blender builds the
 # small icon of an "IMAGE" preview lazily and, for newly added files, may show
 # nothing; explicit pixels always draw.
-_PIXEL_ICONS = {"tethys"}
+_PIXEL_ICONS = {"tethys", "quality_normal", "quality_animation", "quality_fitting"}
 
 
 def _png_rgba(path):
