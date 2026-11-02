@@ -71,7 +71,7 @@ class LiveSession:
             self.hello = self.engine.hello()
             self.session = self.engine.create_session(
                 mode="interactive", quality=self.quality, fps=request.fps, gravity=request.gravity,
-                self_collision=request.self_collision,
+                self_collision=request.self_collision, air_damping=LIVE_AIR_DAMPING,
                 cloths=[abake.session_cloth(c) for c in request.cloths],
                 meshes=[{"vertices": c.rest_world, "triangles": c.triangles} for c in request.colliders])
             setup: dict = {}
@@ -633,6 +633,12 @@ def _view3d_under(window, event):
                     and region.y <= event.mouse_y < region.y + region.height):
                 return region, area.spaces.active.region_3d
     return None, None
+
+
+# Air drag [1/s] of the Live Simulation (bakes have none). Marvelous (black-box) lets cloth fall 59 % of
+# free fall in the first second and is calm at once; drag 2/s gives 57 % and calmed the NEON vest after a
+# pull (95 % of it within 8.7 mm of its old place 2 s after letting go, 17 mm without).
+LIVE_AIR_DAMPING = 2.0
 
 
 def _preview_world(cloth: int) -> np.ndarray:
