@@ -215,6 +215,17 @@ support, not a signed distance. TETHYS therefore:
   and are refused, because cloth deep under water would read as dry;
 * crops each frame to the cloth's PC2 bounds plus two nodes (only cropped
   nodes travel to the engine);
+* when the water source has its liquid surface mesh for every frame (FLIP
+  `bakefiles/NNNNNN.bobj` + `boundsNNNNNN.bbox`, or the surface folder GAIA
+  writes beside the `.gaia` for Houdini/LiquiGen), replaces the cropped
+  particle support with the surface's signed distance `d` as
+  `clamp(0.5 + d/2h, 0, 1)` (`cloth_next/gaia/surface_distance.py`:
+  three-axis ray crossings, majority-vote inside, axis distances combined
+  as `1/sqrt(Σ 1/d_i²)`). Particle splats saturate up to about one grid
+  spacing *outside* the liquid, so from particles alone the water line sits
+  0.7–1 cell too high (`tools/check_tethys_water_line.py`: +1.9 cm at a 2 cm
+  grid; from the surface −0.1 cm). The recipe and the surface files' stamps
+  are part of the wetness cache identity;
 * in the engine samples influence at four points per triangle and maps it
   through a smoothstep between *Contact Start* (0.25) and *Full Contact*
   (0.75); the per-triangle fraction is interpolated linearly in time between
