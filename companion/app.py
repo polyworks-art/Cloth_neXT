@@ -92,11 +92,35 @@ def details_window_height(details_visible: bool, requested: int) -> int:
     """Keep the compact height exact and let expanded content size itself."""
     return max(COMPACT_HEIGHT, int(requested)) if details_visible else COMPACT_HEIGHT
 
-def _logger():
+def _log_root() -> Path:
     if sys.platform == "win32":
-        root=Path(os.environ.get("LOCALAPPDATA",Path.home()))/"Cloth NeXt"/"logs"
-    else:
-        root=Path(os.environ.get("XDG_STATE_HOME",Path.home()/".local"/"state"))/"ClothNeXt"/"logs"
+        return Path(os.environ.get("LOCALAPPDATA",Path.home()))/"Cloth NeXt"/"logs"
+    return Path(os.environ.get("XDG_STATE_HOME",Path.home()/".local"/"state"))/"ClothNeXt"/"logs"
+
+_CRASH_LOG=None
+
+def _enable_crash_log(mode: str) -> None:
+    """Native crashes (e.g. a Tcl panic in tcl86t.dll) kill the windowed exe
+    without any trace in companion.log. faulthandler writes the Python stack of
+    every thread to companion-crash.log so the next one can be pinned down."""
+    global _CRASH_LOG
+    if _CRASH_LOG is not None:
+        return
+    try:
+        import faulthandler
+        root=_log_root(); root.mkdir(parents=True,exist_ok=True)
+        path=root/"companion-crash.log"
+        if path.exists() and path.stat().st_size>512*1024:
+            path.replace(root/"companion-crash.log.1")
+        _CRASH_LOG=open(path,"a",encoding="utf-8")
+        _CRASH_LOG.write(f"--- {time.strftime('%Y-%m-%d %H:%M:%S')} pid={os.getpid()} mode={mode}\n")
+        _CRASH_LOG.flush()
+        faulthandler.enable(file=_CRASH_LOG,all_threads=True)
+    except (OSError,ValueError,RuntimeError):
+        _CRASH_LOG=None
+
+def _logger():
+    root=_log_root()
     logger=logging.getLogger("cloth_next_companion")
     if not logger.handlers:
         try:
@@ -107,6 +131,13 @@ def _logger():
             handler=logging.NullHandler()
         handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
         logger.addHandler(handler); logger.setLevel(logging.INFO)
+        # Account window and PolyWorks service log through their module loggers;
+        # without this their warnings (e.g. why the service counted as offline)
+        # never reached companion.log.
+        for name in ("companion.account_window","cloth_next.polyworks"):
+            child=logging.getLogger(name)
+            if handler not in child.handlers:
+                child.addHandler(handler); child.setLevel(logging.INFO)
     return logger
 
 LOG=_logger()
@@ -1459,6 +1490,8 @@ def main(argv=None):
     parser.add_argument("--blender-pid",type=int)
     parser.add_argument("--open-window",action="store_true")
     args=parser.parse_args(argv)
+    if getattr(sys,"frozen",False):
+        _enable_crash_log(args.mode)
     if (args.blender_pid or args.open_window) and args.mode!="account-tray":
         parser.error("--blender-pid and --open-window belong to --mode account-tray")
     if args.mode in {"account","account-sync","account-tray"}:

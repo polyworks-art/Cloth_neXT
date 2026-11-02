@@ -110,6 +110,9 @@ def presence_running(presence, now: float) -> bool:
     return now - PRESENCE_FRESH_SECONDS <= beat <= now + 5
 
 
+_UNREACHABLE_CODES = frozenset({None, "network_unavailable"})
+
+
 def _license_entry(state: dict, license_id: str | None):
     licenses = state.get("licenses") or []
     if license_id:
@@ -135,7 +138,9 @@ def compute_view(*, state, token: str | None, installation_id: str | None,
     elif account["signed_in"] and session == "active":
         account_label, session_label = "Signed in", "Active"
     elif account["signed_in"]:
-        account_label, session_label = "Signed in", "Not confirmed (service unreachable)"
+        account_label, session_label = "Signed in", (
+            "Not confirmed (service unreachable)" if connection["online"] is False
+            and connection["last_error"] in _UNREACHABLE_CODES else "Not confirmed yet")
     else:
         account_label, session_label = "Not signed in", "No session"
     if account["signed_in"] and account["session_expires_at"]:
@@ -147,7 +152,10 @@ def compute_view(*, state, token: str | None, installation_id: str | None,
     last_success = parse_iso(connection["last_success_at"])
     problem = ""
     if connection["online"] is False:
-        problem = messages.OFFLINE
+        # Only a failed connection is "unable to reach"; a 5xx answer from a
+        # reachable server gets its own wording.
+        problem = (messages.OFFLINE if connection["last_error"] in _UNREACHABLE_CODES
+                   else messages.companion_message(connection["last_error"] or "network_unavailable"))
     elif connection["last_error"] == "rate_limited":
         problem = messages.COMPANION["rate_limited"]
 
@@ -178,7 +186,7 @@ def compute_view(*, state, token: str | None, installation_id: str | None,
             warnings.append("Renewal due for PolyWorks services: connect to the internet and open Cloth NeXt "
                             f"Companion before {format_time(entitlement.expires_at)}.")
         if status == LicenseStatus.OFFLINE_VERIFIED and connection["online"] is False:
-            message = messages.OFFLINE
+            message = problem
     elif entitlement and revoked_after:
         status = _revocation_status(check_in)
         message = (messages.revocation_message(check_in["reason"])
