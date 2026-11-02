@@ -301,3 +301,32 @@ def test_incompatible_recovery_is_rejected(tmp_path):
     assert "quality preset changed" in bake.check_recovery(record, _request(tmp_path, quality="fitting"))
     assert "scene changed" in bake.check_recovery(record, _request(tmp_path, shift=0.01))
     assert "Bake End changed" in bake.check_recovery(record, _request(tmp_path, end=50))
+
+
+def test_grab_follows_the_mouse_until_the_cloth_would_overstretch():
+    from cloth_next.aether_engine import grab
+    g = np.linspace(0.0, 1.0, 11)
+    X, Y = np.meshgrid(g, g)
+    rest = np.stack([X.ravel(), Y.ravel(), np.zeros(121)], 1)
+    tris = [[j * 11 + i, j * 11 + i + 1, j * 11 + i + 12] for j in range(10) for i in range(10)]
+    tris += [[j * 11 + i, j * 11 + i + 12, j * 11 + i + 11] for j in range(10) for i in range(10)]
+    cap = grab.GrabCap(np.array(tris), rest, [60])
+    assert cap.stretch(rest) == pytest.approx(1.0)
+    mouse = rest[[60]] + [0.0, 0.0, 0.05]
+    assert np.allclose(cap.follow(mouse, rest, [60]), mouse)            # relaxed cloth: sticks to the mouse
+    pulled = rest.copy()
+    pulled[60, 2] = 0.08                                                 # its edges now 1.28x
+    assert cap.stretch(pulled) > grab.STRETCH_CAP
+    further = rest[[60]] + [0.0, 0.0, 0.3]
+    assert np.allclose(cap.follow(further, pulled, [60]), mouse)        # overstretched: stops
+    back = rest[[60]] + [0.0, 0.0, 0.04]
+    assert np.allclose(cap.follow(back, pulled, [60]), back)            # easing off always works
+
+
+def test_grab_on_cloth_that_already_hangs_stretched_can_move():
+    from cloth_next.aether_engine import grab
+    rest = np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0]], float)
+    tris = np.array([[0, 1, 3], [0, 3, 2]])
+    start = rest * 1.3                                                  # hangs 30 % stretched
+    cap = grab.GrabCap(tris, rest, [3], start=start)
+    assert cap.stretch(start) == pytest.approx(1.0)

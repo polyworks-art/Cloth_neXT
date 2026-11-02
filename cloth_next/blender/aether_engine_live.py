@@ -24,7 +24,7 @@ import time
 import bpy
 import numpy as np
 
-from ..aether_engine import bake as abake, client as aclient, engine as aengine
+from ..aether_engine import bake as abake, client as aclient, engine as aengine, grab as agrab
 from . import aether_engine_backend as backend
 
 LIVE_MARK = "cloth_next_aether_live"
@@ -382,7 +382,8 @@ class LiveSession:
 
     def release(self, ids: list) -> None:
         if ids:
-            self.command("set_inputs", {"pin_remove": {"ids": aclient.i32(ids), "release": "keep"}})
+            # the grabbed points leave with their neighbours' motion: no fling after a fast drag
+            self.command("set_inputs", {"pin_remove": {"ids": aclient.i32(ids), "release": "neighbor_mean"}})
 
     def _drain_events(self) -> None:
         while True:
@@ -634,6 +635,15 @@ def _view3d_under(window, event):
     return None, None
 
 
+def _preview_world(cloth: int) -> np.ndarray:
+    """World positions of the Live preview of cloth ``cloth`` as shown now."""
+    obj = bpy.data.objects[_session.previews[cloth][1]]
+    co = np.empty(len(obj.data.vertices) * 3, np.float64)
+    obj.data.vertices.foreach_get("co", co)
+    m = np.array(obj.matrix_world)
+    return co.reshape(-1, 3) @ m[:3, :3].T + m[:3, 3]
+
+
 def _over_toolbar(context, region, event) -> bool:
     """True if the mouse is on the floating toolbar of this 3D View region."""
     from . import floating_simulation
@@ -675,11 +685,12 @@ class CLOTHNEXT_OT_aether_live_grab(bpy.types.Operator):
                       "Clicks elsewhere work as usual")
     bl_options = {"INTERNAL"}
 
-    # 0.2: the grab spring is twice the cloth's membrane stiffness. At 1 (ten times) it overpowered the
-    # Stretch Limit around the grabbed point (NEON vest: 2.3x local stretch); at 0.2 about 1.4x and the
-    # garment follows as a whole.
-    strength: bpy.props.FloatProperty(name="Strength", default=0.2, min=0.01, max=10.0,
-                                      description="Pull strength (1 = ten times the cloth's membrane stiffness)")
+    # 0 (default): a hard grab, the point sticks to the mouse like in Marvelous; it stops following
+    # where the cloth around it would overstretch (aether_engine.grab). A spring (> 0) lagged up to
+    # 10 cm behind the mouse under a Stretch Limit (NEON vest at 0.2).
+    strength: bpy.props.FloatProperty(name="Strength", default=0.0, min=0.0, max=10.0,
+                                      description="0 = the point sticks to the mouse; above 0 a spring "
+                                                  "(1 = ten times the cloth's membrane stiffness)")
 
     @classmethod
     def poll(cls, context):
@@ -803,7 +814,9 @@ class CLOTHNEXT_OT_aether_live_grab(bpy.types.Operator):
         if event.type in {"MOUSEMOVE", "INBETWEEN_MOUSEMOVE"}:
             if self.ids:   # dragging: follow the mouse in the plane the grab started in
                 self.mouse = (event.mouse_x - self.region.x, event.mouse_y - self.region.y)
-                _session.move_grab(self.ids, (self._mouse_point(event) + self.offsets).astype(np.float32))
+                proposed = self._mouse_point(event) + self.offsets
+                _session.move_grab(self.ids, self.cap.follow(proposed, _preview_world(self.cloth),
+                                                             self.grabbed).astype(np.float32))
                 self.region.tag_redraw()
                 return {"RUNNING_MODAL"}
             region, rv3d = _view3d_under(self.window, event)
@@ -837,10 +850,13 @@ class CLOTHNEXT_OT_aether_live_grab(bpy.types.Operator):
             world = local @ matrix[:3, :3].T + matrix[:3, 3]
             self.depth = found[0]
             self.offsets = world - np.array(found[0])
-            stiffness = backend.pin_stiffness(self.strength, _session.prep.cloths[cloth].material)
+            capture = _session.prep.cloths[cloth]
+            stiffness = backend.pin_stiffness(self.strength, capture.material) if self.strength > 0 else 0.0
             self.ids, kept = _session.grab(cloth, vertices, world.astype(np.float32), stiffness)
             self.swallow = True
             self.offsets = self.offsets[kept]
+            self.cloth, self.grabbed = cloth, [vertices[k] for k in kept]
+            self.cap = agrab.GrabCap(capture.triangles, capture.world, self.grabbed, start=_preview_world(cloth))
             self._set_cursor(True)
             return {"RUNNING_MODAL"}
         if event.type == "LEFTMOUSE" and event.value == "RELEASE" and self.ids:
