@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.9.54 - 2026-11-02
+
+- TETHYS Wetness: the water line on the cloth sits where the liquid really is. Wetness contact now comes from the liquid surface mesh (FLIP surface, or the surface prepared for Houdini/LiquiGen) instead of the particle field, which reached about one Water Flow cell above the water. In the NEON scene the line was 3 to 4 cm too high. Wetness bakes made with an earlier version bake again once.
+
 ## 2.9.53 - 2026-11-01
 
 - PATTERN NeXt: a new workspace tab for drawing garment patterns. A 3D view on the left and a locked front-orthographic 2D pattern editor on the right. Polygon, Rectangle, Ellipse and Curve tools, Edit Pattern and Edit Curve, holes and internal lines, snapping, measurements, mirroring with linked symmetry.

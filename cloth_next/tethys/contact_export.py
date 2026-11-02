@@ -5,10 +5,17 @@
 For each wetness frame the cloth's world bounding box is read from its PC2
 and the matching ``.gaia`` frame is cropped to the nodes around it. The
 engine interprets these nodes as contact; nothing here decides wetness.
+
+Where the water source also has its liquid surface mesh (FLIP ``bakefiles``,
+or the surface folder GAIA writes beside the ``.gaia``), the cropped nodes
+carry the signed distance to that surface instead of the particle support.
+Particle splats reach about one grid spacing beyond the liquid, which put
+the water line on the cloth one cell above the real water.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 import math
 from pathlib import Path
 import struct
@@ -16,10 +23,15 @@ import struct
 import numpy as np
 
 from ..gaia.container import GaiaContainer
+from ..gaia.surface import read_surface
+from ..gaia.surface_distance import contact_support, signed_distance
 from .protocol import WaterBlock, write_env
 
 MARGIN_NODES = 2
 REQUIRED_SAMPLING = "all-liquid-particles"
+# Part of the wetness cache identity: a new recipe re-bakes old caches.
+SURFACE_RECIPE = "liquid-surface-signed-distance-v1"
+PARTICLE_RECIPE = "particle-support-v1"
 
 
 class ContactSourceError(ValueError):
@@ -32,6 +44,59 @@ class ContactSource:
     fingerprint: str
     fps: float
     frames: tuple[int, int]
+    surfaces: Path | None = None          # folder of NNNNNN.bobj + boundsNNNNNN.bbox
+    cache_matrix: tuple | None = None     # FLIP cache-local -> world
+
+    @property
+    def recipe(self) -> str:
+        return SURFACE_RECIPE if self.surfaces is not None else PARTICLE_RECIPE
+
+    def surface_stamps(self, first: int, last: int) -> list:
+        """Names, sizes and modification times of the surfaces a bake reads."""
+        if self.surfaces is None:
+            return []
+        rows = []
+        for frame in range(first, last + 1):
+            for path in _surface_files(self.surfaces, frame):
+                stat = path.stat()
+                rows.append([path.name, stat.st_size, stat.st_mtime_ns])
+        return rows
+
+    def surface(self, frame: int):
+        """World-space liquid surface (vertices, faces) of ``frame``."""
+        mesh, bounds = _surface_files(self.surfaces, frame)
+        try:
+            vertices, faces, _digest = read_surface(mesh)
+            raw = json.loads(bounds.read_text(encoding="utf-8"))
+            offset = np.asarray([raw["x"], raw["y"], raw["z"]], dtype=np.float32)
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            raise ContactSourceError(f"The liquid surface of frame {frame} cannot be read: {exc}") from exc
+        matrix = np.asarray(self.cache_matrix, dtype=float)
+        # Same float32 translation as the FLIP loader applies before the
+        # cache object's world transform (see gaia.particle_stream).
+        local = (vertices - offset).astype(float)
+        return local @ matrix[:3, :3].T + matrix[:3, 3], faces
+
+
+def _surface_files(folder: Path, frame: int) -> tuple[Path, Path]:
+    return folder / f"{frame:06d}.bobj", folder / f"bounds{frame:06d}.bbox"
+
+
+def _surface_folder(provider: dict, frames: list[int]):
+    """The liquid surface folder and cache matrix, when every frame has one."""
+    folder, matrix = provider.get("cache"), provider.get("cache_matrix")
+    if not folder or matrix is None:
+        return None, None
+    try:
+        matrix = np.asarray(matrix, dtype=float)
+    except (TypeError, ValueError):
+        return None, None
+    if matrix.shape != (4, 4) or not np.isfinite(matrix).all() or abs(np.linalg.det(matrix[:3, :3])) < 1e-12:
+        return None, None
+    folder = Path(folder)
+    if not all(path.is_file() for frame in frames for path in _surface_files(folder, frame)):
+        return None, None
+    return folder, tuple(map(tuple, matrix.tolist()))
 
 
 class Pc2Frames:
@@ -83,11 +148,17 @@ def inspect_source(path: Path) -> ContactSource:
     fps = float(water.get("fps", 0))
     if not math.isfinite(fps) or fps <= 0:
         raise ContactSourceError("The GAIA Fluid Cache has no valid frame rate. Prepare it again")
-    return ContactSource(path, str(water.get("fingerprint", "")), fps, (frames[0], frames[-1]))
+    surfaces, matrix = _surface_folder(water.get("provider") or {}, frames)
+    return ContactSource(path, str(water.get("fingerprint", "")), fps, (frames[0], frames[-1]),
+                         surfaces, matrix)
 
 
-def crop(field, lower, upper):
-    """Cropped WaterBlock covering the world box [lower, upper], or None."""
+def crop(field, lower, upper, surface=None):
+    """Cropped WaterBlock covering the world box [lower, upper], or None.
+
+    With ``surface`` (world vertices, faces) the nodes carry the liquid
+    surface's signed distance as 0..1 support (0.5 on the surface).
+    """
     minimum = np.asarray(field.minimum, float)
     maximum = np.asarray(field.maximum, float)
     nz, ny, nx = field.influence.shape
@@ -103,8 +174,12 @@ def crop(field, lower, upper):
     influence = np.asarray(field.influence[sz, sy, sx], dtype=np.float32)
     if not influence.any():
         return None
-    velocity = np.asarray(field.velocity[sz, sy, sx], dtype=np.float32)
     origin = minimum + spacing * start
+    if surface is not None:
+        influence = contact_support(signed_distance(*surface, origin, spacing, influence.shape), spacing)
+        if not influence.any():
+            return None
+    velocity = np.asarray(field.velocity[sz, sy, sx], dtype=np.float32)
     return WaterBlock(tuple(float(v) for v in origin), tuple(float(v) for v in spacing),
                       influence, velocity)
 
@@ -132,10 +207,11 @@ def export_contact(destination: Path, source: ContactSource, pc2_path: Path, ver
                 local = positions.read(pc2_first_sample + offset)
                 world = local @ matrix[:3, :3].T + matrix[:3, 3]
                 field = container.frame(index_of[first_frame + offset])
-                block = crop(field, world.min(axis=0), world.max(axis=0))
+                surface = source.surface(first_frame + offset) if source.surfaces is not None else None
+                block = crop(field, world.min(axis=0), world.max(axis=0), surface)
                 wet_frames += block is not None
                 yield block
-                del field, block
+                del field, block, surface
 
     write_env(destination, first_frame, frame_count, source.fps, blocks(), check_cancel=check_cancel)
     return wet_frames
