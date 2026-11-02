@@ -5,7 +5,7 @@ version change or deployment. GAIA unchanged.
 
 | component | Milestone 5.3 | this pass |
 |---|---|---|
-| AETHER Engine | `010740b` (build `1339fe67b78d7686`, API 1.2) | `be9afb6` (build `55538b6e29a49b91`, **API 1.3**, host protocol 1) |
+| AETHER Engine | `010740b` (build `1339fe67b78d7686`, API 1.2) | `98a1178` (**API 1.3**, host protocol 1) |
 | Cloth NeXt | `0eab4fb` | `e9deb1e` + this report |
 
 The goal was "AETHER must feel like real Marvelous cloth". This pass adds three things:
@@ -182,6 +182,77 @@ Engine tests 37/37. Two thresholds were adjusted with the measured spread:
 
 Still open: GAIA settles completely, while AETHER keeps a residual of about 0.5 mm. Slow slip bursts of about 100
 vertices still occur; a better static-friction model is the next lever.
+
+## 3c. Cubic contact law and the stiff vest (engine `98a1178`)
+
+**Stiffness.** Tim found NEON's vest stiff in the GAIA bake but soft in AETHER. Measured over the bake:
+
+| | median deformation | p95 deformation |
+|---|---|---|
+| GAIA | 0.4 mm | 0.8 mm |
+| AETHER | 2.5 mm | 12.5 mm |
+
+The difference is concentrated in the free-standing lower front.
+
+* **Cause:** the contact gap. PPF's contact-gap is the activation distance of an IPC barrier, and layers rest inside it.
+  AETHER's quadratic penalty held the full gap and pushed the vest off its band, which lies about 1 mm away.
+* **Ruled out:** the material stiffness arrives correctly. More iterations, more Newton steps and 10x bending made no
+  difference.
+* **Inlay zone:** the vest's "Inlay" zone (young-mod 10, 4.65 N/m) is intentional.
+
+**Contact law.** Mesh contacts now use a cubic law, E = k (gap - d)^3 / (3 gap):
+
+* zero force at the gap;
+* the penalty's maximum k·gap at contact;
+* stiffness 0 to 2k.
+
+Contacts between two different cloths keep 0.5 x the summed thickness as their gap.
+
+**Measured** (NEON Fitting replay, vest / band / trousers frame-to-frame jitter in mm):
+
+| | vest | band | trousers |
+|---|---|---|---|
+| before | 0.13 | 0.15 | 0.09 |
+| cubic | 0.004 | 0.003 | 0.002 |
+
+The cost stayed the same.
+
+**Blender, staged engine:**
+
+| scene | ms per frame | before |
+|---|---|---|
+| static NEON | 13.1 / 19.0 / 25.0 | |
+| animated NEON | 108 / 129 / 147 | 112 / 135 / 155 |
+
+* 0 intersections everywhere: ball, static and animated NEON;
+* largest stretch in animated NEON 1.94x / 1.86x / 1.36x;
+* kill + resume byte-identical.
+
+Engine tests 37/37, host 10/10.
+
+![vest movement per frame: this morning / Newton fix / cubic / GAIA](aether_production/neon_vest_jitter.png)
+
+**Rejected:**
+
+| idea | result |
+|---|---|
+| IPC log barrier | oscillates in the VBD sweeps, 2.4x slower |
+| thin gap for all contacts | animated NEON explodes |
+| thin gap only for vertices layered at the start | no gain |
+| symmetric contact stiffness, halved contact step, lagged friction normal force | no gain |
+
+**Open:** a 0.5 gap for every cloth-cloth contact (`AETHER_EXP_SELF_GAP_ALL=1`):
+
+* holds the vest like GAIA: 0.47 / 1.05 mm, against GAIA's 0.37 / 0.83;
+* fails `deforming_colliders`, where a tightly pinched elbow sleeve passes through itself.
+
+The vest is calm now but still softer than in GAIA (2.2 / 8 mm).
+
+**Stretch Limit:** a stiff penalty (300) stalls a sewn garment at its limit: NEON's vest median stretch was 1.042,
+against 1.003 without limits. A soft penalty (3) fixes NEON but fails the `strain_limit` test (10.6 % for 5 %). It
+stays off in Cloth NeXt.
+
+Correction: `14ffd37` was reported green on a stale test binary. `ba7278a` reverted it.
 
 ## 4. Strain limiting (engine API 1.3, experimental in Cloth NeXt)
 
