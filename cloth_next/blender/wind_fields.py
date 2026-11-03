@@ -3,6 +3,7 @@
 import hashlib
 import math
 import sys
+import threading
 import time
 from pathlib import Path
 import bpy
@@ -272,6 +273,11 @@ _load_post._clothnext_wind_overlay = True
 
 
 def _frame_change_post(_scene, _depsgraph=None):
+    # An F12 animation render calls frame handlers from its render thread.
+    # Freeing the preview's GPU batch or tagging every 3D view from there
+    # races EEVEE for the GPU context; the main thread catches up afterwards.
+    if threading.current_thread() is not threading.main_thread():
+        return
     _invalidate_obstacles(frame_only=True)
     redraw()
 
