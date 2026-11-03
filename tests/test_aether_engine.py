@@ -366,8 +366,11 @@ def test_start_recovery_runs_in_the_first_frames_only(tmp_path):
     from dataclasses import replace
     req = replace(_request(tmp_path, end=10 + bake.START_RECOVERY_FRAMES + 4), start_recovery=True)
     assert bake.frame_inputs(req, 0)["untangle"] == {"frames": 1}
-    assert bake.frame_inputs(req, bake.START_RECOVERY_FRAMES - 1)["untangle"] == {"frames": 1}
+    assert bake.frame_inputs(req, bake.START_RECOVERY_FRAMES - 2)["untangle"] == {"frames": 1}
     assert "untangle" not in bake.frame_inputs(req, bake.START_RECOVERY_FRAMES)
+    # the frames that end at a checkpoint run without it (the engine refuses a checkpoint mid-recovery)
+    for step in (req.checkpoint_interval - 1, 2 * req.checkpoint_interval - 1):
+        assert "untangle" not in bake.frame_inputs(req, step)
     off = replace(req, start_recovery=False)
     assert "untangle" not in bake.frame_inputs(off, 0)
     assert bake.scene_digest(req) != bake.scene_digest(off)   # a resume never mixes the two

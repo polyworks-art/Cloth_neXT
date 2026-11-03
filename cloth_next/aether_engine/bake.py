@@ -196,7 +196,12 @@ START_RECOVERY_FRAMES = 48   # frames from the start in which the recovery runs
 def frame_inputs(request: BakeRequest, step: int) -> dict:
     """Inputs for engine step ``step`` (0-based): poses at Blender frame start+step+1."""
     inp: dict = {"frame": step}
-    if request.experimental_recovery:
+    # The engine refuses a checkpoint while a recovery runs, which failed the bake (CNX-E169) when the
+    # cloth still intersected at the first checkpoint: the frame that ends at one runs without it.
+    interval = request.checkpoint_interval
+    if interval > 0 and ((step + 1) % interval == 0 or step + 1 == request.steps):
+        pass
+    elif request.experimental_recovery:
         inp["untangle"] = {"frames": 1}   # analysis this frame; recovery only where intersections exist
     elif request.start_recovery and step < START_RECOVERY_FRAMES:
         # analysis every frame of the start, recovery only where intersections exist (one request for
