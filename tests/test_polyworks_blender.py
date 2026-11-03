@@ -295,6 +295,24 @@ def test_companion_unavailable_never_raises(blender_env, signed, monkeypatch):
     module.unregister()
 
 
+def test_tray_runs_from_a_copy_outside_the_extension_folder(tmp_path):
+    from cloth_next.bake.companion_bundle import resident_copy
+    extension = tmp_path / "extensions" / "cloth_next" / "bin"
+    extension.mkdir(parents=True)
+    binary = extension / "cloth-next-bake.exe"
+    binary.write_bytes(b"companion v1")
+    root = tmp_path / "local" / "companion"
+    first = resident_copy(binary, root=root)
+    assert first.read_bytes() == b"companion v1" and root in first.parents
+    assert resident_copy(binary, root=root) == first          # same version: reused
+    binary.write_bytes(b"companion v2")
+    second = resident_copy(binary, root=root)
+    assert second != first and second.read_bytes() == b"companion v2"
+    assert not first.exists()                                  # old version cleaned up
+    # The extension folder can now be renamed (as Blender does on update).
+    (tmp_path / "extensions" / "cloth_next").rename(tmp_path / "extensions" / ".cloth_next.~temp~")
+
+
 def test_windows_tray_starts_hidden_once_and_never_during_a_bake(blender_env, signed, monkeypatch):
     module = account_module(blender_env)
     monkeypatch.setattr(module, "TRAY", True)
