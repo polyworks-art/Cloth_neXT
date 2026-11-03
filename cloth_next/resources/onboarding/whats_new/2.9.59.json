@@ -1,0 +1,30 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.59",
+  "title": "What's New in Cloth NeXt 2.9.59",
+  "subtitle": "Faster wetness, stronger water details.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/check.png",
+      "title": "Wetness 4-5x faster",
+      "description": "The TETHYS water solver uses several CPU cores; a cancelled bake continues where it stopped."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Stronger water details",
+      "description": "Drops, rims and rivulets are as strong as before 2.9.52, and cloth against the body is fully wet under water."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}

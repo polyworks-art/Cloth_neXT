@@ -287,14 +287,17 @@ def test_engine_rejects_protocol_mismatch(tmp_path):
     assert not (tmp_path / "out.tethys").exists()
 
 
-def test_engine_cancel_leaves_no_files(tmp_path):
+def test_engine_cancel_publishes_nothing_and_keeps_a_checkpoint(tmp_path):
     executable = _engine()
     request, _pc2, _owners = _scenario(tmp_path)
     (tmp_path / "cancel").write_bytes(b"cancel")
     code, events = _run(executable, request)
     assert code == 3 and events[-1]["event"] == "cancelled"
     assert not (tmp_path / "out.tethys").exists()
-    assert not (tmp_path / "out.tethys.partial").exists()
+    # Unpublished scratch for a later resume; the add-on removes it with the staging files.
+    assert (tmp_path / "out.tethys.partial").exists() and (tmp_path / "out.tethys.resume").exists()
+    paths = tcache.CachePaths(tmp_path, "out")
+    assert paths.partial.exists() and paths.checkpoint.exists()
 
 
 def test_corrupted_cache_is_rejected(tmp_path):
@@ -421,6 +424,27 @@ def test_liquid_surface_puts_the_water_line_on_the_real_water():
     assert deep.influence.min() == 1.0
 
 
+def test_liquid_surface_contact_band_follows_the_liquid_cell_size():
+    """Cloth resting just inside the liquid (next to a body) is in full contact."""
+    from cloth_next.gaia.water_field import grid_dimensions, reconstruct
+    lo, hi = np.full(3, -1.0), np.full(3, 1.0)
+    dims = grid_dimensions(lo, hi, 50)
+    coarse = 2.0 / (dims[2] - 1)
+    rng = np.random.default_rng(5)
+    points = rng.uniform((-0.5, -0.5, -0.6), (0.5, 0.5, 0.0), (20000, 3))
+    field = reconstruct(points, np.zeros_like(points), lo, hi, dims)
+    lower, upper = (-0.2, -0.2, -0.3), (0.2, 0.2, 0.3)
+    block = contact_export.crop(field, lower, upper, _pool_surface(top=0.0), liquid_cell=0.016)
+    assert np.allclose(block.spacing, 0.012) and 0.012 < coarse
+    assert block.velocity.shape == block.influence.shape + (3,)
+    assert _sampled_contact(block, -0.006) > 0.99
+    assert _sampled_contact(block, 0.004) < 0.1
+    assert abs(contact_export.surface_spacing((coarse,) * 3, None, lower, upper) - coarse / 3) < 1e-12
+    # Huge boxes stay within the node budget.
+    huge = contact_export.surface_spacing((coarse,) * 3, 0.001, (-5, -5, -5), (5, 5, 5))
+    assert np.prod(np.ceil(10 / huge) + 5) <= contact_export.SURFACE_MAX_NODES * 1.0001 or huge == coarse
+
+
 def test_contact_source_finds_liquid_surfaces(tmp_path):
     from cloth_next.gaia.container import write_water_container
     from cloth_next.gaia.mantaflow import write_bobj, write_bounds
@@ -495,6 +519,62 @@ def test_killed_engine_leaves_cloth_cache_intact(tmp_path):
     partial = tmp_path / "out.tethys.partial"
     if partial.exists():
         partial.unlink()
+
+
+def test_compact_water_stream_is_smaller_and_bakes_alike(tmp_path):
+    executable = _engine()
+    results = {}
+    for compact in (False, True):
+        folder = tmp_path / ("compact" if compact else "full")
+        folder.mkdir()
+        request, _pc2, _ = _scenario(folder)
+        rng = np.random.default_rng(3)
+
+        def blocks():
+            for _ in range(24):
+                z = np.arange(30) * 0.05 - 1.0
+                influence = np.clip(0.5 - (z / 0.05)[:, None, None] * 0.5, 0, 1) * np.ones((30, 10, 10))
+                velocity = rng.normal(0, 0.5, (30, 10, 10, 3))
+                yield protocol.WaterBlock((-0.1, -0.25, -1.0), (0.05, 0.05, 0.05), influence.astype(np.float32),
+                                          velocity.astype(np.float32))
+        protocol.write_env(folder / "water.tethysev", 1, 24, 24.0, blocks(), compact=compact)
+        code, events = _run(executable, request)
+        assert code == 0, events
+        with protocol.CacheReader(folder / "out.tethys") as reader:
+            results[compact] = (reader.read(24).channels["surface"], (folder / "water.tethysev").stat().st_size)
+    full, compact = results[False], results[True]
+    assert compact[1] < 0.5 * full[1]
+    assert np.abs(full[0] - compact[0]).max() < 0.02 * max(1e-6, np.abs(full[0]).max())
+
+
+def test_cancelled_bake_resumes_to_the_same_cache(tmp_path):
+    """Cancel mid-bake, run the same request again: the result equals an uninterrupted bake."""
+    import time
+    executable = _engine()
+    whole_dir, cut_dir = tmp_path / "whole", tmp_path / "cut"
+    whole_dir.mkdir()
+    cut_dir.mkdir()
+    whole, _pc2, _ = _scenario(whole_dir, frames=40, detail=2, texture=64)
+    cut, _pc2, _ = _scenario(cut_dir, frames=40, detail=2, texture=64)
+    assert _run(executable, whole)[0] == 0
+    job = engine.EngineJob(executable, cut, cut_dir / "cancel")
+    deadline = time.monotonic() + 60
+    while True:
+        events = job.take_events()
+        if any(e.get("event") == "progress" and e.get("done", 0) >= 10 for e in events):
+            break
+        assert job.poll() is None and time.monotonic() < deadline
+        time.sleep(0.01)
+    job.cancel()
+    assert job.poll() == 3
+    assert (cut_dir / "out.tethys.resume").is_file() and (cut_dir / "out.tethys.partial").is_file()
+    assert not (cut_dir / "out.tethys").exists()
+    (cut_dir / "cancel").unlink()
+    code, events = _run(executable, cut)
+    assert code == 0, events
+    assert events[0]["resumed_from"] >= 10
+    assert not (cut_dir / "out.tethys.resume").exists()
+    assert (cut_dir / "out.tethys").read_bytes() == (whole_dir / "out.tethys").read_bytes()
 
 
 def test_engine_refuses_without_gaia_entitlement(tmp_path, monkeypatch):
