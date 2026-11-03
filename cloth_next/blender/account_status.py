@@ -154,6 +154,15 @@ def _maybe_sync() -> None:
 
 def _tray_command(*, open_window: bool = False) -> list[str]:
     command = _companion_command("account-tray") + ["--blender-pid", str(os.getpid())]
+    # The tray stays running: start it from a copy outside the extension
+    # folder so it never blocks an add-on update.
+    from ..bake.companion_bundle import resident_copy
+    from ..platform_support import platform_spec
+    try:
+        if Path(command[0]).name == platform_spec().companion_filename:
+            command[0] = str(resident_copy(Path(command[0])))
+    except (OSError, ValueError) as exc:
+        LOG.info("Cloth NeXt tray runs from the extension folder: %s", type(exc).__name__)
     return command + (["--open-window"] if open_window else [])
 
 
