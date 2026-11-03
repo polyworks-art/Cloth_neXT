@@ -421,6 +421,27 @@ def test_liquid_surface_puts_the_water_line_on_the_real_water():
     assert deep.influence.min() == 1.0
 
 
+def test_liquid_surface_contact_band_follows_the_liquid_cell_size():
+    """Cloth resting just inside the liquid (next to a body) is in full contact."""
+    from cloth_next.gaia.water_field import grid_dimensions, reconstruct
+    lo, hi = np.full(3, -1.0), np.full(3, 1.0)
+    dims = grid_dimensions(lo, hi, 50)
+    coarse = 2.0 / (dims[2] - 1)
+    rng = np.random.default_rng(5)
+    points = rng.uniform((-0.5, -0.5, -0.6), (0.5, 0.5, 0.0), (20000, 3))
+    field = reconstruct(points, np.zeros_like(points), lo, hi, dims)
+    lower, upper = (-0.2, -0.2, -0.3), (0.2, 0.2, 0.3)
+    block = contact_export.crop(field, lower, upper, _pool_surface(top=0.0), liquid_cell=0.016)
+    assert np.allclose(block.spacing, 0.012) and 0.012 < coarse
+    assert block.velocity.shape == block.influence.shape + (3,)
+    assert _sampled_contact(block, -0.006) > 0.99
+    assert _sampled_contact(block, 0.004) < 0.1
+    assert abs(contact_export.surface_spacing((coarse,) * 3, None, lower, upper) - coarse / 3) < 1e-12
+    # Huge boxes stay within the node budget.
+    huge = contact_export.surface_spacing((coarse,) * 3, 0.001, (-5, -5, -5), (5, 5, 5))
+    assert np.prod(np.ceil(10 / huge) + 5) <= contact_export.SURFACE_MAX_NODES * 1.0001 or huge == coarse
+
+
 def test_contact_source_finds_liquid_surfaces(tmp_path):
     from cloth_next.gaia.container import write_water_container
     from cloth_next.gaia.mantaflow import write_bobj, write_bounds
