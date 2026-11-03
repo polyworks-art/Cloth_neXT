@@ -122,6 +122,12 @@ class BakeRequest:
     # Milestone 5.2, experimental (CLOTH_NEXT_AETHER_EXPERIMENTAL_RECOVERY=1, off by default): the
     # engine analyses every frame for intersecting cloth and runs its E4 recovery when it finds some.
     experimental_recovery: bool = False
+    # Production: cloth that starts inside a collider or inside other cloth (a garment modelled for
+    # another pose or body) is pulled out at the start of the bake by the engine's recovery; it stops on
+    # its own once nothing intersects. Without it the cloth stayed caught and tore when the body moved
+    # (SW04_reworked: 1212 body intersections at frame 1, 12x stretch); with it 0 from frame 26 on.
+    # Clean scenes pay one analysis. CLOTH_NEXT_AETHER_START_RECOVERY=0 switches it off.
+    start_recovery: bool = False
 
     @property
     def steps(self) -> int:
@@ -148,6 +154,7 @@ def scene_digest(request: BakeRequest) -> str:
     h = hashlib.sha256()
     h.update(json.dumps({"quality": request.quality, "fps": request.fps, "gravity": request.gravity,
                          **({"experimental_recovery": True} if request.experimental_recovery else {}),
+                         **({"start_recovery": START_RECOVERY_FRAMES} if request.start_recovery else {}),
                          "self_collision": request.self_collision, "range": [request.frame_start,
                                                                               request.frame_end]},
                         sort_keys=True).encode())
@@ -183,11 +190,16 @@ def input_digest(request: BakeRequest) -> str:
 
 
 # ---------------------------------------------------------------- protocol messages
+START_RECOVERY_FRAMES = 48   # most frames the start recovery may take
+
+
 def frame_inputs(request: BakeRequest, step: int) -> dict:
     """Inputs for engine step ``step`` (0-based): poses at Blender frame start+step+1."""
     inp: dict = {"frame": step}
     if request.experimental_recovery:
         inp["untangle"] = {"frames": 1}   # analysis this frame; recovery only where intersections exist
+    elif request.start_recovery and step == 0:
+        inp["untangle"] = {"frames": START_RECOVERY_FRAMES}   # stops early once nothing intersects
     if step == 0:
         adds = []
         for p in request.pins:

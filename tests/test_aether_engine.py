@@ -356,3 +356,13 @@ def test_grab_waits_when_the_cloth_falls_behind():
     assert np.allclose(held, behind[[60]])                               # wait for the cloth
     back = rest[[60]] + [0.0, 0.0, 0.1]
     assert np.allclose(cap.follow(back, behind, [60], now=0.2), back)    # easing off is always allowed
+
+
+def test_start_recovery_is_requested_once_at_the_start(tmp_path):
+    from dataclasses import replace
+    req = replace(_request(tmp_path), start_recovery=True)
+    assert bake.frame_inputs(req, 0)["untangle"] == {"frames": bake.START_RECOVERY_FRAMES}
+    assert "untangle" not in bake.frame_inputs(req, 1)
+    off = replace(req, start_recovery=False)
+    assert "untangle" not in bake.frame_inputs(off, 0)
+    assert bake.scene_digest(req) != bake.scene_digest(off)   # a resume never mixes the two

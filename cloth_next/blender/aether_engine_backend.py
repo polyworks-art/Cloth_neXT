@@ -684,7 +684,8 @@ class AetherPreparation:
             checkpoint_interval=self.interval, settings_fingerprint=self.settings_fp,
             geometry_fingerprint=self.geometry_fp, cloth_next_version=self.cloth_next_version,
             blender_version=self.blender_version,
-            experimental_recovery=os.environ.get("CLOTH_NEXT_AETHER_EXPERIMENTAL_RECOVERY") == "1")
+            experimental_recovery=os.environ.get("CLOTH_NEXT_AETHER_EXPERIMENTAL_RECOVERY") == "1",
+            start_recovery=os.environ.get("CLOTH_NEXT_AETHER_START_RECOVERY") != "0")
 
 
 # ------------------------------------------------------------------ playback attach
