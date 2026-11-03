@@ -126,7 +126,7 @@ class BakeRequest:
     # another pose or body) is pulled out at the start of the bake by the engine's recovery; it stops on
     # its own once nothing intersects. Without it the cloth stayed caught and tore when the body moved
     # (SW04_reworked: 1212 body intersections at frame 1, 12x stretch); with it 0 from frame 26 on.
-    # Clean scenes pay one analysis. CLOTH_NEXT_AETHER_START_RECOVERY=0 switches it off.
+    # Clean scenes pay one analysis per frame of the start. CLOTH_NEXT_AETHER_START_RECOVERY=0: off.
     start_recovery: bool = False
 
     @property
@@ -190,7 +190,7 @@ def input_digest(request: BakeRequest) -> str:
 
 
 # ---------------------------------------------------------------- protocol messages
-START_RECOVERY_FRAMES = 48   # most frames the start recovery may take
+START_RECOVERY_FRAMES = 48   # frames from the start in which the recovery runs
 
 
 def frame_inputs(request: BakeRequest, step: int) -> dict:
@@ -198,8 +198,10 @@ def frame_inputs(request: BakeRequest, step: int) -> dict:
     inp: dict = {"frame": step}
     if request.experimental_recovery:
         inp["untangle"] = {"frames": 1}   # analysis this frame; recovery only where intersections exist
-    elif request.start_recovery and step == 0:
-        inp["untangle"] = {"frames": START_RECOVERY_FRAMES}   # stops early once nothing intersects
+    elif request.start_recovery and step < START_RECOVERY_FRAMES:
+        # analysis every frame of the start, recovery only where intersections exist (one request for
+        # all frames stopped at 18 left: the engine gives up after 12 frames without a new minimum)
+        inp["untangle"] = {"frames": 1}
     if step == 0:
         adds = []
         for p in request.pins:

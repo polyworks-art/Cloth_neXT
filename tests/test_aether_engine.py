@@ -358,11 +358,12 @@ def test_grab_waits_when_the_cloth_falls_behind():
     assert np.allclose(cap.follow(back, behind, [60], now=0.2), back)    # easing off is always allowed
 
 
-def test_start_recovery_is_requested_once_at_the_start(tmp_path):
+def test_start_recovery_runs_in_the_first_frames_only(tmp_path):
     from dataclasses import replace
-    req = replace(_request(tmp_path), start_recovery=True)
-    assert bake.frame_inputs(req, 0)["untangle"] == {"frames": bake.START_RECOVERY_FRAMES}
-    assert "untangle" not in bake.frame_inputs(req, 1)
+    req = replace(_request(tmp_path, end=10 + bake.START_RECOVERY_FRAMES + 4), start_recovery=True)
+    assert bake.frame_inputs(req, 0)["untangle"] == {"frames": 1}
+    assert bake.frame_inputs(req, bake.START_RECOVERY_FRAMES - 1)["untangle"] == {"frames": 1}
+    assert "untangle" not in bake.frame_inputs(req, bake.START_RECOVERY_FRAMES)
     off = replace(req, start_recovery=False)
     assert "untangle" not in bake.frame_inputs(off, 0)
     assert bake.scene_digest(req) != bake.scene_digest(off)   # a resume never mixes the two
