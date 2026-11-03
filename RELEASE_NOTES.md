@@ -1,4 +1,8 @@
-# Cloth NeXt 2.9.61
+# Cloth NeXt 2.9.62
+
+The Wind preview stays out of the render thread during animation renders.
+
+## 2.9.61
 
 Bake All Wetness: every TETHYS cloth of the scene bakes at once, and a cancelled group continues where it stopped.
 

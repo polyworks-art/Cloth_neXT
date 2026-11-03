@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.9.62 - 2026-11-03
+
+- Wind: the viewport preview no longer refreshes from Blender's render thread during an animation render (F12), so it stays out of EEVEE's way while frames render.
+
 ## 2.9.61 - 2026-11-03
 
 - TETHYS: Bake All Wetness bakes every cloth with TETHYS switched on at once (up to three side by side, largest first; each is ready as soon as it is done). Cancel pauses them; Bake All again continues where they stopped.

@@ -1,0 +1,30 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.62",
+  "title": "What's New in Cloth NeXt 2.9.62",
+  "subtitle": "Calmer animation renders.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/check.png",
+      "title": "Animation renders",
+      "description": "The Wind preview no longer refreshes from the render thread while an animation renders."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Bake All Wetness",
+      "description": "Still new from 2.9.61: every cloth with TETHYS bakes at once, and Cancel pauses the group."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}
