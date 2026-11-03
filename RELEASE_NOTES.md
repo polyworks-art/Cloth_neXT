@@ -1,4 +1,8 @@
-# Cloth NeXt 2.9.57
+# Cloth NeXt 2.9.58
+
+AETHER bakes are exactly reproducible again and stay free of intersections in fast scenes.
+
+## 2.9.57
 
 Pulling cloth in the AETHER Live Simulation feels like Marvelous Designer: the grabbed point sticks to the mouse, cloth snaps back calmly when you let go and never hangs in the air, and static drapes run about twice as fast.
 

@@ -1,0 +1,30 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.58",
+  "title": "What's New in Cloth NeXt 2.9.58",
+  "subtitle": "Reproducible, clean bakes.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/check.png",
+      "title": "Reproducible bakes",
+      "description": "The AETHER Engine gives exactly the same result for the same scene again."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Zero intersections first",
+      "description": "Bakes stay free of intersections in fast scenes; the Live Simulation keeps crumpled cloth falling freely."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}

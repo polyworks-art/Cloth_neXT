@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.9.58 - 2026-11-03
+
+- AETHER Engine: simulations are exactly reproducible again (in rare fast scenes the same bake could differ from run to run).
+- AETHER bakes put zero intersections first: the fix that lets crumpled cloth fall freely now applies only to the Live Simulation, where it matters for the feel; bakes stay free of intersections in fast scenes.
+
 ## 2.9.57 - 2026-11-03
 
 - AETHER Live Simulation: Grab works like in Marvelous Designer. The grabbed point sticks to the mouse; only when the cloth would overstretch for longer (or more than twice its length) does the grab slow down and stop. Even fast, far drags never get ahead of the cloth, so it does not tear apart or tangle and snaps back cleanly. Letting go no longer flings the cloth.
