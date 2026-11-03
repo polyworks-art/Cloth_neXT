@@ -129,13 +129,16 @@ class EngineJob:
     engine running.
     """
 
-    def __init__(self, executable: Path, request_path: Path, cancel_path: Path):
+    def __init__(self, executable: Path, request_path: Path, cancel_path: Path, *, threads: int | None = None):
         from ..ppf.process import _PosixProcessGroup, _WindowsJob
         self.cancel_path = Path(cancel_path)
         self.events: queue.Queue = queue.Queue()
         self.stderr_tail: list[str] = []
         self._owner = _WindowsJob() if sys.platform == "win32" else _PosixProcessGroup()
         kwargs = {"creationflags": _creation_flags()}
+        if threads is not None:
+            # Several engines side by side share the CPU cores.
+            kwargs["env"] = dict(os.environ, TETHYS_THREADS=str(max(1, int(threads))))
         if sys.platform != "win32":
             kwargs["start_new_session"] = True
         self.process = subprocess.Popen(

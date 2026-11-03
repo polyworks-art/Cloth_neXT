@@ -346,8 +346,9 @@ def settings_fingerprint(obj, context=None) -> str:
 class BakeJob:
     """Background preparation + engine process; the modal operator polls it."""
 
-    def __init__(self, plan: BakePlan):
+    def __init__(self, plan: BakePlan, threads: int | None = None):
         self.plan = plan
+        self.threads = threads
         self.phase = "Preparing water contact"
         self.progress = 0.0
         self.error: str | None = None
@@ -415,7 +416,8 @@ class BakeJob:
             self._check_cancel()
             total = max(1, plan.request.last_frame - plan.request.first_frame)
             self.enter_stage("ENGINE", "Simulating wetness", total)
-            self.engine = engine.EngineJob(plan.executable, plan.staging.request, plan.staging.cancel)
+            self.engine = engine.EngineJob(plan.executable, plan.staging.request, plan.staging.cancel,
+                                           threads=self.threads)
             while True:
                 for event in self.engine.take_events():
                     kind = event.get("event")
@@ -479,6 +481,107 @@ class BakeJob:
 
 class _Cancelled(Exception):
     pass
+
+
+# Engines that run at once in Bake All. The water solver is limited by memory
+# bandwidth, so more would only share it; each extra one also holds its mesh
+# and texture in memory.
+MAX_PARALLEL = 3
+
+
+def plan_weight(plan: BakePlan) -> float:
+    """Water cells of a bake, the measure of its engine work."""
+    return float(len(plan.request.triangles)) * plan.request.detail_level ** 2
+
+
+class BakeGroup:
+    """Several wetness bakes at once, one engine per object; looks like one job.
+
+    The largest objects start first, at most ``MAX_PARALLEL`` at a time; the
+    next starts when one finishes. Every engine takes its usual cores and the
+    system shares them: a small object is done quickly and leaves them to the
+    large one, which decides how long the whole group takes.
+    """
+
+    def __init__(self, plans: list[BakePlan], threads: int | None = None, parallel: int = MAX_PARALLEL):
+        self.threads, self.parallel = threads, max(1, parallel)
+        self.pending = sorted(plans, key=plan_weight, reverse=True)
+        self.count = len(plans)
+        self.jobs: list[BakeJob] = []
+        self.published: list[BakeJob] = []   # finished jobs already handed to the publisher
+        self._cancelled = False
+        from types import SimpleNamespace
+        # The Bake window reads the frame range from here.
+        self.plan = SimpleNamespace(request=SimpleNamespace(
+            first_frame=min(p.request.first_frame for p in plans), last_frame=max(p.request.last_frame for p in plans)))
+        self.started = time.monotonic()
+        self.fill()
+
+    def fill(self) -> None:
+        """Start waiting objects while fewer than ``parallel`` engines run."""
+        while self.pending and not self._cancelled and sum(not job.done for job in self.jobs) < self.parallel:
+            self.jobs.append(BakeJob(self.pending.pop(0), self.threads))
+
+    @property
+    def stage(self) -> str:
+        stages = [job.stage for job in self.jobs if not job.done]
+        if not stages:
+            return self.jobs[-1].stage
+        return "CONTACT" if "CONTACT" in stages else stages[0]
+
+    @property
+    def phase(self) -> str:
+        finished = sum(job.done for job in self.jobs)
+        base = "Preparing water contact" if self.stage == "CONTACT" else "Simulating wetness"
+        return f"{base} · {finished} of {self.count} objects done"
+
+    @property
+    def done_steps(self) -> int:
+        return sum(job.done_steps if not job.done else job.total_steps for job in self.jobs)
+
+    @property
+    def total_steps(self) -> int:
+        return sum(job.total_steps for job in self.jobs) + sum(
+            p.request.last_frame - p.request.first_frame + 1 for p in self.pending)
+
+    @property
+    def progress(self) -> float:
+        return self.overall()
+
+    def overall(self) -> float:
+        return sum(1.0 if job.done else job.overall() for job in self.jobs) / self.count
+
+    def remaining_seconds(self) -> float | None:
+        if self.pending:
+            return None
+        values = [job.remaining_seconds() for job in self.jobs if not job.done]
+        if not values or any(v is None for v in values):
+            return None
+        return max(values)
+
+    def cancel(self) -> None:
+        self._cancelled = True
+        for job in self.jobs:
+            job.cancel()
+
+    @property
+    def cancel_requested(self) -> bool:
+        return self._cancelled or any(job.cancel_requested for job in self.jobs)
+
+    @property
+    def done(self) -> bool:
+        self.fill()
+        return not self.pending and all(job.done for job in self.jobs) or (
+            self._cancelled and all(job.done for job in self.jobs))
+
+    @property
+    def cancelled(self) -> bool:
+        return self._cancelled or any(job.cancelled for job in self.jobs)
+
+    @property
+    def errors(self) -> list[str]:
+        return [f"{job.plan.object_name}: {job.code} {job.error}".replace("  ", " ")
+                for job in self.jobs if job.error]
 
 
 _STAGE_SPAN = {"CONTACT": (0.0, 0.1), "ENGINE": (0.1, 0.8), "IMAGES": (0.9, 0.1)}
@@ -1042,6 +1145,265 @@ def cache_status(obj) -> tuple[str, str]:
     return "READY", f"Wetness frames {s.baked_first}–{s.baked_last}"
 
 
+def _span(first: int, last: int):
+    """Frame range of a group, shaped like a plan for the Bake window."""
+    from types import SimpleNamespace
+    return SimpleNamespace(request=SimpleNamespace(first_frame=first, last_frame=last))
+
+
+def bake_all_targets(context) -> list:
+    """Cloth objects of the scene with TETHYS switched on, in name order."""
+    return sorted((obj for obj in context.scene.objects
+                   if obj.type == "MESH" and getattr(obj, "cloth_next", None) is not None
+                   and obj.cloth_next.role == "CLOTH"
+                   and obj.cloth_next.tethys.enabled), key=lambda obj: obj.name)
+
+
+def prepare_all(context) -> tuple[list[BakePlan], list[str]]:
+    """Plans for every TETHYS object that can bake, and why the others cannot."""
+    plans, skipped = [], []
+    for obj in bake_all_targets(context):
+        try:
+            plans.append(prepare(context, obj))
+        except TethysBakeError as exc:
+            skipped.append(f"{obj.name}: {exc}")
+    return plans, skipped
+
+
+def _summary(baked: list[str], stopped: list[str], failed: list[str], skipped: list[str]) -> str:
+    parts = []
+    if baked:
+        parts.append(f"Wetness baked for {len(baked)} object{'s' if len(baked) != 1 else ''}")
+    if stopped:
+        parts.append(f"{len(stopped)} paused (Bake again to continue)")
+    if failed:
+        parts.append("failed: " + "; ".join(failed))
+    if skipped:
+        parts.append("skipped: " + "; ".join(skipped))
+    return " · ".join(parts) or "Nothing to bake"
+
+
+def bake_all_blocking(context, *, cancel_after: float | None = None, threads: int | None = None,
+                      on_tick=None) -> tuple[str, BakeGroup | None]:
+    """Bake every TETHYS object at once without the modal operator (scripts and tests)."""
+    global _job
+    plans, skipped = prepare_all(context)
+    if not plans:
+        return _summary([], [], [], skipped), None
+    group = BakeGroup(plans, threads)
+    publisher = GroupPublisher(group, skipped)
+    _job = group
+    try:
+        started = time.monotonic()
+        while not publisher.step():
+            if cancel_after is not None and time.monotonic() - started >= cancel_after:
+                group.cancel()
+            if on_tick is not None:
+                on_tick(group)
+            if publisher._current is None:
+                time.sleep(0.02)
+        return publisher.summary(), group
+    finally:
+        _job = None
+
+
+class GroupPublisher:
+    """Publishes each object of a group as soon as its engine is done, a few
+    frames per call, while the other engines keep running."""
+
+    FRAMES_PER_STEP = 8
+
+    def __init__(self, group: BakeGroup, skipped: list[str]):
+        self.group, self.skipped = group, skipped
+        self.baked, self.stopped, self.failed = [], [], []
+        self._current: BakeJob | None = None
+        self._frames: list[int] = []
+
+    def _start(self, job: BakeJob) -> None:
+        """Settle a finished job; queue its frames when it has a result to publish."""
+        plan = job.plan
+        obj = bpy.data.objects.get(plan.object_name)
+        message = None
+        try:
+            if job.error:
+                tcache.remove(plan.staging, stage="TETHYS_ABORT")
+                self.failed.append(f"{plan.object_name}: {job.code} {job.error}".replace("  ", " "))
+                message = f"{job.code} {job.error}".strip()
+            elif job.cancelled or job.result is None:
+                message = _stop(plan, job)
+                self.stopped.append(plan.object_name)
+            elif obj is None:
+                tcache.remove(plan.staging, stage="TETHYS_ABORT")
+                self.failed.append(f"{plan.object_name}: the object was removed")
+            else:
+                plan.staging.frames.mkdir(parents=True, exist_ok=True)
+                self._current = job
+                self._frames = list(range(plan.request.first_frame, plan.request.last_frame + 1))
+        except Exception as exc:  # noqa: BLE001 - one object never takes the others down
+            self._fail(job, exc)
+        if message is not None and obj is not None:
+            obj.cloth_next.tethys.status = message
+
+    def _fail(self, job: BakeJob, exc: Exception) -> None:
+        try:
+            tcache.remove(job.plan.staging, stage="TETHYS_ABORT")
+        except OSError:
+            pass
+        self.failed.append(f"{job.plan.object_name}: could not be published: {exc}")
+        obj = bpy.data.objects.get(job.plan.object_name)
+        if obj is not None:
+            obj.cloth_next.tethys.status = f"Wetness bake could not be published: {exc}"
+        self._current, self._frames = None, []
+
+    def step(self) -> bool:
+        """Do a little publishing work; True once every object is settled."""
+        if self._current is None:
+            self.group.fill()
+            ready = [job for job in self.group.jobs if job.done and job not in self.group.published]
+            if not ready:
+                if self.group.cancelled and all(job.done for job in self.group.jobs):
+                    for plan in self.group.pending:   # never started: nothing to keep
+                        self.stopped.append(plan.object_name)
+                    self.group.pending = []
+                    return len(self.group.published) == len(self.group.jobs)
+                return not self.group.pending and len(self.group.published) == len(self.group.jobs)
+            job = ready[0]
+            self.group.published.append(job)
+            self._start(job)
+            return False
+        job = self._current
+        if job.cancel_requested:
+            # Cancelled while publishing: the engine result is complete, but
+            # nothing half-written is left behind.
+            self._fail(job, RuntimeError("cancelled"))
+            self.failed.pop()
+            self.stopped.append(job.plan.object_name)
+            return False
+        try:
+            batch, self._frames = self._frames[:self.FRAMES_PER_STEP], self._frames[self.FRAMES_PER_STEP:]
+            write_images(job.plan, batch)
+            if not self._frames:
+                obj = bpy.data.objects[job.plan.object_name]
+                obj.cloth_next.tethys.status = finalize(job.plan, obj, job)
+                self.baked.append(job.plan.object_name)
+                self._current = None
+        except Exception as exc:  # noqa: BLE001
+            self._fail(job, exc)
+        return False
+
+    def summary(self) -> str:
+        return _summary(self.baked, self.stopped, self.failed, self.skipped)
+
+
+class CLOTHNEXT_OT_tethys_bake_all(bpy.types.Operator):
+    bl_idname = "clothnext.tethys_bake_all"
+    bl_label = "Bake All Wetness"
+    bl_description = ("Bake the wetness of every cloth with TETHYS switched on, all at the same time "
+                      "(the CPU cores are shared). Cloth caches are only read")
+    bl_options = {"REGISTER"}
+
+    _timer = None
+    _group: BakeGroup | None = None
+    _session: _WindowSession | None = None
+    _stage = ""
+
+    @classmethod
+    def poll(cls, context):
+        return (_job is None and _window_session is None and getattr(context, "scene", None) is not None
+                and len(bake_all_targets(context)) > 0)
+
+    def invoke(self, context, _event):
+        return self.execute(context)
+
+    def execute(self, context):
+        global _window_session, _last_tick
+        self._plans, self._skipped = prepare_all(context)
+        if not self._plans:
+            message = _summary([], [], [], self._skipped)
+            self.report({"ERROR"}, message)
+            return {"CANCELLED"}
+        first = min(plan.request.first_frame for plan in self._plans)
+        last = max(plan.request.last_frame for plan in self._plans)
+        lead = bpy.data.objects[self._plans[0].object_name]
+        try:
+            # The Bake window shows the whole group as one wetness bake.
+            self._session = _window_session = _WindowSession(context, lead, _span(first, last))
+        except TethysBakeError as exc:
+            self.report({"ERROR"}, str(exc))
+            return {"CANCELLED"}
+        for plan in self._plans:
+            bpy.data.objects[plan.object_name].cloth_next.tethys.status = "Baking wetness…"
+        self._stage = "WINDOW"
+        _last_tick = time.monotonic()
+        self._timer = context.window_manager.event_timer_add(0.1, window=context.window)
+        context.window_manager.modal_handler_add(self)
+        return {"RUNNING_MODAL"}
+
+    def _finish(self, context, message, level="INFO"):
+        global _job
+        _job = None
+        if self._timer is not None:
+            context.window_manager.event_timer_remove(self._timer)
+            self._timer = None
+        if level == "INFO":
+            self._session.end_finished(message)
+        elif level == "WARNING":
+            self._session.end_cancelled()
+        else:
+            self._session.end_error(message)
+        context.workspace.status_text_set(None)
+        tag_redraw()
+        self.report({level}, message)
+        return {"FINISHED"} if level == "INFO" else {"CANCELLED"}
+
+    def modal(self, context, event):
+        global _job, _last_tick
+        _last_tick = time.monotonic()
+        group = self._group
+        cancel = (event.type == "ESC" and event.value == "PRESS") or self._session.cancel_requested()
+        if cancel and group is not None:
+            group.cancel()
+        if event.type != "TIMER" and not cancel:
+            return {"PASS_THROUGH"}
+        tag_redraw()
+        if self._stage == "WINDOW":
+            if cancel:
+                return self._finish(context, "Wetness bake cancelled", "WARNING")
+            try:
+                if not self._session.window_ready():
+                    return {"RUNNING_MODAL"}
+            except TethysBakeError as exc:
+                return self._finish(context, str(exc), "ERROR")
+            self._group = _job = BakeGroup(self._plans)
+            self._publisher = GroupPublisher(self._group, self._skipped)
+            self._stage = "ENGINE"
+            return {"RUNNING_MODAL"}
+        context.workspace.status_text_set(
+            f"TETHYS · {group.phase} · {group.overall() * 100:.0f}% · Esc to cancel")
+        if not group.done:
+            self._session.publish(group)
+        if not self._publisher.step():
+            return {"RUNNING_MODAL"}
+        publisher = self._publisher
+        message = publisher.summary()
+        if publisher.stopped:
+            return self._finish(context, message, "WARNING")
+        if publisher.failed and not publisher.baked:
+            return self._finish(context, message, "ERROR")
+        return self._finish(context, message, "INFO")
+
+    def cancel(self, context):
+        global _job
+        if self._group is not None:
+            self._group.cancel()
+        _job = None
+        if self._session is not None:
+            self._session.end_cancelled()
+        if self._timer is not None:
+            context.window_manager.event_timer_remove(self._timer)
+            self._timer = None
+
+
 class CLOTHNEXT_OT_tethys_cancel(bpy.types.Operator):
     bl_idname = "clothnext.tethys_cancel"
     bl_label = "Cancel Wetness Bake"
@@ -1059,7 +1421,8 @@ class CLOTHNEXT_OT_tethys_cancel(bpy.types.Operator):
         return {"FINISHED"}
 
 
-CLASSES = (CLOTHNEXT_OT_tethys_bake, CLOTHNEXT_OT_tethys_clear, CLOTHNEXT_OT_tethys_cancel)
+CLASSES = (CLOTHNEXT_OT_tethys_bake, CLOTHNEXT_OT_tethys_bake_all, CLOTHNEXT_OT_tethys_clear,
+           CLOTHNEXT_OT_tethys_cancel)
 
 
 def shutdown() -> None:

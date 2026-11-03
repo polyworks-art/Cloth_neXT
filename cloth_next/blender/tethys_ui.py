@@ -203,6 +203,11 @@ class CLOTHNEXT_PT_tethys(_Panel, bpy.types.Panel):
         bake = row.row(align=True)
         bake.enabled = state.available and not _locked(context)
         bake.operator("clothnext.tethys_bake", text="Bake Wetness", icon="MOD_FLUIDSIM")
+        others = len(tethys_bake.bake_all_targets(context))
+        if others > 1:
+            every = row.row(align=True)
+            every.enabled = state.available and not _locked(context)
+            every.operator("clothnext.tethys_bake_all", text=f"Bake All ({others})")
         clear = row.row(align=True)
         clear.enabled = not tethys_bake.is_running() and cache_state != "NONE"
         clear.operator("clothnext.tethys_clear", text="", icon="TRASH")
