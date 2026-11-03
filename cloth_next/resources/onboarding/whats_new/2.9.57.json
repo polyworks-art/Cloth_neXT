@@ -1,0 +1,40 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.57",
+  "title": "What's New in Cloth NeXt 2.9.57",
+  "subtitle": "Pull cloth like in Marvelous.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/check.png",
+      "title": "Grab sticks to the mouse",
+      "description": "In the Live Simulation the grabbed point follows the mouse exactly and only stops where the cloth would overstretch. Letting go does not fling the cloth."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "No more hanging in the air",
+      "description": "Crumpled cloth falls freely again, and garments turning with a body are no longer held back: no frozen points after pulling."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Faster drapes",
+      "description": "Static drapes run about twice as fast, and bakes stay calm and free of intersections."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Toolbar over cloth",
+      "description": "Toolbar buttons can be clicked even when cloth lies under them during the Live Simulation."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}

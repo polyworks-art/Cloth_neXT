@@ -1,4 +1,8 @@
-# Cloth NeXt 2.9.56
+# Cloth NeXt 2.9.57
+
+Pulling cloth in the AETHER Live Simulation feels like Marvelous Designer: the grabbed point sticks to the mouse, cloth snaps back calmly when you let go and never hangs in the air, and static drapes run about twice as fast.
+
+## 2.9.56
 
 AETHER feels much closer to Marvelous Designer: cloth rests calmly, fitted garments keep their shape, Grab is always on in the Live Simulation and pulls the garment as a whole, and Stop & Keep lets you drape once and continue from there.
 
