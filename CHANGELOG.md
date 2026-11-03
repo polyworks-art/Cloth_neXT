@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.9.61 - 2026-11-03
+
+- TETHYS: Bake All Wetness bakes every cloth with TETHYS switched on at once (up to three side by side, largest first; each is ready as soon as it is done). Cancel pauses them; Bake All again continues where they stopped.
+
 ## 2.9.60 - 2026-11-03
 
 - AETHER Engine: cloth that starts inside the body or inside other cloth (a garment made for another pose) is pulled out at the start of the bake instead of staying caught and tearing apart when the body moves.

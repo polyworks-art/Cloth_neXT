@@ -1,0 +1,30 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.61",
+  "title": "What's New in Cloth NeXt 2.9.61",
+  "subtitle": "Wetness for the whole outfit at once.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/check.png",
+      "title": "Bake All Wetness",
+      "description": "Every cloth with TETHYS bakes at once, up to three side by side; each is ready as soon as it is done."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Pause and continue",
+      "description": "Cancel pauses the whole group; Bake All again continues where each object stopped."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}
