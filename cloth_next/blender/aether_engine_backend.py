@@ -110,12 +110,39 @@ def _unsupported_object(obj, settings) -> str:
     return ""
 
 
+def _force_reason(obj, settings) -> str:
+    """'' when the AETHER Engine runs this Force object (its gravity; wind is not simulated yet)."""
+    force = getattr(settings, "force", None)
+    if force is None:
+        return f"{obj.name}: this Force object is not supported by the AETHER Engine"
+    if hasattr(force, "gravity_strength"):   # the unified Force: gravity, air and wind in one object
+        if float(getattr(force, "wind_strength", 0.0)) > 0.0:
+            return (f"{obj.name}: Wind is not supported by the AETHER Engine yet (set Wind Strength to 0 "
+                    "to keep this Force's gravity)")
+        return ""
+    if str(getattr(force, "force_type", "")) == "GRAVITY":
+        return ""
+    return f"{obj.name}: {str(getattr(force, 'force_type', 'this')).title()} forces are not supported by the AETHER Engine yet"
+
+
+def _force_notes(obj, settings) -> list[str]:
+    force = getattr(settings, "force", None)
+    if force is None or not hasattr(force, "gravity_strength"):
+        return []
+    if float(getattr(force, "air_density", 0.0)) > 0.0 or float(getattr(force, "air_friction", 0.0)) > 0.0             or float(getattr(force, "vertex_air_damp", 0.0)) > 0.0:
+        return [f"{obj.name}: Air Density / Air Friction (not simulated by the AETHER Engine; its gravity is)"]
+    return []
+
+
 def not_enforced_notes(context) -> list[str]:
     """Property-only list of material controls an AETHER bake will not enforce."""
     notes = []
     from . import object_properties
     for obj in context.scene.objects:
         settings = getattr(obj, "cloth_next", None)
+        if settings is not None and settings.enabled and settings.role == "FORCE":
+            notes += _force_notes(obj, settings)
+            continue
         if settings is None or not settings.enabled or settings.role != "CLOTH":
             continue
         try:
@@ -169,7 +196,10 @@ def unsupported_reason(context) -> str:
         if settings is None or not settings.enabled:
             continue
         if settings.role == "FORCE":
-            return f"{obj.name}: Forces are not supported by the AETHER Engine yet (only scene gravity)"
+            reason = _force_reason(obj, settings)
+            if reason:
+                return reason
+            continue
         if settings.role in {"CLOTH", "ROD", "SOFT_BODY", "RIGID_BODY"}:
             deformables += 1
             reason = _unsupported_object(obj, settings)
