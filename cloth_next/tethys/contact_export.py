@@ -271,5 +271,6 @@ def export_contact(destination: Path, source: ContactSource, pc2_path: Path, ver
                 yield block
                 del field, block, surface
 
-    write_env(destination, first_frame, frame_count, source.fps, blocks(), check_cancel=check_cancel)
+    write_env(destination, first_frame, frame_count, source.fps, blocks(), check_cancel=check_cancel,
+              compact=True)
     return wet_frames

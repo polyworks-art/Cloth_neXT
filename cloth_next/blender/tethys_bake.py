@@ -356,6 +356,8 @@ class BakeJob:
         self.cancelled = False
         self.engine: engine.EngineJob | None = None
         self.wet_frames = 0
+        self.resuming = False
+        self.stopped_at = None   # frame an engine cancel stopped before (bake can continue there)
         self.gaia_entitlement = ""
         # Panel progress: the stage the artist sees and its own done/total.
         self.stage = "CONTACT"
@@ -396,13 +398,20 @@ class BakeJob:
     def _run(self):
         plan = self.plan
         try:
-            tcache.remove(plan.staging, stage="TETHYS_STAGING")
-            plan.staging.root.mkdir(parents=True, exist_ok=True)
-            self.wet_frames = contact_export.export_contact(
-                plan.staging.environment, plan.contact, plan.cloth.pc2_path, plan.cloth.vertex_count,
-                plan.request.matrix_world, plan.request.first_frame, plan.request.last_frame, 0,
-                check_cancel=self._contact_step)
-            protocol.write_atomic_bytes(plan.staging.request, protocol.encode_request(plan.request))
+            encoded = protocol.encode_request(plan.request)
+            if can_resume(plan.staging, encoded):
+                # An interrupted bake of exactly this request: the engine
+                # continues after its last saved frame, water stream unchanged.
+                plan.staging.cancel.unlink(missing_ok=True)
+                self.resuming = True
+            else:
+                tcache.remove(plan.staging, stage="TETHYS_STAGING")
+                plan.staging.root.mkdir(parents=True, exist_ok=True)
+                self.wet_frames = contact_export.export_contact(
+                    plan.staging.environment, plan.contact, plan.cloth.pc2_path, plan.cloth.vertex_count,
+                    plan.request.matrix_world, plan.request.first_frame, plan.request.last_frame, 0,
+                    check_cancel=self._contact_step)
+                protocol.write_atomic_bytes(plan.staging.request, encoded)
             self._check_cancel()
             total = max(1, plan.request.last_frame - plan.request.first_frame)
             self.enter_stage("ENGINE", "Simulating wetness", total)
@@ -423,6 +432,7 @@ class BakeJob:
                         self.error = str(event.get("message", "The TETHYS Engine failed"))
                     elif kind == "cancelled":
                         self.cancelled = True
+                        self.stopped_at = event.get("frame")
                 code = self.engine.poll()
                 if code is not None:
                     break
@@ -433,7 +443,9 @@ class BakeJob:
                 time.sleep(0.05)
             self.engine.close()
             for event in self.engine.take_events():
-                if event.get("event") == "complete":
+                if event.get("event") == "cancelled":
+                    self.stopped_at = event.get("frame")
+                elif event.get("event") == "complete":
                     self.result = event
                 elif event.get("event") == "error":
                     self.code = str(event.get("code", "TETHYS-E999"))
@@ -623,6 +635,25 @@ def finalize(plan: BakePlan, obj, job: BakeJob) -> str:
     return message
 
 
+def can_resume(staging: tcache.CachePaths, encoded_request: bytes) -> bool:
+    """True when an interrupted bake of this exact request can continue."""
+    try:
+        return (staging.checkpoint.is_file() and staging.partial.is_file() and staging.environment.is_file()
+                and staging.request.is_file() and staging.request.read_bytes() == encoded_request)
+    except OSError:
+        return False
+
+
+def _stop(plan: BakePlan, job: "BakeJob") -> str:
+    """After a cancel: keep an engine checkpoint for the next bake, drop anything else."""
+    if plan.staging.checkpoint.is_file() and plan.staging.partial.is_file():
+        plan.staging.cancel.unlink(missing_ok=True)
+        where = f" before frame {job.stopped_at}" if job.stopped_at is not None else ""
+        return f"Wetness bake paused{where}. Bake again to continue"
+    tcache.remove(plan.staging, stage="TETHYS_ABORT")
+    return "Wetness bake cancelled"
+
+
 def bake_blocking(context, obj, *, cancel_after: float | None = None,
                   on_tick=None) -> tuple[str, BakeJob]:
     """Run a whole wetness bake without the modal operator (scripts and tests)."""
@@ -638,9 +669,11 @@ def bake_blocking(context, obj, *, cancel_after: float | None = None,
             if on_tick is not None:
                 on_tick(job)
             time.sleep(0.02)
-        if job.cancelled or job.error:
+        if job.cancelled and not job.error:
+            return _stop(plan, job), job
+        if job.error:
             tcache.remove(plan.staging, stage="TETHYS_ABORT")
-            return ("Wetness bake cancelled" if job.cancelled else f"{job.code} {job.error}".strip()), job
+            return f"{job.code} {job.error}".strip(), job
         plan.staging.frames.mkdir(parents=True, exist_ok=True)
         write_images(plan, range(plan.request.first_frame, plan.request.last_frame + 1))
         message = finalize(plan, obj, job)
@@ -920,9 +953,14 @@ class CLOTHNEXT_OT_tethys_bake(bpy.types.Operator):
                 self._session.publish(job)
                 return {"RUNNING_MODAL"}
             plan = job.plan
-            if job.cancelled or job.error:
-                message = "Wetness bake cancelled" if job.cancelled else f"{job.code} {job.error}".strip()
-                return self._abort(context, message, "WARNING" if job.cancelled else "ERROR")
+            if job.cancelled and not job.error:
+                try:
+                    message = _stop(plan, job)
+                except OSError:
+                    message = "Wetness bake cancelled"
+                return self._finish(context, message, "WARNING")
+            if job.error:
+                return self._abort(context, f"{job.code} {job.error}".strip(), "ERROR")
             self._frames = list(range(plan.request.first_frame, plan.request.last_frame + 1))
             self._stage = "IMAGES"
             job.enter_stage("IMAGES", "Writing wetness frames", len(self._frames))

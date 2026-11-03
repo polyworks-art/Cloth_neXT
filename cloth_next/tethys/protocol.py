@@ -172,7 +172,9 @@ class WaterBlock:
     influence: np.ndarray            # (nz, ny, nx) float32, 0..1
     velocity: np.ndarray             # (nz, ny, nx, 3) float32, m/s
 
-    def encode(self) -> bytes:
+    def encode(self, compact: bool = False) -> bytes:
+        """Raw float32 nodes, or with `compact` support in 1/255 steps and
+        velocity as float16 (frame flag 2): less than half the size."""
         influence = np.ascontiguousarray(self.influence, dtype="<f4")
         velocity = np.ascontiguousarray(self.velocity, dtype="<f4")
         if (influence.ndim != 3 or min(influence.shape) < 2 or velocity.shape != influence.shape + (3,)
@@ -182,12 +184,21 @@ class WaterBlock:
         if not all(math.isfinite(v) for v in (*self.origin, *self.spacing)) or min(self.spacing) <= 0:
             raise ProtocolError("Water contact block placement is invalid")
         nz, ny, nx = influence.shape
-        return (struct.pack("<6d4I", *self.origin, *self.spacing, nx, ny, nz, 0)
-                + influence.tobytes() + velocity.tobytes())
+        head = struct.pack("<6d4I", *self.origin, *self.spacing, nx, ny, nz, 0)
+        if not compact:
+            return head + influence.tobytes() + velocity.tobytes()
+        if np.abs(velocity).max(initial=0.0) > 60000.0:
+            raise ProtocolError("Water velocity is out of range")
+        support = np.rint(influence * 255.0).astype(np.uint8).tobytes()
+        return head + support + b"\0" * (len(support) % 2) + velocity.astype("<f2").tobytes()
+
+
+ENV_FLAG_WATER = 1
+ENV_FLAG_COMPACT = 2
 
 
 def write_env(path: Path, first_frame: int, frame_count: int, fps: float, blocks, *,
-              check_cancel=None) -> None:
+              check_cancel=None, compact: bool = False) -> None:
     """Stream `frame_count` frames; `blocks` yields WaterBlock or None (no liquid near the cloth).
 
     Layout: 32-byte header | frame table (24 bytes per frame) | frame blocks.
@@ -211,10 +222,11 @@ def write_env(path: Path, first_frame: int, frame_count: int, fps: float, blocks
                 if block is None:
                     entries.append((frame, 0, 0, 0))
                     continue
-                data = block.encode()
+                data = block.encode(compact)
                 if len(data) > MAX_ENV_FRAME_BYTES:
                     raise ProtocolError("Water contact frame is too large; lower the Fluid Cache resolution")
-                entries.append((frame, 1, stream.tell(), len(data)))
+                flags = ENV_FLAG_WATER | (ENV_FLAG_COMPACT if compact else 0)
+                entries.append((frame, flags, stream.tell(), len(data)))
                 stream.write(data)
             if len(entries) != frame_count:
                 raise ProtocolError("Water contact data is missing frames")

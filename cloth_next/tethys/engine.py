@@ -183,8 +183,11 @@ class EngineJob:
             except queue.Empty:
                 return items
 
-    def cancel(self, *, grace: float = 5.0) -> None:
-        """Ask the engine to stop at the next frame; terminate it after `grace` seconds."""
+    def cancel(self, *, grace: float = 20.0) -> None:
+        """Ask the engine to stop at the next frame; terminate it after `grace` seconds.
+
+        The grace covers one frame plus the resume checkpoint the engine
+        writes when it stops."""
         try:
             self.cancel_path.write_bytes(b"cancel")
         except OSError:

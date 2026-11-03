@@ -63,6 +63,15 @@ class CachePaths:
         return self.root / f"{self.stem}.request.tethysrq"
 
     @property
+    def checkpoint(self) -> Path:
+        # Engine state after the last saved frame of an interrupted bake.
+        return self.root / f"{self.stem}.tethys.resume"
+
+    @property
+    def partial(self) -> Path:
+        return self.root / f"{self.stem}.tethys.partial"
+
+    @property
     def environment(self) -> Path:
         return self.root / f"{self.stem}.water.tethysev"
 
@@ -171,8 +180,7 @@ def inspect(paths: CachePaths, expected_fingerprint: str | None = None, *, full:
 def remove(paths: CachePaths, *, stage: str = "TETHYS_CLEAR", keep_sidecar: bool = False) -> list:
     """Delete only this object's owned TETHYS files inside the cache folder."""
     results = []
-    targets = [paths.cache, paths.cache.with_name(paths.cache.name + ".partial"),
-               paths.request, paths.environment, paths.cancel]
+    targets = [paths.cache, paths.partial, paths.checkpoint, paths.request, paths.environment, paths.cancel]
     if not keep_sidecar:
         targets.append(paths.sidecar)
     for target in targets:
@@ -187,8 +195,7 @@ def remove(paths: CachePaths, *, stage: str = "TETHYS_CLEAR", keep_sidecar: bool
 
 def remove_scratch(paths: CachePaths) -> None:
     """Request, water stream and cancel marker are only needed during a bake."""
-    for target in (paths.request, paths.environment, paths.cancel,
-                   paths.cache.with_name(paths.cache.name + ".partial")):
+    for target in (paths.request, paths.environment, paths.cancel, paths.partial, paths.checkpoint):
         if target.exists():
             delete_owned(target, root=paths.root, ownership_authenticated=True,
                          lifecycle_stage="TETHYS_SCRATCH", artifact_type="tethys_scratch")
