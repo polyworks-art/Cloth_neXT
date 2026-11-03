@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.9.59 - 2026-11-03
+
+- TETHYS: water details are as strong as before 2.9.52 again. Water up to 1.2 mm keeps its true height; only thicker water levels off softly.
+- TETHYS: wetness bakes are about 4-5x faster (the water solver uses several CPU cores and is no longer slowed down by a few tiny cells).
+- TETHYS: the contact with FLIP water is computed on a finer grid. Cloth lying against the body gets full contact again, and the water line stays on the real liquid surface.
+- TETHYS: streaming water drags the surface water along on partly wet cloth (splashes, the water line).
+- TETHYS: a cancelled wetness bake continues where it stopped when you bake again with the same settings.
+- TETHYS: the temporary water-contact file is less than half the size.
+
 ## 2.9.58 - 2026-11-03
 
 - AETHER Engine: simulations are exactly reproducible again (in rare fast scenes the same bake could differ from run to run).

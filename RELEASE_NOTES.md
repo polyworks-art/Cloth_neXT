@@ -1,4 +1,8 @@
-# Cloth NeXt 2.9.58
+# Cloth NeXt 2.9.59
+
+TETHYS wetness bakes are about 4-5x faster, water details are as strong as before 2.9.52, and a cancelled wetness bake continues where it stopped.
+
+## 2.9.58
 
 AETHER bakes are exactly reproducible again and stay free of intersections in fast scenes.
 
