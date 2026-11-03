@@ -101,7 +101,37 @@ def locate(root: Path | None = None, *, platform: str | None = None) -> tuple[Pa
         raise EngineUnavailable("The AETHER Engine file is missing. Reinstall Cloth NeXt", "CNX-E131") from None
     if size != payload["file_size"] or digest.hexdigest() != payload["sha256"]:
         raise EngineUnavailable("The AETHER Engine file is damaged. Reinstall Cloth NeXt", "CNX-E131")
-    return binary, False
+    return _resident(binary, payload["sha256"]), False
+
+
+def _resident(binary: Path, sha256: str) -> Path:
+    """The verified engine, run from a copy outside the extension folder.
+
+    Blender renames the extension folder to install an update, and Windows refuses while an
+    executable inside it runs (a Live Simulation or a bake keeps AETHER Engine.exe running). The copy
+    is keyed by the manifest's hash; copies of other versions are removed when nothing runs them.
+    Falls back to the bundled file when the copy cannot be made."""
+    import shutil
+    import uuid
+    base = Path(os.environ.get("LOCALAPPDATA") or (Path.home() / "AppData" / "Local")) / "ClothNeXt" / "aether"
+    target = base / sha256[:16] / binary.name
+    try:
+        if not (target.is_file() and hashlib.sha256(target.read_bytes()).hexdigest() == sha256):
+            target.parent.mkdir(parents=True, exist_ok=True)
+            temporary = target.with_name(f".{binary.name}.{uuid.uuid4().hex}.tmp")
+            try:
+                shutil.copyfile(binary, temporary)
+                if hashlib.sha256(temporary.read_bytes()).hexdigest() != sha256:
+                    return binary
+                os.replace(temporary, target)
+            finally:
+                temporary.unlink(missing_ok=True)
+        for other in base.iterdir():
+            if other.is_dir() and other.name != sha256[:16]:
+                shutil.rmtree(other, ignore_errors=True)   # an older engine that is still running stays
+        return target
+    except OSError:
+        return binary
 
 
 def _creation_flags() -> int:

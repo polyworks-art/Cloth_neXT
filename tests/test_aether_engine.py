@@ -120,7 +120,7 @@ def test_unsupported_controls_are_refused_not_approximated(change, label):
 
 # ---------------------------------------------------------------- discovery and errors
 def _staged(tmp_path: Path, data: bytes, **override) -> Path:
-    (tmp_path / "bin").mkdir()
+    (tmp_path / "bin").mkdir(parents=True)
     (tmp_path / "bin" / "AETHER Engine.exe").write_bytes(data)
     manifest = {"schema_version": 1, "filename": "AETHER Engine.exe", "platform": "windows-x64",
                 "file_size": len(data), "sha256": hashlib.sha256(data).hexdigest(), "protocol": 1,
@@ -132,9 +132,13 @@ def _staged(tmp_path: Path, data: bytes, **override) -> Path:
 
 def test_locate_authenticates_the_staged_engine(tmp_path, monkeypatch):
     monkeypatch.delenv(engine.DEVELOPER_OVERRIDE, raising=False)
-    root = _staged(tmp_path, b"engine")
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "local"))
+    root = _staged(tmp_path / "ext", b"engine")
     path, override = engine.locate(root, platform="windows-x64")
     assert path.name == "AETHER Engine.exe" and not override
+    # runs from a copy outside the extension folder (a running engine must not block add-on updates)
+    assert root not in path.parents and (tmp_path / "local" / "ClothNeXt" / "aether") in path.parents
+    assert path.read_bytes() == b"engine"
     (root / "bin" / "AETHER Engine.exe").write_bytes(b"tampered")
     with pytest.raises(engine.EngineUnavailable, match="damaged") as exc:
         engine.locate(root, platform="windows-x64")
