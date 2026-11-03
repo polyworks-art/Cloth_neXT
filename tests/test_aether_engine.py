@@ -340,17 +340,19 @@ def test_grab_on_cloth_that_already_hangs_stretched_can_move():
     assert cap.stretch(start) == pytest.approx(1.0)
 
 
-def test_grab_never_leads_the_cloth_by_more_than_the_lead():
+def test_grab_waits_when_the_cloth_falls_behind():
     from cloth_next.aether_engine import grab
     g = np.linspace(0.0, 1.0, 11)
     X, Y = np.meshgrid(g, g)
     rest = np.stack([X.ravel(), Y.ravel(), np.zeros(121)], 1)
     tris = [[j * 11 + i, j * 11 + i + 1, j * 11 + i + 12] for j in range(10) for i in range(10)]
     tris += [[j * 11 + i, j * 11 + i + 12, j * 11 + i + 11] for j in range(10) for i in range(10)]
-    cap = grab.GrabCap(np.array(tris), rest, [60])
-    far = rest[[60]] + [0.0, 0.0, 0.5]                                   # a fast drag: 5 edge lengths in one tick
-    t = cap.follow(far, rest, [60], now=0.0)
-    ratio = np.linalg.norm(rest[cap.lead_n] - t[cap.lead_g], axis=1) / cap.lead_len
-    assert ratio.max() == pytest.approx(grab.LEAD, rel=1e-2)
-    near = rest[[60]] + [0.0, 0.0, 0.02]
-    assert np.allclose(cap.follow(near, rest, [60], now=0.1), near)      # within the lead: exact
+    cap = grab.GrabCap(np.array(tris), rest, [60], cap=100.0)
+    far = rest[[60]] + [0.0, 0.0, 0.5]
+    assert np.allclose(cap.follow(far, rest, [60], now=0.0), far)        # the cloth keeps up: follow at once
+    behind = rest.copy()
+    behind[60, 2] = 0.3                                                  # the grabbed point 3 edges ahead
+    held = cap.follow(rest[[60]] + [0.0, 0.0, 0.6], behind, [60], now=0.1)
+    assert np.allclose(held, behind[[60]])                               # wait for the cloth
+    back = rest[[60]] + [0.0, 0.0, 0.1]
+    assert np.allclose(cap.follow(back, behind, [60], now=0.2), back)    # easing off is always allowed

@@ -30,12 +30,11 @@ CREEP = float(__import__("os").environ.get("CLOTH_NEXT_GRAB_CREEP", "0.005"))   
 # fluid (Tim: "like a non-Newtonian fluid"). Past HARD_CAP it brakes at once (without that, a fast lift
 # stretched the ball sheet to 1.8 m like rubber, and it fell back slowly).
 SUSTAIN = float(__import__("os").environ.get("CLOTH_NEXT_GRAB_SUSTAIN", "0.4"))   # s
-# The grab never leads the cloth by more than this: no edge from a grabbed vertex to its neighbours gets
-# longer than LEAD x its length. A fast drag (40 cm in 0.3 s) jumped 4 cm per tick ahead of the cloth,
-# stretched it 11x before the cap above could react, and left it tangled (edges at 2.4-4x for good).
-# NEON stress test (8 drags of 40 cm in 0.3 s, away from and along the body): lead 2.0 peaks at 1.5-2.2x
-# and ends at rest (1.04-1.07x, no edge over 2x, nothing frozen); 1.5 lifts a heavy sheet less, 2.5
-# left points frozen and edges at 1.47x.
+# The grab waits while the cloth has fallen behind it: an edge from a grabbed vertex to its neighbours
+# longer than LEAD x its length. Without it a fast drag (40 cm in 0.3 s) stretched the NEON garments 11x
+# and left them tangled (edges at 2.4-4x for good). Measured with 8 such drags (away from and along the
+# body): peaks 1.2-4.5x for a moment, then back at rest with no edge over 2x; a free sheet dragged at
+# 1 m/s follows the mouse with no lag and a sheet lifted by a corner lags 7 cm (1.5: 38 cm).
 LEAD = float(__import__("os").environ.get("CLOTH_NEXT_GRAB_LEAD", "2.0"))
 
 
@@ -95,15 +94,12 @@ class GrabCap:
             p = cur[self.lead_g] + (target[self.lead_g] - cur[self.lead_g]) * s
             return float((np.linalg.norm(p - nb, axis=1) / self.lead_len).max())
 
-        if worst(1.0) <= LEAD or worst(1.0) <= worst(0.0):
-            return target          # within the lead, or easing an already long edge
-        if worst(0.0) > LEAD:
-            return cur             # already as far as the cloth allows: stay
-        lo, hi = 0.0, 1.0
-        for _ in range(12):
-            mid = 0.5 * (lo + hi)
-            lo, hi = (mid, hi) if worst(mid) <= LEAD else (lo, mid)
-        return cur + (target - cur) * lo
+        # Reactive: the grab only waits once the cloth has fallen behind (the grabbed points' own edges
+        # longer than LEAD). Predicting it from where the neighbours were made a free sheet dragged at
+        # 1 m/s lag 29 cm behind the mouse, though it stretched only 1.2x without any limit.
+        if worst(0.0) <= LEAD or worst(1.0) <= worst(0.0):
+            return target          # the cloth keeps up, or the move eases the long edges
+        return cur                 # the cloth has fallen behind: wait for it
 
     def follow(self, proposed: np.ndarray, positions: np.ndarray, grabbed, now: float | None = None) -> np.ndarray:
         """The grab target for this mouse position: the mouse while the cloth allows it, else where it stopped.
