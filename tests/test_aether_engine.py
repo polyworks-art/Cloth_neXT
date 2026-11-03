@@ -303,8 +303,9 @@ def test_incompatible_recovery_is_rejected(tmp_path):
     assert "Bake End changed" in bake.check_recovery(record, _request(tmp_path, end=50))
 
 
-def test_grab_follows_the_mouse_until_the_cloth_would_overstretch():
+def test_grab_follows_the_mouse_until_the_cloth_would_overstretch(monkeypatch):
     from cloth_next.aether_engine import grab
+    monkeypatch.setattr(grab, "LEAD", 100.0)   # the lead limit has its own test
     g = np.linspace(0.0, 1.0, 11)
     X, Y = np.meshgrid(g, g)
     rest = np.stack([X.ravel(), Y.ravel(), np.zeros(121)], 1)
@@ -337,3 +338,19 @@ def test_grab_on_cloth_that_already_hangs_stretched_can_move():
     start = rest * 1.3                                                  # hangs 30 % stretched
     cap = grab.GrabCap(tris, rest, [3], start=start)
     assert cap.stretch(start) == pytest.approx(1.0)
+
+
+def test_grab_never_leads_the_cloth_by_more_than_the_lead():
+    from cloth_next.aether_engine import grab
+    g = np.linspace(0.0, 1.0, 11)
+    X, Y = np.meshgrid(g, g)
+    rest = np.stack([X.ravel(), Y.ravel(), np.zeros(121)], 1)
+    tris = [[j * 11 + i, j * 11 + i + 1, j * 11 + i + 12] for j in range(10) for i in range(10)]
+    tris += [[j * 11 + i, j * 11 + i + 12, j * 11 + i + 11] for j in range(10) for i in range(10)]
+    cap = grab.GrabCap(np.array(tris), rest, [60])
+    far = rest[[60]] + [0.0, 0.0, 0.5]                                   # a fast drag: 5 edge lengths in one tick
+    t = cap.follow(far, rest, [60], now=0.0)
+    ratio = np.linalg.norm(rest[cap.lead_n] - t[cap.lead_g], axis=1) / cap.lead_len
+    assert ratio.max() == pytest.approx(grab.LEAD, rel=1e-2)
+    near = rest[[60]] + [0.0, 0.0, 0.02]
+    assert np.allclose(cap.follow(near, rest, [60], now=0.1), near)      # within the lead: exact

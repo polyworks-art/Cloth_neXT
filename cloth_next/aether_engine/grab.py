@@ -30,6 +30,13 @@ CREEP = float(__import__("os").environ.get("CLOTH_NEXT_GRAB_CREEP", "0.005"))   
 # fluid (Tim: "like a non-Newtonian fluid"). Past HARD_CAP it brakes at once (without that, a fast lift
 # stretched the ball sheet to 1.8 m like rubber, and it fell back slowly).
 SUSTAIN = float(__import__("os").environ.get("CLOTH_NEXT_GRAB_SUSTAIN", "0.4"))   # s
+# The grab never leads the cloth by more than this: no edge from a grabbed vertex to its neighbours gets
+# longer than LEAD x its length. A fast drag (40 cm in 0.3 s) jumped 4 cm per tick ahead of the cloth,
+# stretched it 11x before the cap above could react, and left it tangled (edges at 2.4-4x for good).
+# NEON stress test (8 drags of 40 cm in 0.3 s, away from and along the body): lead 2.0 peaks at 1.5-2.2x
+# and ends at rest (1.04-1.07x, no edge over 2x, nothing frozen); 1.5 lifts a heavy sheet less, 2.5
+# left points frozen and edges at 1.47x.
+LEAD = float(__import__("os").environ.get("CLOTH_NEXT_GRAB_LEAD", "2.0"))
 
 
 class GrabCap:
@@ -59,12 +66,44 @@ class GrabCap:
         self.cap = float(cap)
         self.target = None
         self.over_since = None
+        g = np.zeros(len(rest), bool)
+        g[np.asarray(vertices, np.int64)] = True
+        index = {int(v): k for k, v in enumerate(np.asarray(vertices, np.int64).tolist())}
+        lead = edges[g[edges[:, 0]] ^ g[edges[:, 1]]]
+        self.lead_g = np.array([index[int(a)] if g[a] else index[int(b)] for a, b in lead], np.int64)
+        self.lead_n = np.array([b if g[a] else a for a, b in lead], np.int64)
+        L = np.linalg.norm(r[lead[:, 0]] - r[lead[:, 1]], axis=1) if len(lead) else np.zeros(0)
+        if start is not None and len(lead):
+            L = np.maximum(L, np.linalg.norm(x[lead[:, 0]] - x[lead[:, 1]], axis=1))
+        self.lead_len = np.maximum(L, 1e-12)
 
     def stretch(self, positions: np.ndarray) -> float:
         if not len(self.edges):
             return 1.0
         x = np.asarray(positions, np.float64)
         return float((np.linalg.norm(x[self.edges[:, 0]] - x[self.edges[:, 1]], axis=1) / self.rest).max())
+
+    def _lead(self, target: np.ndarray, positions: np.ndarray, grabbed) -> np.ndarray:
+        """``target`` moved back toward the grabbed points as far as needed to keep the lead edges short."""
+        if not len(self.lead_n):
+            return target
+        x = np.asarray(positions, np.float64)
+        cur = x[np.asarray(grabbed, np.int64)]
+        nb = x[self.lead_n]
+
+        def worst(s):
+            p = cur[self.lead_g] + (target[self.lead_g] - cur[self.lead_g]) * s
+            return float((np.linalg.norm(p - nb, axis=1) / self.lead_len).max())
+
+        if worst(1.0) <= LEAD or worst(1.0) <= worst(0.0):
+            return target          # within the lead, or easing an already long edge
+        if worst(0.0) > LEAD:
+            return cur             # already as far as the cloth allows: stay
+        lo, hi = 0.0, 1.0
+        for _ in range(12):
+            mid = 0.5 * (lo + hi)
+            lo, hi = (mid, hi) if worst(mid) <= LEAD else (lo, mid)
+        return cur + (target - cur) * lo
 
     def follow(self, proposed: np.ndarray, positions: np.ndarray, grabbed, now: float | None = None) -> np.ndarray:
         """The grab target for this mouse position: the mouse while the cloth allows it, else where it stopped.
@@ -81,8 +120,8 @@ class GrabCap:
         hard = self.cap * HARD_CAP / STRETCH_CAP
         if (self.target is None or self.over_since is None or not len(self.ring)
                 or (now - self.over_since < SUSTAIN and stretch <= hard)):
-            self.target = proposed
-            return proposed
+            self.target = self._lead(proposed, positions, grabbed)
+            return self.target
         anchor = np.asarray(positions, np.float64)[self.ring].mean(0)
         if np.linalg.norm(proposed - anchor, axis=1).mean() <= np.linalg.norm(self.target - anchor, axis=1).mean():
             self.target = proposed
@@ -92,4 +131,5 @@ class GrabCap:
             if dist > CREEP:
                 step *= CREEP / dist
             self.target = self.target + step
+        self.target = self._lead(self.target, positions, grabbed)
         return self.target

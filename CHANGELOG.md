@@ -2,7 +2,7 @@
 
 ## 2.9.57 - 2026-11-03
 
-- AETHER Live Simulation: Grab works like in Marvelous Designer. The grabbed point sticks to the mouse; only when the cloth would overstretch for longer (or more than twice its length) does the grab slow down and stop. Letting go no longer flings the cloth.
+- AETHER Live Simulation: Grab works like in Marvelous Designer. The grabbed point sticks to the mouse; only when the cloth would overstretch for longer (or more than twice its length) does the grab slow down and stop. Even fast, far drags never get ahead of the cloth, so it does not tear apart or tangle and snaps back cleanly. Letting go no longer flings the cloth.
 - AETHER Engine: cloth that crumples after letting go (or anywhere else) falls again instead of hanging in the air, and garments that turn with a body are no longer held back by damping (no more crumpled patches or frozen points after pulling).
 - AETHER: static drapes run about twice as fast; bakes are calm with a little stretch damping and stay free of intersections.
 - AETHER Live Simulation: a light air drag matched to Marvelous Designer (Normal and Animation 0.5/s, Fitting 2/s), so cloth settles calmly.
