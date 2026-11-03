@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.9.60 - 2026-11-03
+
+- AETHER Engine: cloth that starts inside the body or inside other cloth (a garment made for another pose) is pulled out at the start of the bake instead of staying caught and tearing apart when the body moves.
+- AETHER Engine: scenes with a Force object that only provides gravity now run; wind is not simulated by AETHER yet and is reported with a clear message.
+- Add-on updates no longer fail while the tray Companion or an AETHER Live Simulation or bake is running: both run from a copy outside the add-on folder.
+
 ## 2.9.59 - 2026-11-03
 
 - TETHYS: water details are as strong as before 2.9.52 again. Water up to 1.2 mm keeps its true height; only thicker water levels off softly.

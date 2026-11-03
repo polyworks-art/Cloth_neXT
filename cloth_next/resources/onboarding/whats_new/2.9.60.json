@@ -1,0 +1,35 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.60",
+  "title": "What's New in Cloth NeXt 2.9.60",
+  "subtitle": "Garments that start in the body are pulled out.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/check.png",
+      "title": "Starts clean",
+      "description": "Cloth that starts inside the body or other cloth is pulled out at the start of an AETHER bake instead of tearing."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Gravity Forces with AETHER",
+      "description": "Scenes with a Force object that only provides gravity run with the AETHER Engine; wind is reported clearly."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Smooth updates",
+      "description": "Add-on updates no longer fail while the Companion or an AETHER simulation is running."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}

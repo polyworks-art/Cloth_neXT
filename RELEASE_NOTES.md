@@ -1,4 +1,8 @@
-# Cloth NeXt 2.9.59
+# Cloth NeXt 2.9.60
+
+AETHER pulls cloth that starts inside the body out at the start of a bake, runs scenes with gravity-only Force objects, and add-on updates no longer get blocked by a running Companion or AETHER Engine.
+
+## 2.9.59
 
 TETHYS wetness bakes are about 4-5x faster, water details are as strong as before 2.9.52, and a cancelled wetness bake continues where it stopped.
 
