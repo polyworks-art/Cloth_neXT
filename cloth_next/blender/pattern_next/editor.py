@@ -1463,10 +1463,47 @@ def _reverse(points):
 
 # -- automatic start --------------------------------------------------------------------------
 
+# A modal operator that is still running after this long is a background tracker
+# (another add-on's hover/overlay watcher runs for the whole session), not an
+# interaction the 2D editor must wait for. Transforms, box selects, file browsers
+# and the like either end long before this or are new when the editor would start.
+BACKGROUND_MODAL_SECONDS = 1.0
+_modal_seen = {}  # (window pointer, bl_idname) -> first time it was seen running
+
+
+def _blocking_modal(window, now=None):
+    """True while ``window`` runs a modal operator the editor must not start over.
+
+    Before 2.9.63 any modal operator blocked the start, so a persistent tracker
+    from another add-on (e.g. Blaze Puppeteer's anchor overlay hover tracker)
+    kept the 2D editor from ever starting: PATTERN NeXt drew but ignored every
+    click and key.
+    """
+    now = time.monotonic() if now is None else now
+    key = window.as_pointer()
+    running = set()
+    for op in getattr(window, "modal_operators", ()):
+        try:
+            running.add(getattr(op, "bl_idname", "") or type(op).__name__)
+        except ReferenceError:
+            continue
+    for stale in [k for k in _modal_seen if k[0] == key and k[1] not in running]:
+        del _modal_seen[stale]
+    blocking = False
+    for name in running:
+        first = _modal_seen.setdefault((key, name), now)
+        if now - first < BACKGROUND_MODAL_SECONDS:
+            blocking = True
+    return blocking
+
+
 def _autostart():
     try:
         wm = bpy.context.window_manager
         for window in wm.windows:
+            # Age the modal operators of every window, so a tracker that was
+            # already running does not delay the editor when the tab opens.
+            blocked = _blocking_modal(window)
             areas = workspace.window_pattern_areas(window, repair=True)
             if not areas:
                 continue
@@ -1476,7 +1513,7 @@ def _autostart():
                 workspace.refresh_regions(area)
             if session_for(window) is not None:
                 continue
-            if getattr(window, "modal_operators", ()):
+            if blocked:
                 continue
             obj = window.view_layer.objects.active
             if obj is not None and obj.mode != "OBJECT":
@@ -1508,6 +1545,7 @@ def register():
 def unregister():
     if bpy.app.timers.is_registered(_autostart):
         bpy.app.timers.unregister(_autostart)
+    _modal_seen.clear()
     for op in tuple(_sessions.values()):
         op.finish()
 

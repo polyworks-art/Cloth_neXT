@@ -1,4 +1,8 @@
-# Cloth NeXt 2.9.62
+# Cloth NeXt 2.9.63
+
+PATTERN NeXt reacts to clicks and keys again when another add-on runs a background modal operator.
+
+## 2.9.62
 
 The Wind preview stays out of the render thread during animation renders.
 

@@ -183,12 +183,40 @@ def timed_redraw(area, iterations=10):
         return (time.perf_counter() - started) / iterations
 
 
+class _BackgroundTracker(bpy.types.Operator):
+    """Stands in for another add-on's session-long modal (e.g. a hover tracker).
+
+    Tim's Blender runs such an operator (Blaze Puppeteer); before 2.9.63 it kept
+    the 2D editor from starting, so every check below runs with one active.
+    """
+    bl_idname = "clothnext_test.background_tracker"
+    bl_label = "Background Tracker (test)"
+    bl_options = {"INTERNAL"}
+
+    def invoke(self, context, event):
+        context.window_manager.modal_handler_add(self)
+        return {"RUNNING_MODAL"}
+
+    def modal(self, context, event):
+        return {"PASS_THROUGH"}
+
+
+bpy.utils.register_class(_BackgroundTracker)
+
+
+def start_background_tracker():
+    w = window()
+    with bpy.context.temp_override(window=w, screen=w.screen):
+        bpy.ops.clothnext_test.background_tracker("INVOKE_DEFAULT")
+
+
 GARMENT = [(-0.30, 0.00), (0.30, 0.00), (0.34, 0.55), (0.12, 0.70), (-0.12, 0.70),
            (-0.34, 0.55)]
 
 
 def phase_create():
     w = window()
+    start_background_tracker()
     for name in ("Cube",):
         if name in bpy.data.objects:
             bpy.data.objects.remove(bpy.data.objects[name], do_unlink=True)
@@ -213,6 +241,10 @@ def phase_create():
     check("left editor is a free perspective 3D view",
           left.spaces.active.region_3d.view_perspective == "PERSP")
     check("2D editor session running", editor.session_for(w) is not None)
+    check("editor starts although another add-on runs a background modal",
+          editor.session_for(w) is not None and any(
+              op.bl_idname == "CLOTHNEXT_TEST_OT_background_tracker" for op in w.modal_operators),
+          [op.bl_idname for op in w.modal_operators])
     check("inspector is docked in the 2D editor, Blender's N sidebar stays closed",
           bpy.context.scene.cloth_next_pattern_settings.show_inspector
           and not right.spaces.active.show_region_ui)
@@ -649,6 +681,7 @@ def phase_create():
 
 def phase_reopen():
     w = window()
+    start_background_tracker()
     yield 1.5
     scene = bpy.context.scene
     saved = json.loads((OUTPUT / "acceptance-create.json").read_text()).get("saved", {})
