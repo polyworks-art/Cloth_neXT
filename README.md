@@ -80,7 +80,7 @@ simulation with progress, ETA, solver activity, and frame-performance history.
 - CPU, RAM, and VRAM monitoring plus frame-performance history during Bake
 - Transactional playback caches with versioned metadata, deterministic
   invalidation, and SHA-256 integrity checks
-- Stable, Beta and Dev update channels through Blender's extension system
+- Updates through Superhive's native Blender extension repository
 
 ### Vertex-group Pinning
 
@@ -114,20 +114,10 @@ exposed.
 
 Cloth NeXt is installed through Blender's extension system.
 
-Three update channels are available:
-
-| Channel | Recommended for |
-|---|---|
-| **Stable** | Regular use and tested releases |
-| **Beta** | Early access to newer features and fixes |
-| **Dev** | Unsupported public experimental snapshots for active testing |
-
-> [!TIP]
-> Use the **Stable** channel unless you specifically want to test upcoming
-> features.
-
-Repository setup and update instructions are available in
-[Update Channels](docs/UPDATE_CHANNELS.md).
+Buy it on Superhive, then connect Superhive as a remote repository in Blender
+with the
+[official Superhive guide](https://support.superhivemarket.com/article/335-connecting-superhive-as-a-remote-repository-in-blender).
+Blender then installs Cloth NeXt and keeps it up to date.
 
 ### 2. Set up the engines
 
@@ -149,24 +139,18 @@ For troubleshooting, see [Solver Installation](docs/SOLVER_INSTALLATION.md).
 
 ## Updates
 
-Cloth NeXt updates install through Blender's own extension system — never
-through a custom self-updater — from three official repositories
-(see [Update Channels](docs/UPDATE_CHANNELS.md)):
+Cloth NeXt updates come only from Superhive's native Blender extension
+repository, through Blender's own extension system and never through a custom
+self-updater. There are no update channels to choose: every newer version
+published on Superhive is offered as an update, and Blender installs it with
+its own **Update** button. Restart Blender when Blender prompts for it.
 
-- **Stable** — normal releases only.
-- **Beta** — Beta builds plus every newer Stable release.
-- **Dev** — Dev and Beta builds plus every newer Stable release; available only after enabling
-  Developer Tools and explicitly acknowledging the risk.
+The *Cloth NeXt* section in the add-on preferences shows whether Superhive is
+connected and whether your purchase is visible in Blender's repository. These
+are information only and never turn features on or off. Details are in
+[Update repositories](docs/UPDATE_CHANNELS.md).
 
-In the add-on preferences, the *Cloth NeXt* section shows the installed
-version, lets you pick the update channel, and offers *Check for Updates*.
-*Add Channel Repository* registers the selected channel in Blender's
-Get Extensions repositories (only on explicit click, never automatically).
-*Update through Blender* synchronizes the selected repository and opens
-Blender's native extension update view; the installation itself is completed
-there by clicking Blender's own **Update** button — Cloth NeXt never replaces
-its own files while running. Restart Blender when Blender prompts for it
-after the native update. Engine updates are installed from the Cloth NeXt
+Engine updates are installed from the Cloth NeXt
 preferences and are independent of add-on updates.
 
 ---
@@ -256,7 +240,7 @@ or use the repository references below.
 <summary><strong>User documentation</strong></summary>
 
 - [Solver installation](docs/SOLVER_INSTALLATION.md)
-- [Update channels](docs/UPDATE_CHANNELS.md)
+- [Update repositories](docs/UPDATE_CHANNELS.md)
 - [Limitations](docs/LIMITATIONS.md)
 - [Playback Cache Format](docs/CACHE_FORMAT.md)
 
@@ -275,7 +259,7 @@ or use the repository references below.
 </details>
 
 > [!WARNING]
-> Before changing versions, packaging, releases, update channels, or solver
+> Before changing versions, packaging, releases, update repositories, or solver
 > metadata, read the mandatory
 > [Cloth NeXt Release Policy](docs/RELEASE_POLICY.md).
 
@@ -285,9 +269,11 @@ or use the repository references below.
 
 Cloth NeXt — Copyright © 2026 Tim Christmann and Cloth NeXt contributors.
 
-Cloth NeXt is free software licensed under the
+Cloth NeXt is a commercial product sold on Superhive. The source code of the
+Blender add-on is licensed under the
 **GNU General Public License, version 3 or, at your option, any later version**
-(`GPL-3.0-or-later`, matching `blender_manifest.toml`).
+(`GPL-3.0-or-later`, matching `blender_manifest.toml`), as Blender requires for
+add-ons.
 
 See [LICENSE](LICENSE) for the full license text.
 

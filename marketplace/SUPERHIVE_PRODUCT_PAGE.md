@@ -66,7 +66,7 @@ included in the download and is installed separately from its official source.
 - CPU, RAM, and VRAM monitoring with configurable RAM Auto Cancel
 - Versioned and authenticated PC2 playback caches
 - Scene Health checks, cache recovery, stable error codes, and privacy-safe reports
-- Stable, Beta, and Dev update channels through Blender Extensions
+- Updates through Superhive's native Blender extension repository
 
 ## Current limitations
 

@@ -10,6 +10,13 @@ on:
 permissions:
   contents: read
 
+# One CI run per branch: a branch push and its pull_request event share a
+# group, so the later one replaces the earlier, and a new push cancels the
+# superseded run. Runs on main are never cancelled.
+concurrency:
+  group: ci-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 env:
   BLENDER_VERSION: "5.0.0"
   BLENDER_SERIES: "5.0"
