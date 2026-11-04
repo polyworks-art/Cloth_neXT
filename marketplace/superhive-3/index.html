@@ -47,6 +47,20 @@
 .visual .placeholder-label{top:36%}.engines{background:#070707}.engine-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;margin-top:48px;background:var(--line);border:1px solid var(--line)}.engine{padding:clamp(22px,4vw,32px);background:#090909}.engine strong{display:block;margin:22px 0 14px;font-size:clamp(22px,3.4vw,28px);font-weight:300;letter-spacing:-.03em}.engine p{margin:0;color:var(--muted);font-size:12px;line-height:1.65}
 .compare{background:#050505}.compare-table{margin-top:48px;border-top:1px solid var(--warm)}.compare-table .row{display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;gap:12px;padding:13px 0;border-bottom:1px solid var(--line);color:var(--muted);font-size:11px}.compare-table .row.head{color:var(--accent2);font-size:8px;letter-spacing:.14em;text-transform:uppercase}.compare-table [role=rowheader]{color:#d3cfc9}.compare-table b{color:var(--accent2);font-weight:500}
 @media(max-width:650px){.metrics-3{grid-template-columns:1fr}.metrics-3 .metric{border-left:0!important;padding-left:0!important;border-top:1px solid var(--line)}.engine-grid{grid-template-columns:1fr}.story-row .pattern-slot{min-height:0;aspect-ratio:16/10}.compare-table .row{grid-template-columns:1.3fr 1fr 1fr 1fr;gap:8px;font-size:10px}}
+.finale{position:relative;min-height:min(900px,100svh);display:grid;align-items:center;overflow:hidden;isolation:isolate;background:#000;border-top:1px solid var(--line)}
+.finale-art{position:absolute;inset:0;z-index:-2}.finale-art img{height:100%;object-fit:cover;object-position:66% center}
+.finale:before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,rgba(0,0,0,.95) 0%,rgba(0,0,0,.7) 40%,rgba(0,0,0,0) 66%),linear-gradient(0deg,rgba(0,0,0,.9),rgba(0,0,0,0) 30%)}
+.finale-copy{max-width:540px;padding:96px var(--pad)}
+.finale h2{margin-bottom:26px;font-family:"Cloth neXt Avenir Ultra Light","Avenir Next","Cloth neXt Light Fallback","Helvetica Neue",sans-serif;font-weight:100;font-size:clamp(52px,9vw,84px);line-height:.98;letter-spacing:-.05em}
+.finale-lede{max-width:470px;margin-bottom:40px;color:#c9c4bc;font-size:clamp(16px,2.2vw,19px)}
+.finale-points{display:grid;grid-template-columns:repeat(3,1fr);margin:0 0 34px;padding:0;list-style:none;border-block:1px solid var(--warm)}
+.finale-points li{padding:20px 16px 20px 0}.finale-points li+li{padding-left:16px;border-left:1px solid var(--line)}
+.finale-points strong{display:block;margin-bottom:6px;color:var(--accent2);font-size:clamp(24px,4vw,34px);font-weight:200;letter-spacing:-.03em}
+.finale-points span{display:block;color:var(--muted);font-size:12px;line-height:1.4}
+.finale-cta{margin-bottom:0;color:var(--text);font-size:14px}
+.finale .requirements{justify-content:flex-start;margin-top:22px}
+@media(max-width:650px){.finale{align-items:end;min-height:860px}.finale-art img{object-position:70% center}.finale:before{background:linear-gradient(0deg,rgba(0,0,0,.97) 45%,rgba(0,0,0,.35) 75%,rgba(0,0,0,.1))}.finale-copy{padding-top:300px;padding-bottom:64px}.finale-points{grid-template-columns:1fr}.finale-points li,.finale-points li+li{padding:14px 0;border-left:0}.finale-points li+li{border-top:1px solid var(--line)}}
+@media(prefers-reduced-motion:reduce){.finale-art img{transform:none}}
 </style>
 </head>
 <body>
@@ -133,7 +147,21 @@
 
 <section class="section licenses" aria-labelledby="license-title"><div data-reveal><p class="eyebrow">Licensing</p><h2 id="license-title">Buy it once.<br><span class="accent">No subscription.</span></h2></div><div class="license-grid" data-reveal><article class="license"><span class="license-label">Personal</span><strong class="price">$19.99</strong><p>For one individual user: personal and non-commercial work, plus commercial work generating up to $1,000 in revenue per year.</p><small>Personal projects + smaller commercial use</small></article><article class="license"><span class="license-label">Commercial</span><strong class="price">$99</strong><p>For one individual professional user with unlimited commercial use across freelance, client and paid production work.</p><small>Unrestricted paid production</small></article></div></section>
 
-<section class="section closing" aria-labelledby="closing-title"><div data-reveal><img class="closing-logo" src="../assets/cloth-next-white.svg" alt=""><p class="eyebrow" style="justify-content:center">Cloth simulation, built for Blender</p><h2 id="closing-title">Make the shot.<br><span class="accent">Not the workaround.</span></h2><p class="lede">Spend less time debugging cloth. Spend more time art-directing it.</p><div class="requirements"><span>Blender 5.0+</span><span>Windows x64</span><span>NVIDIA GPU</span><span>Guided setup</span></div><p class="setup"><strong>Setup note.</strong> The simulation engines are installed and updated from inside the Cloth neXt preferences. Cloth neXt guides the setup and verifies compatibility.</p></div></section>
+<section class="finale" aria-labelledby="closing-title">
+  <div class="finale-art" aria-hidden="true"><img src="../superhive-b/gaia-hero.webp" alt="" loading="lazy"></div>
+  <div class="finale-copy" data-reveal>
+    <p class="eyebrow">Cloth neXt 3.0 · for Blender</p>
+    <h2 id="closing-title">Make the shot.<br><span class="accent">Not the workaround.</span></h2>
+    <p class="finale-lede">Patterns, sewing, live draping and water on cloth. In the Blender scene you already have, with no subscription.</p>
+    <ul class="finale-points">
+      <li><strong>Live</strong><span>Grab and drape in the viewport</span></li>
+      <li><strong>Once</strong><span>Buy it, keep it. From $19.99</span></li>
+      <li><strong>Wet</strong><span>Cloth that reacts to water, with GAIA</span></li>
+    </ul>
+    <p class="finale-cta">Choose Personal or Commercial in the purchase box on this page.</p>
+    <div class="requirements"><span>Blender 5.0+</span><span>Windows x64</span><span>NVIDIA GPU</span><span>Guided engine setup</span></div>
+  </div>
+</section>
 </main>
 
 <script>
