@@ -99,8 +99,8 @@ def _unsupported_object(obj, settings) -> str:
         return f"{obj.name}: the AETHER Engine simulates mesh Cloth objects"
     if len(getattr(settings, "friction_regions", ())):
         return f"{obj.name}: Friction Regions are not supported by the AETHER Engine yet"
-    if getattr(settings, "water_flow_enabled", False):
-        return f"{obj.name}: Water Flow needs GAIA; the AETHER Engine has no fluid coupling"
+    # Water Flow (GAIA fluid coupling, TETHYS wetness) is ignored, not refused: the artist keeps the
+    # settings for GAIA and switches engines without turning them off (listed in not_enforced_notes).
     if getattr(settings, "pinning_enabled", False):
         if str(getattr(settings, "pin_mode", "STATIC")) == "TARGET_OBJECT":
             return f"{obj.name}: Pin Target Objects are not supported by the AETHER Engine yet"
@@ -145,6 +145,8 @@ def not_enforced_notes(context) -> list[str]:
             continue
         if settings is None or not settings.enabled or settings.role != "CLOTH":
             continue
+        if getattr(settings, "water_flow_enabled", False):
+            notes.append(f"{obj.name}: Water Flow and wetness (GAIA only; the AETHER Engine ignores them)")
         try:
             notes += [f"{obj.name}: {n}" for n in amat.not_enforced(object_properties.shell_settings_from(settings))]
         except Exception:  # noqa: BLE001 - invalid values are reported by validation

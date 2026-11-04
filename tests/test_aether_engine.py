@@ -390,3 +390,4 @@ def test_start_recovery_runs_in_the_first_frames_only(tmp_path):
     off = replace(req, start_recovery=False)
     assert "untangle" not in bake.frame_inputs(off, 0)
     assert bake.scene_digest(req) != bake.scene_digest(off)   # a resume never mixes the two
+
