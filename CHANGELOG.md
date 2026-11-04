@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.9.63 - 2026-11-04
+
+- PATTERN NeXt: the 2D editor works again when another add-on keeps a modal operator running in the background (for example Blaze Puppeteer's overlay hover tracker). Before, the workspace showed the patterns but did not react to clicks or keys.
+
 ## 2.9.62 - 2026-11-03
 
 - Wind: the viewport preview no longer refreshes from Blender's render thread during an animation render (F12), so it stays out of EEVEE's way while frames render.

@@ -1,0 +1,30 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.63",
+  "title": "What's New in Cloth NeXt 2.9.63",
+  "subtitle": "PATTERN NeXt works next to your other add-ons.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/check.png",
+      "title": "PATTERN NeXt",
+      "description": "The 2D editor reacts to clicks and keys again when another add-on keeps a modal operator running."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Animation renders",
+      "description": "Still new from 2.9.62: the Wind preview no longer refreshes from the render thread while an animation renders."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}
