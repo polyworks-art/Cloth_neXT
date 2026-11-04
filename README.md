@@ -269,9 +269,11 @@ or use the repository references below.
 
 Cloth NeXt — Copyright © 2026 Tim Christmann and Cloth NeXt contributors.
 
-Cloth NeXt is free software licensed under the
+Cloth NeXt is a commercial product sold on Superhive. The source code of the
+Blender add-on is licensed under the
 **GNU General Public License, version 3 or, at your option, any later version**
-(`GPL-3.0-or-later`, matching `blender_manifest.toml`).
+(`GPL-3.0-or-later`, matching `blender_manifest.toml`), as Blender requires for
+add-ons.
 
 See [LICENSE](LICENSE) for the full license text.
 
