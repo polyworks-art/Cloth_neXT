@@ -19,9 +19,8 @@ import numpy as np
 #   0-2 overstretched edges; a 2-ring watch at 1.3 missed the soft Inlay zone (3.7x, 20 edges kept).
 #   Ball sheet lifted by one point: 0.31 m (1.3) / 0.49 m (1.6) before it stops, no cap 2.6 m (rubber).
 # CLOTH_NEXT_GRAB_CAP / CLOTH_NEXT_GRAB_RINGS override them for tests.
-# Off by default since 2026-11-04 (Tim: the cloth should follow as far as he pulls): 0 = the grab follows the
-# mouse directly, with no stretch cap and no waiting for the cloth (LEAD). CLOTH_NEXT_GRAB_CAP=1.6 brings the
-# measured cap back.
+# Off by default since 2026-11-04 (Tim: the cloth should follow as far as he pulls): 0 = no stretch cap, the
+# grab only waits while the cloth has fallen behind it (LEAD). CLOTH_NEXT_GRAB_CAP=1.6 brings the cap back.
 STRETCH_CAP = float(__import__("os").environ.get("CLOTH_NEXT_GRAB_CAP", "0"))
 MEASURED_CAP = 1.6   # the cap HARD_CAP was measured with (hard limit = cap x HARD_CAP / MEASURED_CAP)
 RINGS = int(__import__("os").environ.get("CLOTH_NEXT_GRAB_RINGS", "0"))   # rings watched (0 = whole cloth)
@@ -111,9 +110,13 @@ class GrabCap:
         Past the cap the target only moves where it does not pull further away from the cloth around
         it (back toward it, or along it), so the artist can always ease off."""
         proposed = np.asarray(proposed, np.float64)
-        if self.cap <= 0.0:          # no cap: the grab simply follows the mouse
-            self.target = proposed
-            return proposed
+        if self.cap <= 0.0:
+            # No stretch cap: the grab follows the mouse however far the cloth stretches. It only waits
+            # while the cloth has fallen behind it (LEAD). Without that wait a hard 45 cm pull on the NEON
+            # vest stretched it 50x and left 514 edges overstretched up to 37x after letting go (frozen
+            # spikes); with it the vest follows (lag 0 mm, edges up to 3x) and falls back clean.
+            self.target = self._lead(proposed, positions, grabbed)
+            return self.target
         stretch = self.stretch(positions)
         now = time.monotonic() if now is None else now
         if stretch <= self.cap:

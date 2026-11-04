@@ -346,13 +346,17 @@ def test_grab_on_cloth_that_already_hangs_stretched_can_move():
 
 def test_grab_without_cap_follows_the_mouse_as_far_as_pulled():
     from cloth_next.aether_engine import grab
-    rest = np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0]], float)
-    tris = np.array([[0, 1, 3], [0, 3, 2]])
-    cap = grab.GrabCap(tris, rest, [3], cap=0.0)
+    g = np.linspace(0.0, 1.0, 11)
+    X, Y = np.meshgrid(g, g)
+    rest = np.stack([X.ravel(), Y.ravel(), np.zeros(121)], 1)
+    tris = [[j * 11 + i, j * 11 + i + 1, j * 11 + i + 12] for j in range(10) for i in range(10)]
+    tris += [[j * 11 + i, j * 11 + i + 12, j * 11 + i + 11] for j in range(10) for i in range(10)]
+    cap = grab.GrabCap(np.array(tris), rest, [60], cap=0.0)
     torn = rest.copy()
-    torn[3] = [5.0, 5.0, 0.0]                                           # 5x stretched: still follows
-    mouse = np.array([[9.0, 9.0, 0.0]])
-    assert np.allclose(cap.follow(mouse, torn, [3], now=0.0), mouse)
+    torn[0] = [-4.0, -4.0, 0.0]                   # a far corner overstretched, the grabbed point kept up
+    mouse = rest[[60]] + [0.0, 0.0, 9.0]
+    for k in range(10):                           # no cap: follows however far, also while held
+        assert np.allclose(cap.follow(mouse, torn, [60], now=0.5 * k), mouse)
     assert grab.STRETCH_CAP == 0.0 or "CLOTH_NEXT_GRAB_CAP" in __import__("os").environ   # off by default
 
 
