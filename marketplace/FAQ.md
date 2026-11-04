@@ -8,6 +8,10 @@ Soft Body, cloth in FLIP water) and **TETHYS** (wet fabric) need a PolyWorks
 account with GAIA access. All engines are installed and updated from inside the
 Cloth NeXt preferences after you confirm the download.
 
+**Legacy** is the unmodified PPF Contact Solver by ST Tech / ZOZO. It is not
+part of the Cloth NeXt download; you can install it separately from its
+official source through the preferences, no account needed.
+
 ## Which engine should I use?
 
 Use the AETHER Engine for draping, the Live Simulation and most garment bakes:

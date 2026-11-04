@@ -43,13 +43,15 @@ live draping, scene setup, validation, materials, baking, diagnostics, and
 cache playback all stay inside Blender.
 
 The simulation runs in Cloth NeXt's own engines, which the add-on installs,
-updates and starts for you:
+updates and starts for you. The unmodified PPF Contact Solver stays available
+as **Legacy**:
 
 | Engine | What it does | Access |
 |---|---|---|
 | **AETHER Engine** | Native GPU cloth engine for the Live Simulation in the viewport (grab, pins, seams) and for bakes. Quality presets **Normal**, **Animation** and **Fitting**. Cloth only. | Included, no account needed |
 | **GAIA** | Precision baking engine with contact-safe layered cloth, Rod / Cable and Soft Body roles, and cloth coupled to Blender FLIP water (Water Flow, Wet Fabric). | PolyWorks account with GAIA access |
 | **TETHYS** | Wetness engine: wet areas, drying edges and droplets as textures on the cloth, no extra geometry. | Works together with GAIA |
+| **Legacy** | The unmodified [PPF Contact Solver](https://github.com/st-tech/ppf-contact-solver) by ST Tech / ZOZO for existing scenes and workflows. Not shipped with Cloth NeXt; installed separately from its official source through the preferences. | No account needed |
 
 The Physics Properties panel is the artist-facing entry point. It provides
 role-aware controls, scene validation, Bake/Rebake/Cancel actions, cache state,
@@ -297,7 +299,9 @@ warranties of merchantability or fitness for a particular purpose.
 The AETHER Engine and TETHYS are proprietary PolyWorks engines shipped as
 binaries with the extension. GAIA is a PolyWorks engine derived from the
 [PPF Contact Solver](https://github.com/st-tech/ppf-contact-solver)
-by ST Tech / ZOZO, which is licensed under the Apache License 2.0. The engines
+by ST Tech / ZOZO, which is licensed under the Apache License 2.0. Legacy is
+that unmodified solver, installed separately from its official source; Cloth
+NeXt does not bundle or redistribute it. The engines
 are not covered by the Cloth NeXt GPL license. Third-party data and notices are
 listed in [Third-Party Notices](docs/THIRD_PARTY_NOTICES.md).
 

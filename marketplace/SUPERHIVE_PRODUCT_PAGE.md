@@ -30,6 +30,8 @@ no round trip to another application.
 
 The engines are installed and updated from inside the Cloth NeXt preferences
 after you confirm the download.
+The unmodified PPF Contact Solver remains available as **Legacy**; it is not
+included in the download and is installed separately from its official source.
 
 ## Installation
 
