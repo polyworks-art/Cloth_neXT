@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#030303">
+<meta name="description" content="Cloth neXt 3.0. Marvelous-style cloth inside Blender: patterns, sewing, live draping and contact-safe bakes.">
+<title>Cloth neXt 3.0 | Marvelous-style cloth in Blender</title>
+<link rel="icon" href="../assets/cloth-next-white.svg" type="image/svg+xml">
+<link rel="preload" href="../superhive-b/gaia-hero.webp" as="image" type="image/webp">
+<style>
+:root{color-scheme:dark;--bg:#030303;--panel:#090909;--text:#f1f0ed;--muted:#9d9992;--quiet:#706b65;--line:rgba(255,255,255,.11);--warm:rgba(199,162,122,.34);--accent:#c7a27a;--accent2:#e0c8aa;--pad:clamp(24px,6vw,54px);--sans:"Avenir Next",Avenir,"Helvetica Neue",Helvetica,Arial,sans-serif}
+*{box-sizing:border-box}html{background:#000;scroll-behavior:smooth;scrollbar-color:#40352c #030303}body{margin:0;overflow-x:hidden;background:#000;color:var(--text);font-family:var(--sans);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}img{display:block;width:100%}h1,h2,h3,p{margin-top:0}h1,h2,h3{font-weight:300}.frame{position:relative;width:min(100%,800px);margin:auto;overflow:hidden;background:var(--bg);border-inline:1px solid rgba(255,255,255,.055)}.section{position:relative;padding:clamp(90px,15vw,136px) var(--pad)}.eyebrow{display:flex;align-items:center;gap:12px;margin:0 0 24px;color:var(--accent2);font-size:9px;font-weight:500;letter-spacing:.22em;text-transform:uppercase}.eyebrow:before{content:"";width:34px;height:1px;background:var(--accent)}h2{margin-bottom:24px;font-size:clamp(43px,8.8vw,73px);line-height:.97;letter-spacing:-.052em}.lede{max-width:520px;color:var(--muted);font-size:clamp(16px,2.35vw,19px);line-height:1.68}.accent{color:var(--accent2)}
+.hero{position:relative;min-height:min(880px,100svh);display:grid;align-items:end;isolation:isolate}.hero-art{position:absolute;inset:0;z-index:-3}.hero-art img{height:100%;object-fit:cover;object-position:57% center;transform:scale(1.025)}.hero:before{content:"";position:absolute;inset:0;z-index:-2;background:linear-gradient(180deg,rgba(0,0,0,.03),rgba(0,0,0,.04) 49%,rgba(0,0,0,.88)),linear-gradient(90deg,#000 0%,rgba(0,0,0,.96) 30%,rgba(0,0,0,.25) 65%,rgba(0,0,0,.06))}.hero:after{content:"";position:absolute;inset:0;z-index:-1;background:radial-gradient(circle at 83% 44%,rgba(199,162,122,.09),transparent 30%)}.hero-top{position:absolute;top:0;left:var(--pad);right:var(--pad);display:flex;align-items:center;justify-content:space-between;padding:25px 0;border-bottom:1px solid var(--line);color:#d3d0ca;font-size:9px;letter-spacing:.18em;text-transform:uppercase}.brand{display:flex;align-items:center;gap:10px}.brand img{width:22px}.hero-top>span{color:var(--quiet)}.hero-copy{width:min(87%,610px);padding:0 var(--pad) clamp(66px,10vw,92px)}.hero h1{margin:0;font-size:clamp(64px,14.2vw,114px);font-weight:200;line-height:.84;letter-spacing:-.067em;white-space:nowrap}.hero-rule{height:1px;margin:31px 0 23px;background:rgba(241,240,237,.72);transform-origin:left}.tagline{margin:0;color:var(--text);font-size:clamp(17px,3.15vw,25px);font-weight:300;letter-spacing:-.02em}.support{max-width:470px;margin:14px 0 0;color:#9b9791;font-size:13px}.scroll-cue{position:absolute;right:var(--pad);bottom:28px;display:flex;align-items:center;gap:9px;color:#77716a;font-size:8px;letter-spacing:.2em;text-transform:uppercase;writing-mode:vertical-rl}.scroll-cue:after{content:"";width:1px;height:40px;background:linear-gradient(var(--accent),transparent)}
+.visual{position:relative;min-height:720px;display:grid;align-items:end;overflow:hidden;background:#070707}.visual-copy{position:relative;z-index:2;padding:0 var(--pad) 64px}.visual-copy h2{max-width:650px;margin-bottom:16px}.visual:after{content:"";position:absolute;inset:0;background:linear-gradient(0deg,rgba(0,0,0,.96),rgba(0,0,0,.1) 65%)}.placeholder{position:absolute;inset:0;overflow:hidden;background:radial-gradient(circle at 70% 34%,rgba(199,162,122,.13),transparent 24%),linear-gradient(145deg,#11100f,#050505 62%)}.placeholder:before{content:"";position:absolute;inset:0;background:linear-gradient(110deg,transparent 0 49.8%,rgba(255,255,255,.055) 50%,transparent 50.2%),linear-gradient(70deg,transparent 0 49.8%,rgba(255,255,255,.035) 50%,transparent 50.2%);background-size:96px 96px}.placeholder-label{position:absolute;top:50%;left:50%;z-index:1;width:min(72%,430px);transform:translate(-50%,-50%);padding:27px;border:1px solid var(--warm);background:rgba(3,3,3,.76);text-align:center;backdrop-filter:blur(10px)}.placeholder-label strong{display:block;color:#d8c0a4;font-size:11px;font-weight:500;letter-spacing:.2em;text-transform:uppercase}.placeholder-label span{display:block;margin-top:9px;color:#77716a;font-size:9px;letter-spacing:.1em;text-transform:uppercase}.proof-note{margin:0;color:#beb9b2;font-size:10px;letter-spacing:.12em;text-transform:uppercase}
+.proof{overflow:hidden;background:#080706}.proof:before{content:"230K";position:absolute;top:22px;right:-24px;color:rgba(199,162,122,.045);font-size:clamp(150px,32vw,260px);font-weight:200;line-height:1;letter-spacing:-.09em;pointer-events:none}.metrics{position:relative;display:grid;grid-template-columns:repeat(5,1fr);margin-top:62px;border-block:1px solid var(--line)}.metric{min-width:0;padding:21px 10px 24px 0}.metric+.metric{padding-left:15px;border-left:1px solid var(--line)}.metric strong{display:block;font-size:clamp(22px,4vw,33px);font-weight:300;letter-spacing:-.045em;white-space:nowrap}.metric span{display:block;margin-top:8px;color:var(--quiet);font-size:8px;line-height:1.4;letter-spacing:.13em;text-transform:uppercase}
+.manifesto{min-height:670px;display:grid;place-items:center;text-align:center}.manifesto .noise{position:absolute;inset:0;overflow:hidden;pointer-events:none}.noise span{position:absolute;color:rgba(255,255,255,.06);font-size:10px;letter-spacing:.18em;text-transform:uppercase}.noise span:nth-child(1){left:8%;top:20%}.noise span:nth-child(2){right:9%;top:31%}.noise span:nth-child(3){left:14%;bottom:22%}.noise span:nth-child(4){right:13%;bottom:15%}.noise span:nth-child(5){left:44%;top:10%}.manifesto h2,.manifesto p{margin-inline:auto}.manifesto p{max-width:440px;color:var(--muted)}
+.story-row{display:grid;grid-template-columns:1.05fr .95fr;min-height:670px;border-block:1px solid var(--line)}.story-row .slot{position:relative;min-height:520px;overflow:hidden;background:#080808}.story-row .copy{display:flex;flex-direction:column;justify-content:center;padding:58px clamp(24px,5vw,44px)}.story-row h2{font-size:clamp(40px,7vw,59px)}.steps{margin:34px 0 0;padding:0;list-style:none;counter-reset:item;border-top:1px solid var(--line)}.steps li{counter-increment:item;display:grid;grid-template-columns:34px 1fr;padding:13px 0;border-bottom:1px solid var(--line);color:#c9c4bd;font-size:12px}.steps li:before{content:"0" counter(item);color:var(--accent);font-size:9px;letter-spacing:.08em}.story-row.reverse{grid-template-columns:.95fr 1.05fr}.story-row.reverse .slot{order:2}.contact-list{margin-top:30px;border-top:1px solid var(--warm)}.contact-list div{display:flex;justify-content:space-between;gap:14px;padding:12px 0;border-bottom:1px solid var(--line);color:#bdb8b1;font-size:11px}.contact-list span{color:var(--quiet);font-size:8px;letter-spacing:.12em;text-transform:uppercase}
+.materials{overflow:hidden;background:linear-gradient(145deg,#0b0907,#050505 67%)}.materials:after{content:"75";position:absolute;right:-25px;bottom:-55px;color:rgba(199,162,122,.06);font-size:clamp(250px,53vw,420px);font-weight:200;line-height:.75;letter-spacing:-.12em}.materials>div{position:relative;z-index:1}.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:48px}.chips span{padding:9px 11px;border:1px solid var(--line);color:#a9a49d;font-size:9px;letter-spacing:.12em;text-transform:uppercase}
+.included{background:#080808}.included-head{display:grid;grid-template-columns:1.25fr .75fr;gap:36px;align-items:end}.included-head p{margin:0 0 8px;color:var(--muted)}.features{margin-top:58px;border-top:1px solid var(--warm)}.feature{display:grid;grid-template-columns:42px 1fr auto;align-items:center;gap:15px;padding:18px 0;border-bottom:1px solid var(--line)}.feature span{color:var(--accent);font-size:9px;letter-spacing:.12em}.feature strong{color:#dad6d0;font-size:clamp(16px,2.6vw,20px);font-weight:300}.feature em{color:var(--quiet);font-size:9px;font-style:normal;letter-spacing:.1em;text-transform:uppercase}
+.licenses{background:#030303}.license-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;margin-top:52px;background:var(--line);border:1px solid var(--line)}.license{padding:clamp(25px,5vw,39px);background:#070707}.license:last-child{background:linear-gradient(145deg,rgba(199,162,122,.095),#080706 54%)}.license-label{color:var(--accent2);font-size:9px;letter-spacing:.2em;text-transform:uppercase}.price{display:block;margin:29px 0 25px;font-size:clamp(57px,10vw,80px);font-weight:200;line-height:.8;letter-spacing:-.06em}.license p{margin:0;color:var(--muted);font-size:12px;line-height:1.65}.license small{display:block;margin-top:25px;padding-top:14px;border-top:1px solid var(--line);color:var(--quiet);font-size:9px;letter-spacing:.08em;text-transform:uppercase}
+.closing{min-height:700px;display:grid;place-items:center;overflow:hidden;text-align:center}.closing:before{content:"";position:absolute;width:550px;height:550px;border:1px solid rgba(199,162,122,.08);border-radius:50%;box-shadow:0 0 0 75px rgba(199,162,122,.018),0 0 0 150px rgba(199,162,122,.008)}.closing>div{position:relative;z-index:1}.closing-logo{width:45px;margin:0 auto 31px}.closing h2{font-size:clamp(49px,10vw,81px)}.closing .lede{margin-inline:auto}.requirements{display:flex;justify-content:center;flex-wrap:wrap;gap:8px 18px;margin-top:36px;color:#89847d;font-size:9px;letter-spacing:.13em;text-transform:uppercase}.setup{max-width:560px;margin:28px auto 0;padding-top:19px;border-top:1px solid var(--line);color:#69645e;font-size:10px}.setup strong{color:#9d978f;font-weight:400}
+[data-reveal]{opacity:0;transform:translateY(24px);transition:opacity .9s cubic-bezier(.2,.7,.2,1),transform .9s cubic-bezier(.2,.7,.2,1)}[data-reveal].visible{opacity:1;transform:none}.hero-copy [data-reveal]{transition-delay:calc(var(--i,0)*130ms + 100ms)}
+@media(max-width:650px){.hero{min-height:760px}.hero-art img{object-position:64% center}.hero:before{background:linear-gradient(180deg,rgba(0,0,0,.03),rgba(0,0,0,.08) 42%,rgba(0,0,0,.96) 79%),linear-gradient(90deg,rgba(0,0,0,.88),rgba(0,0,0,.08) 85%)}.hero-copy{width:100%}.hero h1{font-size:clamp(54px,17vw,86px)}.hero-top>span{display:none}.visual{min-height:670px}.metrics{grid-template-columns:repeat(2,1fr)}.metric:nth-child(odd){border-left:0}.metric:last-child{grid-column:1/-1;border-top:1px solid var(--line)}.story-row,.story-row.reverse{grid-template-columns:1fr}.story-row.reverse .slot{order:0}.story-row .slot{min-height:430px}.included-head{grid-template-columns:1fr;gap:3px}.feature{grid-template-columns:32px 1fr}.feature em{display:none}.license-grid{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*:before,*:after{animation:none!important;transition-duration:.01ms!important}[data-reveal]{opacity:1;transform:none}.hero-art img{transform:none!important}}
+@font-face{font-family:"Cloth neXt Avenir Ultra Light";src:local("Avenir Next Ultra Light"),local("Avenir Next UltraLight"),local("AvenirNext-UltraLight");font-style:normal;font-weight:100;font-display:swap}
+@font-face{font-family:"Cloth neXt Light Fallback";src:local("Segoe UI Light"),local("SegoeUI-Light"),local("Helvetica Neue UltraLight"),local("HelveticaNeue-UltraLight");font-style:normal;font-weight:100;font-display:swap}
+.hero h1{font-family:"Cloth neXt Avenir Ultra Light","Avenir Next","Cloth neXt Light Fallback","Helvetica Neue",sans-serif;font-weight:100;font-synthesis:none;letter-spacing:-.055em}
+.brand{text-transform:none;letter-spacing:.13em}
+.result-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center}
+.visual:after{pointer-events:none}
+.video-toggle{position:absolute;z-index:3;right:var(--pad);top:24px;display:grid;place-items:center;width:44px;height:44px;padding:0;border:1px solid var(--warm);border-radius:50%;background:rgba(3,3,3,.6);color:var(--text);cursor:pointer}
+.video-toggle svg{width:14px;height:14px;fill:currentColor}
+.video-toggle .pause-icon,.video-toggle.is-playing .play-icon{display:none}
+.video-toggle.is-playing .pause-icon{display:block}
+.video-toggle:hover{background:rgba(199,162,122,.16)}
+.video-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:4px}
+.story-row .workflow-slot{min-height:0;padding:0;background:#303030}
+.workflow-shot{position:absolute;inset:0;width:100%;height:100%;max-width:none;object-fit:cover;object-position:center top;border:0;box-shadow:none}
+@media(max-width:650px){.story-row .workflow-slot{height:570px}}
+.detail-shot{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:55% center}
+@media(max-width:650px){.story-row .detail-slot{min-height:0;aspect-ratio:4/5}.detail-shot{object-position:center}}
+
+.speech-section{background:var(--bg)}.speech-visual{min-height:0;aspect-ratio:1;background:var(--bg)}.speech-visual .result-video{object-fit:contain;mix-blend-mode:lighten;transform:translateX(50px)}.speech-visual:after{background:linear-gradient(180deg,var(--bg),transparent 3%,transparent 97%,var(--bg))}.speech-visual .speech-copy{padding:0 var(--pad) clamp(28px,6vw,48px)}.speech-copy h2{font-size:clamp(40px,8vw,64px)}
+.speed:before{content:"16.6"}.metrics-3{grid-template-columns:repeat(3,1fr)}.metrics-3 .metric span{max-width:170px}
+.story-row .pattern-slot{min-height:0;background:#2b2b2b}.pattern-shot{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:72% center}
+.visual .placeholder-label{top:36%}.engines{background:#070707}.engine-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;margin-top:48px;background:var(--line);border:1px solid var(--line)}.engine{padding:clamp(22px,4vw,32px);background:#090909}.engine strong{display:block;margin:22px 0 14px;font-size:clamp(22px,3.4vw,28px);font-weight:300;letter-spacing:-.03em}.engine p{margin:0;color:var(--muted);font-size:12px;line-height:1.65}
+.compare{background:#050505}.compare-table{margin-top:48px;border-top:1px solid var(--warm)}.compare-table .row{display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;gap:12px;padding:13px 0;border-bottom:1px solid var(--line);color:var(--muted);font-size:11px}.compare-table .row.head{color:var(--accent2);font-size:8px;letter-spacing:.14em;text-transform:uppercase}.compare-table [role=rowheader]{color:#d3cfc9}.compare-table b{color:var(--accent2);font-weight:500}
+@media(max-width:650px){.metrics-3{grid-template-columns:1fr}.metrics-3 .metric{border-left:0!important;padding-left:0!important;border-top:1px solid var(--line)}.engine-grid{grid-template-columns:1fr}.story-row .pattern-slot{min-height:0;aspect-ratio:16/10}.compare-table .row{grid-template-columns:1.3fr 1fr 1fr 1fr;gap:8px;font-size:10px}}
+</style>
+</head>
+<body>
+<main class="frame">
+<section class="hero" aria-labelledby="hero-title">
+  <div class="hero-art" aria-hidden="true"><img src="../superhive-b/gaia-hero.webp" alt=""></div>
+  <div class="hero-top"><div class="brand"><img src="../assets/cloth-next-white.svg" alt="">Cloth neXt 3.0</div><span>Cloth simulation · Blender</span></div>
+  <div class="hero-copy"><h1 id="hero-title" data-reveal style="--i:0">Cloth neXt</h1><div class="hero-rule" data-reveal style="--i:1"></div><p class="tagline" data-reveal style="--i:2">Marvelous-style cloth. Inside Blender.</p><p class="support" data-reveal style="--i:3">Draw patterns, sew them and drape them live in the viewport. Bake with real contact. No subscription and no round trip to another app.</p></div>
+  <span class="scroll-cue">Explore</span>
+</section>
+
+<section class="visual" aria-labelledby="live-title">
+  <div class="placeholder" aria-hidden="true"><div class="placeholder-label"><strong>Clip 1 · Live drape</strong><span>NEON garment grabbed live in the viewport, ms counter visible</span></div></div>
+  <div class="visual-copy" data-reveal><p class="eyebrow">AETHER Engine · live</p><h2 id="live-title">Grab it. Pull it.<br><span class="accent">It answers in real time.</span></h2><p class="proof-note">Live simulation in the Blender viewport</p></div>
+</section>
+
+<section class="section proof speed" aria-labelledby="speed-title">
+  <div data-reveal><p class="eyebrow">Measured, not promised</p><h2 id="speed-title">Feels like cloth.<br><span class="accent">Runs like a game.</span></h2><p class="lede">The AETHER Engine is our own GPU cloth solver, built for the feel artists know from dedicated garment tools, directly in your Blender scene.</p></div>
+  <div class="metrics metrics-3" data-reveal><div class="metric"><strong>16.6 ms</strong><span>Engine time per live frame (NEON garment)</span></div><div class="metric"><strong>0</strong><span>Penetrations in final bakes</span></div><div class="metric"><strong>3</strong><span>Quality presets: Normal, Animation, Fitting</span></div></div>
+</section>
+
+<section class="story-row" aria-labelledby="pattern-title">
+  <div class="slot pattern-slot"><img class="pattern-shot" src="pattern-next.png" width="1920" height="1049" alt="PATTERN NeXt workspace in Blender with the 3D view on the left and the 2D pattern editor with front, back and sleeve patterns on the right" loading="eager" decoding="async"></div>
+  <div class="copy" data-reveal><p class="eyebrow">PATTERN NeXt</p><h2 id="pattern-title">From flat pattern<br>to <span class="accent">finished garment.</span></h2><p class="lede">A 2D pattern editor right next to your 3D view, in its own Blender workspace.</p><ol class="steps"><li>Draw or edit the patterns</li><li>Connect the seams</li><li>Drape live on the character</li><li>Bake the shot</li></ol></div>
+</section>
+
+<section class="section engines" aria-labelledby="engines-title">
+  <div data-reveal><p class="eyebrow">Three engines · one add-on</p><h2 id="engines-title">Pick the engine<br><span class="accent">the shot needs.</span></h2></div>
+  <div class="engine-grid" data-reveal>
+    <article class="engine"><span class="license-label">AETHER Engine</span><strong>Live + bakes</strong><p>Fast, interactive cloth with grab, pins and seams. Normal for the viewport, Fitting for final bakes.</p></article>
+    <article class="engine"><span class="license-label">GAIA</span><strong>Precision + water</strong><p>Contact-safe baking for the hardest shots, including cloth that reacts to your FLIP water. Needs a PolyWorks account.</p></article>
+    <article class="engine"><span class="license-label">TETHYS</span><strong>Wet fabric</strong><p>Wetness, drying edges and droplets as textures on the cloth. No extra geometry, works with GAIA.</p></article>
+  </div>
+</section>
+
+<section class="visual" aria-labelledby="wet-title">
+  <div class="placeholder" aria-hidden="true"><div class="placeholder-label"><strong>Clip 2 · Wet cloth</strong><span>Shirt in rain or water, GAIA + TETHYS</span></div></div>
+  <div class="visual-copy" data-reveal><p class="eyebrow">Only in Cloth neXt</p><h2 id="wet-title">Cloth meets water.<br><span class="accent">And gets wet.</span></h2><p class="proof-note">Water-coupled cloth with GAIA · Wetness with TETHYS</p></div>
+</section>
+
+<section class="visual" aria-labelledby="result-title">
+  <video class="result-video" muted loop playsinline preload="metadata" aria-label="Cloth neXt cloth simulation"><source src="../superhive-b/result-film.mp4" type="video/mp4"></video>
+  <button class="video-toggle" type="button" aria-label="Play simulation video"><svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path class="play-icon" d="M4 2 14 8 4 14Z"/><path class="pause-icon" d="M3 2h3v12H3zM10 2h3v12h-3z"/></svg></button>
+  <div class="visual-copy" data-reveal><p class="eyebrow">The result</p><h2 id="result-title">Real cloth. Real contact.<br><span class="accent">Real production geometry.</span></h2><p class="proof-note">Cloth neXt simulation</p></div>
+</section>
+
+<section class="section proof" aria-labelledby="proof-title">
+  <div data-reveal><p class="eyebrow">Measured on the production sequence</p><h2 id="proof-title">A result.<br><span class="accent">Not a promise.</span></h2><p class="lede">Dense layered cloth against a complete animated character, resolved at the scale the shot demanded.</p></div>
+  <div class="metrics" data-reveal><div class="metric"><strong>230k</strong><span>Cloth triangles</span></div><div class="metric"><strong>200k</strong><span>Character triangles</span></div><div class="metric"><strong>~100k</strong><span>Contacts</span></div><div class="metric"><strong>223</strong><span>Frames</span></div><div class="metric"><strong>~10 min</strong><span>Bake time</span></div></div>
+</section>
+
+<section class="section compare" aria-labelledby="compare-title">
+  <div data-reveal><p class="eyebrow">Why switch</p><h2 id="compare-title">Stay in Blender.<br><span class="accent">Keep the feel.</span></h2></div>
+  <div class="compare-table" data-reveal role="table" aria-label="Comparison">
+    <div class="row head" role="row"><span role="columnheader"></span><span role="columnheader">Cloth neXt</span><span role="columnheader">Standalone garment app</span><span role="columnheader">Blender cloth</span></div>
+    <div class="row" role="row"><span role="rowheader">Works inside your Blender scene</span><b>Yes</b><span>Export + import</span><span>Yes</span></div>
+    <div class="row" role="row"><span role="rowheader">Live grab, pins, seams</span><b>Yes</b><span>Yes</span><span>Limited</span></div>
+    <div class="row" role="row"><span role="rowheader">2D pattern editor</span><b>Yes</b><span>Yes</span><span>No</span></div>
+    <div class="row" role="row"><span role="rowheader">Contact-safe layered bakes</span><b>Yes</b><span>Yes</span><span>Limited</span></div>
+    <div class="row" role="row"><span role="rowheader">Cloth + water + wetness</span><b>Yes</b><span>No</span><span>No</span></div>
+    <div class="row" role="row"><span role="rowheader">Pricing</span><b>One-time</b><span>Subscription</span><span>Free</span></div>
+  </div>
+</section>
+
+<section class="speech-section" aria-labelledby="speech-title">
+  <div class="visual speech-visual">
+    <video class="result-video" muted loop playsinline preload="metadata" poster="../superhive-b/speech-square.webp" aria-label="Cloth neXt character film"><source src="../superhive-b/speech-silent.mp4" type="video/mp4"></video>
+    <button class="video-toggle" type="button" aria-label="Play character film"><svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path class="play-icon" d="M4 2 14 8 4 14Z"/><path class="pause-icon" d="M3 2h3v12H3zM10 2h3v12h-3z"/></svg></button>
+    <div class="visual-copy speech-copy" data-reveal><p class="eyebrow">Character in motion</p><h2 id="speech-title">Every fold.<br><span class="accent">In character.</span></h2><p class="proof-note">Cloth neXt simulation</p></div>
+  </div>
+</section>
+
+<section class="story-row reverse" aria-labelledby="contact-title">
+  <div class="slot detail-slot"><img class="detail-shot" src="../superhive-b/character-detail.png" width="1200" height="1500" alt="Close-up of a character wearing layered garments, showing hood, sleeve folds and fabric detail" loading="lazy" decoding="async"></div>
+  <div class="copy" data-reveal><p class="eyebrow">Character + contact</p><h2 id="contact-title">Detail where the camera <span class="accent">sees it.</span></h2><p>Use the full character, or create an animation-aware collision cage when production calls for speed.</p><div class="contact-list"><div>Dense garments <span>Layered cloth</span></div><div>Animated characters <span>Real contact</span></div><div>Collision cages <span>Editable</span></div></div></div>
+</section>
+
+<section class="section materials" aria-labelledby="materials-title"><div data-reveal><p class="eyebrow">75 cloth presets</p><h2 id="materials-title">Pick the fabric.<br><span class="accent">Keep moving.</span></h2><p class="lede">Begin from a considered preset. Tune only when the shot asks for it.</p><div class="chips"><span>Silk</span><span>Denim</span><span>Leather</span><span>Knit</span><span>Technical</span></div></div></section>
+
+<section class="section included" aria-labelledby="included-title">
+  <div class="included-head" data-reveal><div><p class="eyebrow">What you get</p><h2 id="included-title">One add-on.<br><span class="accent">The full workflow.</span></h2></div><p>Cloth is the hero. The systems around it are what make it production-ready.</p></div>
+  <div class="features"><div class="feature" data-reveal><span>01</span><strong>Live Cloth in the Viewport</strong><em>Grab, pin, sew</em></div><div class="feature" data-reveal><span>02</span><strong>PATTERN NeXt Editor</strong><em>2D patterns</em></div><div class="feature" data-reveal><span>03</span><strong>Sewing + Attachments</strong><em>Seams in 3D</em></div><div class="feature" data-reveal><span>04</span><strong>Layered Cloth + Animated Characters</strong><em>Built for contact</em></div><div class="feature" data-reveal><span>05</span><strong>Water-Coupled Cloth + Wetness</strong><em>GAIA + TETHYS</em></div><div class="feature" data-reveal><span>06</span><strong>75 Cloth Presets</strong><em>Starting points</em></div><div class="feature" data-reveal><span>07</span><strong>Bake Companion + Verified Recovery</strong><em>Know the bake</em></div><div class="feature" data-reveal><span>08</span><strong>Soft Bodies, Cables + Forces</strong><em>Beyond cloth</em></div></div>
+</section>
+
+<section class="section licenses" aria-labelledby="license-title"><div data-reveal><p class="eyebrow">Licensing</p><h2 id="license-title">Buy it once.<br><span class="accent">No subscription.</span></h2></div><div class="license-grid" data-reveal><article class="license"><span class="license-label">Personal</span><strong class="price">$19.99</strong><p>For one individual user: personal and non-commercial work, plus commercial work generating up to $1,000 in revenue per year.</p><small>Personal projects + smaller commercial use</small></article><article class="license"><span class="license-label">Commercial</span><strong class="price">$99</strong><p>For one individual professional user with unlimited commercial use across freelance, client and paid production work.</p><small>Unrestricted paid production</small></article></div></section>
+
+<section class="section closing" aria-labelledby="closing-title"><div data-reveal><img class="closing-logo" src="../assets/cloth-next-white.svg" alt=""><p class="eyebrow" style="justify-content:center">Cloth simulation, built for Blender</p><h2 id="closing-title">Make the shot.<br><span class="accent">Not the workaround.</span></h2><p class="lede">Spend less time debugging cloth. Spend more time art-directing it.</p><div class="requirements"><span>Blender 5.0+</span><span>Windows x64</span><span>NVIDIA GPU</span><span>Guided setup</span></div><p class="setup"><strong>Setup note.</strong> The simulation engines are installed and updated from inside the Cloth neXt preferences. Cloth neXt guides the setup and verifies compatibility.</p></div></section>
+</main>
+
+<script>
+(()=>{const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches,els=document.querySelectorAll('[data-reveal]');if(reduced||!('IntersectionObserver'in window))els.forEach(e=>e.classList.add('visible'));else{const o=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('visible');o.unobserve(e.target)}}),{rootMargin:'0px 0px -8%',threshold:.12});els.forEach(e=>o.observe(e))}if(!reduced){const image=document.querySelector('.hero-art img');let ticking=false;addEventListener('scroll',()=>{if(!ticking){requestAnimationFrame(()=>{image.style.transform=`scale(1.025) translate3d(0,${Math.min(scrollY,innerHeight)*.035}px,0)`;ticking=false});ticking=true}},{passive:true})}})();
+(() => {
+  const motion = matchMedia('(prefers-reduced-motion: reduce)');
+  document.querySelectorAll('.result-video').forEach(video => {
+  const toggle = video.closest('.visual').querySelector('.video-toggle');
+  const videoName = video.getAttribute('aria-label');
+  let visible = false;
+  let userPaused = false;
+  let manualPlay = false;
+  const sync = () => {
+    if (visible && !document.hidden && !userPaused && (!motion.matches || manualPlay)) video.play().catch(() => {});
+    else video.pause();
+  };
+  const label = () => {
+    toggle.classList.toggle('is-playing', !video.paused);
+    toggle.setAttribute('aria-label', `${video.paused ? 'Play' : 'Pause'} ${videoName}`);
+  };
+  video.addEventListener('play', label);
+  video.addEventListener('pause', label);
+  toggle.addEventListener('click', () => {
+    userPaused = !video.paused;
+    manualPlay = !userPaused;
+    sync();
+  });
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver(([entry]) => { visible = entry.isIntersecting; sync(); }, {threshold: .2}).observe(video);
+  } else visible = true;
+  document.addEventListener('visibilitychange', sync);
+  motion.addEventListener('change', () => { manualPlay = false; sync(); });
+  });
+})();
+
+</script>
+</body>
+</html>
