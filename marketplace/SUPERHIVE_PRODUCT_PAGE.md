@@ -2,21 +2,19 @@
 
 ## Short description
 
-Create cloth, cable, and soft-body simulations in Blender through a focused,
-artist-friendly workflow powered by the PPF Contact Solver. Cloth NeXt combines
-multi-object contact, animated colliders, material presets, guided validation,
-monitored baking, and reliable playback caches in one Blender extension.
+Marvelous-style cloth inside Blender. Draw patterns, sew them and drape them
+live in the viewport, then bake with real contact. Cloth NeXt runs on its own
+simulation engines: the AETHER Engine for live draping and bakes, GAIA for
+precision bakes and cloth in water, and TETHYS for wet fabric. No subscription,
+no round trip to another application.
 
 ## Why Cloth NeXt
 
-Cloth NeXt handles the technical handoff between Blender and PPF so you can stay
-focused on the result. Set up simulation roles in the Physics Properties, choose
-a material, validate the scene, and start the Bake. A dedicated Bake window keeps
-progress, ETA, and system load visible while Blender prepares the final cache.
-
-- Simulate multiple interacting deformable objects together
-- Use static or animated colliders, including topology-preserving deformation
-- Start quickly with 37 practical fabric presets
+- Grab, pin and sew cloth live in the Blender viewport with the AETHER Engine
+- Draw and edit patterns in PATTERN NeXt, a 2D editor next to your 3D view
+- Bake layered garments on animated characters with real contact
+- Couple cloth to FLIP water and add wetness textures (GAIA + TETHYS)
+- Start quickly with categorized fabric presets
 - Validate common scene, geometry, storage, and memory problems before a long Bake
 - Recover safely from incomplete or invalid caches
 - Export a privacy-safe diagnostic report when support is needed
@@ -25,19 +23,22 @@ progress, ETA, and system load visible while Blender prepares the final cache.
 
 - Windows x64
 - Blender 5.0 or newer
-- NVIDIA GPU compatible with the supported PPF Contact Solver release
+- A supported NVIDIA GPU
 - Enough RAM, VRAM, and disk space for the selected geometry and frame range
-- Internet access for the guided first-time solver installation
+- Internet access for the guided engine setup
+- For GAIA and TETHYS: a PolyWorks account with GAIA access
 
-The PPF Contact Solver is separate third-party software. It is installed only
-after confirmation and is not included or redistributed in the Superhive download.
+The engines are installed and updated from inside the Cloth NeXt preferences
+after you confirm the download.
+The unmodified PPF Contact Solver remains available as **Legacy**; it is not
+included in the download and is installed separately from its official source.
 
 ## Installation
 
 1. Download the Cloth NeXt ZIP and leave it packed.
 2. In Blender, open **Edit → Preferences → Extensions**.
 3. Choose **Install from Disk**, select the ZIP, and enable Cloth NeXt.
-4. Open the Cloth NeXt preferences and follow the guided solver setup.
+4. Open the Cloth NeXt preferences and follow the guided engine setup.
 5. Run **Solver Health Check**.
 6. Open the included Quick Start file and run **Scene Health Check** before the
    first Bake.
@@ -93,5 +94,6 @@ GitHub issue at <https://github.com/polyworks-art/Cloth_neXT/issues>.
 
 ## Licensing
 
-Cloth NeXt is provided under GPL-3.0-or-later. The PPF Contact Solver is a
-separate third-party project and is not included in the Cloth NeXt download.
+The Cloth NeXt add-on is provided under GPL-3.0-or-later. The AETHER Engine,
+GAIA and TETHYS are PolyWorks engines and are not covered by the GPL. GAIA is
+derived from the PPF Contact Solver by ST Tech / ZOZO (Apache License 2.0).

@@ -19,9 +19,12 @@ modulus entries are already density-normalized PPF wire values, shell
 density is an area density (kg/m²) shipped at a uniform 1.0, and strain
 limits are percentages converted to wire fractions at encode time.
 
-Cloth NeXt is an independent project licensed under GPL-3.0-or-later. The
-PPF Contact Solver itself is separate software that users install from its
-official source; Cloth NeXt never bundles, mirrors, or redistributes it.
+Cloth NeXt is an independent project licensed under GPL-3.0-or-later.
+Cloth NeXt does not ship the unmodified PPF Contact Solver; users who want it
+(shown as **Legacy**) install it separately from its official source. GAIA, the PolyWorks
+precision engine installed from the Cloth NeXt preferences, is derived from the
+PPF Contact Solver (Apache License 2.0, © ZOZO, Inc. and ppf-contact-solver
+contributors); its own notices travel with the GAIA package.
 
 ## MIT Fabric Properties measurements
 

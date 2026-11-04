@@ -1,15 +1,28 @@
 # Cloth NeXt Superhive FAQ
 
-## Is the PPF Contact Solver included?
+## Which simulation engines are included?
 
-No. Cloth NeXt and PPF are separate projects. The extension guides you through
-installing or selecting a compatible official solver only after you confirm the
-download. The Superhive ZIP does not contain the solver.
+Cloth NeXt uses its own engines. The **AETHER Engine** (live simulation and
+bakes, Cloth only) needs no account. **GAIA** (precision bakes, Rod / Cable,
+Soft Body, cloth in FLIP water) and **TETHYS** (wet fabric) need a PolyWorks
+account with GAIA access. All engines are installed and updated from inside the
+Cloth NeXt preferences after you confirm the download.
+
+**Legacy** is the unmodified PPF Contact Solver by ST Tech / ZOZO. It is not
+part of the Cloth NeXt download; you can install it separately from its
+official source through the preferences, no account needed.
+
+## Which engine should I use?
+
+Use the AETHER Engine for draping, the Live Simulation and most garment bakes:
+**Normal** for interactive work, **Fitting** for final bakes. Use GAIA when a
+shot needs Rod / Cable or Soft Body objects, cloth that reacts to water, or
+wetness with TETHYS.
 
 ## Why is an NVIDIA GPU required?
 
-The supported PPF Contact Solver release uses NVIDIA GPU acceleration. Cloth NeXt
-handles the Blender workflow, but it does not change the solver's hardware requirements.
+The AETHER Engine and GAIA run on NVIDIA GPUs with CUDA. Windows x64 with a
+supported NVIDIA GPU is the supported production platform.
 
 ## What should I try first when a Bake fails?
 

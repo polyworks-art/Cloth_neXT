@@ -300,8 +300,12 @@ def main() -> None:
     import bpy
 
     def registered(cls):
-        if issubclass(cls, bpy.types.GizmoGroup):
-            return bpy.types.GizmoGroup.bl_rna_get_subclass_py(cls.__name__) is cls
+        # Gizmo and GizmoGroup classes have no `is_registered`; look them up
+        # in Blender's registry of Python subclasses instead.
+        for base in (bpy.types.GizmoGroup, bpy.types.Gizmo):
+            if issubclass(cls, base):
+                return any(base.bl_rna_get_subclass_py(name) is cls
+                           for name in (cls.__name__, getattr(cls, "bl_idname", "")))
         return cls.is_registered
 
     extension, import_origin = _load_extension()

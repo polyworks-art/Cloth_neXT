@@ -16,13 +16,13 @@
 </p>
 
 <p align="center">
-  Production-oriented Cloth, Rod / Cable, and Soft Body baking in Blender,
-  powered by the separately installed <strong>PPF Contact Solver</strong>.
+  Marvelous-style cloth inside Blender: draw patterns, sew them, drape them live
+  in the viewport and bake with real contact, powered by Cloth NeXt's own
+  simulation engines.
 </p>
 
-
 <p align="center">
-  <strong>Stay in Blender. Simulate externally. Keep control of the workflow.</strong>
+  <strong>Stay in Blender. No subscription. No round trip.</strong>
 </p>
 
 ---
@@ -38,49 +38,49 @@
 
 ## What is Cloth NeXt?
 
-Cloth NeXt turns the external PPF Contact Solver into a guided
-Blender workflow. Scene setup, validation, materials, baking, diagnostics, and
-cache playback stay inside Blender while the solver remains a separate,
-independently installed application maintained by ST Tech / ZOZO.
+Cloth NeXt is a cloth simulation add-on for Blender. Pattern making, sewing,
+live draping, scene setup, validation, materials, baking, diagnostics, and
+cache playback all stay inside Blender.
 
-It is designed for users who want powerful cloth simulation on a supported
-NVIDIA GPU or CPU while keeping a clear, Blender-focused setup with familiar
-object roles, accessible controls, and sensible defaults.
+The simulation runs in Cloth NeXt's own engines, which the add-on installs,
+updates and starts for you. The unmodified PPF Contact Solver stays available
+as **Legacy**:
+
+| Engine | What it does | Access |
+|---|---|---|
+| **AETHER Engine** | Native GPU cloth engine for the Live Simulation in the viewport (grab, pins, seams) and for bakes. Quality presets **Normal**, **Animation** and **Fitting**. Cloth only. | Included, no account needed |
+| **GAIA** | Precision baking engine with contact-safe layered cloth, Rod / Cable and Soft Body roles, and cloth coupled to Blender FLIP water (Water Flow, Wet Fabric). | PolyWorks account with GAIA access |
+| **TETHYS** | Wetness engine: wet areas, drying edges and droplets as textures on the cloth, no extra geometry. | Works together with GAIA |
+| **Legacy** | The unmodified [PPF Contact Solver](https://github.com/st-tech/ppf-contact-solver) by ST Tech / ZOZO for existing scenes and workflows. Not shipped with Cloth NeXt; installed separately from its official source through the preferences. | No account needed |
 
 The Physics Properties panel is the artist-facing entry point. It provides
 role-aware controls, scene validation, Bake/Rebake/Cancel actions, cache state,
 and actionable errors. The dedicated Bake window follows preparation and
 simulation with progress, ETA, solver activity, and frame-performance history.
 
-Cloth NeXt also provides a more guided and streamlined alternative for artists who find the existing PPF Blender integration too technical or difficult to navigate, while the solver itself remains a separate, independently installed application.
-
 ### What it provides
 
-- Blender-centered cloth simulation workflow
-- Integration with the PPF Contact Solver
-- Guided solver installation and selection
-- Solver version and compatibility checks
-- Stable and beta update channels
-- Open-source Blender extension
-- Clear separation between the add-on and external solver
-- A native, role-aware Physics Properties configuration workflow
-- Cloth, Rod / Cable, and volumetric Soft Body roles in shared scenes
+- Live Simulation in the Blender viewport with Marvelous-style grab, pins and seams
+- **PATTERN NeXt**: a 2D pattern editor next to the 3D view in its own workspace
+- Sewing and Object Attachments with an on-viewport toolbar
+- Cloth, Rod / Cable, and volumetric Soft Body roles in shared scenes (Rod and Soft Body with GAIA)
 - Static and animated Colliders, including evaluated transforms and
   topology-preserving deformation
 - Blender Empty-based Gravity, Wind, Air Density, Air Friction, and Vertex Air
-  Damping forces with keyframe support
+  Damping forces with keyframe support (engine support differs; Scene Health tells you)
 - Real material parameters with understandable artist terminology
-  (Surface Weight, Stretch Resistance, Bend Resistance, Friction, …),
-  each mapped one-to-one to a documented PPF solver parameter
-- A categorized library of 37 fabric presets, including 30 research-backed
+  (Surface Weight, Stretch Resistance, Bend Resistance, Friction, …)
+- A categorized library of fabric presets, including research-backed
   starting points derived from the MIT Fabric Properties Dataset
 - [Material Zones](docs/MATERIAL_ZONES.md): hard face selections with exact
   triangle material overrides and a visible-center Circle Select tool
+- Cloth coupled to FLIP water and wetness textures (GAIA + TETHYS)
 - Scene Health checks, persistent CNX error codes, support reports, and
   authenticated cache recovery
 - CPU, RAM, and VRAM monitoring plus frame-performance history during Bake
 - Transactional playback caches with versioned metadata, deterministic
   invalidation, and SHA-256 integrity checks
+- Stable, Beta and Dev update channels through Blender's extension system
 
 ### Vertex-group Pinning
 
@@ -94,33 +94,17 @@ exposed.
 
 > [!NOTE]
 > Material, Damping, Collision, Pressure, Pinning, Force, and quality controls
-> are encoded into the real PPF solve. PPF's stiffness is a
-> density-normalized value, not a textbook Young's modulus in pascals (see
-> [PPF parameter mapping](docs/PPF_PARAMETER_MAPPING.md)). PPF itself
-> remains separate, independently installed software.
-
-> [!IMPORTANT]
-> The PPF Contact Solver is external software developed and distributed by
-> ST Tech / ZOZO (`st-tech/ppf-contact-solver`).
->
-> Cloth NeXt never bundles, mirrors, or redistributes the solver. It is installed
-> or selected separately, after explicit confirmation, directly from its
-> official source.
+> are encoded into the selected engine's solve. Stiffness values are
+> density-normalized engine values, not textbook Young's moduli in pascals.
 
 ---
 
 ## What do I need?
 
-To use Cloth NeXt, you need:
-
-- A compatible version of Blender
+- Blender 5.0 or newer
+- Windows x64 with a supported NVIDIA GPU (the production platform for the AETHER Engine)
 - The Cloth NeXt extension
-- A separately installed PPF Contact Solver
-- Compatible hardware and operating system support for the selected solver version
-
-> [!NOTE]
-> Cloth NeXt is the Blender integration layer. The actual simulation is performed
-> by the external PPF Contact Solver.
+- For GAIA and TETHYS: a PolyWorks account with GAIA access
 
 ---
 
@@ -145,36 +129,21 @@ Three update channels are available:
 Repository setup and update instructions are available in
 [Update Channels](docs/UPDATE_CHANNELS.md).
 
-### 2. Install or select the solver
+### 2. Set up the engines
 
 After installing the extension:
 
 1. Open Blender's preferences.
 2. Open the Cloth NeXt extension settings.
-3. Choose the solver installation or selection option.
-4. Confirm access to the external official source.
-5. Install the solver or select an existing installation.
-6. Let Cloth NeXt verify compatibility.
+3. Install or update the engines there; Cloth NeXt verifies each build
+   before it is used.
+4. For GAIA, sign in with your PolyWorks account.
 
-Gaia is the preferred solver for a new installation. Lumen remains supported
-and downloadable in **Manage**, and both releases can be installed side by
-side. Choose the active installation in Preferences; switching is locked while
-a Bake is active. Updating Cloth NeXt does not switch an existing Lumen user
-to Gaia or remove an existing Velune installation. Gaia currently uses the
-same Cloth NeXt simulation controls as Lumen; its additional upstream features
-are not exposed yet.
+Engines are only installed and updated from inside the add-on, never by a
+manual download. Cloth NeXt never switches the selected engine silently, and
+AETHER and GAIA caches are kept apart.
 
-Cloth NeXt supports Blender on Windows x86_64 and Linux x86_64. On Windows
-x86_64, real Cloth NeXt Bakes verified Gaia CUDA on NVIDIA and
-Gaia CPU, plus Lumen CUDA on NVIDIA. Gaia's ROCm build ran a short Bake on one
-AMD APU; general AMD GPU support remains in development. See the
-[backend certification record](docs/SOLVER_BACKEND_CERTIFICATION.md).
-Preferences offers Auto, CUDA, ROCm and CPU for Gaia. An explicit backend
-must pass its own probe and Bake startup checks; it never switches silently
-to another backend. ROCm remains marked as not generally verified for AMD.
-
-For manual installation and troubleshooting, see
-[Solver Installation](docs/SOLVER_INSTALLATION.md).
+For troubleshooting, see [Solver Installation](docs/SOLVER_INSTALLATION.md).
 
 ---
 
@@ -197,8 +166,8 @@ Get Extensions repositories (only on explicit click, never automatically).
 Blender's native extension update view; the installation itself is completed
 there by clicking Blender's own **Update** button — Cloth NeXt never replaces
 its own files while running. Restart Blender when Blender prompts for it
-after the native update. Add-on updates never touch the separately installed
-PPF solver, and solver updates never touch the add-on.
+after the native update. Engine updates are installed from the Cloth NeXt
+preferences and are independent of add-on updates.
 
 ---
 
@@ -220,7 +189,7 @@ objects in one interacting solve with one or more Colliders:
 4. Configure material, damping, collision, pressure, quality, and optional
    vertex-group pinning in Physics Properties.
 5. Choose the same Bake Start and End frames for every deformable.
-6. Verify that the external solver is ready, then click **Bake**.
+6. Verify that the selected engine is ready, then click **Bake**.
 7. Review the resulting constant-topology Mesh Cache animation; use **Rebake**
    after changing settings or **Cancel** while a bake is active.
 
@@ -233,14 +202,15 @@ written back from solver output.
 
 ### Rod / Cable and Soft Body roles
 
-Rods preserve the original Curve and write solver motion to its control points;
-supported splines are Bezier and Poly. Soft Bodies use a closed manifold mesh
-and request PPF tetrahedralization before simulation. Both roles participate in
+Rod / Cable and Soft Body roles run with GAIA; the AETHER Engine simulates
+Cloth only. Rods preserve the original Curve and write solver motion to its
+control points; supported splines are Bezier and Poly. Soft Bodies use a closed
+manifold mesh that is tetrahedralized automatically before simulation. Both roles participate in
 the normal multi-object Bake, Collider, quality, material, and cache workflow.
 NURBS Rod splines and dynamic material animation are not supported.
 
 Rod simulation uses the Curve as a one-dimensional centerline. Curve Bevel,
-Taper, and per-point radius remain visual; they are not sent to PPF. For a cable
+Taper, and per-point radius remain visual; they are not sent to the solver. For a cable
 with physical radius `r`, set **Collisions > Surface Offset** to approximately
 `r` in Blender world units. This gives the centerline a uniform collision skin;
 variable cable thickness is not supported yet. **Collision Gap** remains a
@@ -248,33 +218,17 @@ separate contact-barrier distance and should not be used as the cable radius.
 
 > [!NOTE]
 > The exact workflow and available controls may depend on the installed
-> Cloth NeXt and solver versions.
-
----
-
-## Why use an external solver?
-
-Cloth NeXt and the PPF Contact Solver are separate projects by design.
-
-This keeps the workflow transparent:
-
-- The solver remains connected to its official source.
-- Third-party binaries are not redistributed.
-- Users explicitly choose which solver installation is used.
-- Solver updates remain independent from add-on updates.
-- Licensing and ownership stay clearly separated.
-- Compatibility can be validated before a simulation is started.
+> Cloth NeXt and engine versions.
 
 ---
 
 ## Current limitations
 
-Cloth NeXt is an integration layer around an external simulation system.
 Some limitations may depend on:
 
 - Blender version
 - Cloth NeXt version
-- PPF Contact Solver version
+- Engine (AETHER, GAIA, TETHYS) and engine version
 - Operating system
 - GPU and driver support
 - Features currently exposed through the integration
@@ -286,7 +240,7 @@ When reporting an issue, please include:
 
 - Blender version
 - Cloth NeXt version
-- Solver version
+- Engine and engine version
 - Operating system
 - GPU model
 - Error message or relevant log output
@@ -313,7 +267,7 @@ or use the repository references below.
 
 - [Architecture](docs/ARCHITECTURE.md)
 - [Implementation plan](docs/IMPLEMENTATION_PLAN.md)
-- [PPF protocol](docs/PPF_PROTOCOL.md)
+- [Solver protocol](docs/PPF_PROTOCOL.md)
 - [Release policy](docs/RELEASE_POLICY.md)
 - [Solver distribution](docs/SOLVER_DISTRIBUTION.md)
 - [Solver compatibility manifest](docs/SOLVER_COMPATIBILITY_MANIFEST.md)
@@ -340,13 +294,16 @@ See [LICENSE](LICENSE) for the full license text.
 Cloth NeXt is distributed **without any warranty**, including the implied
 warranties of merchantability or fitness for a particular purpose.
 
-### External solver
+### Engines and third-party notices
 
-The PPF Contact Solver is separate software developed and distributed by
-ST Tech / ZOZO under the Apache License 2.0.
-
-It is not covered by the Cloth NeXt license and is neither included in nor
-distributed with Cloth NeXt.
+The AETHER Engine and TETHYS are proprietary PolyWorks engines shipped as
+binaries with the extension. GAIA is a PolyWorks engine derived from the
+[PPF Contact Solver](https://github.com/st-tech/ppf-contact-solver)
+by ST Tech / ZOZO, which is licensed under the Apache License 2.0. Legacy is
+that unmodified solver, installed separately from its official source; Cloth
+NeXt does not bundle or redistribute it. The engines
+are not covered by the Cloth NeXt GPL license. Third-party data and notices are
+listed in [Third-Party Notices](docs/THIRD_PARTY_NOTICES.md).
 
 Croissant icon by
 <a href="https://thenounproject.com/browse/icons/term/croissant/"
