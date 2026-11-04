@@ -1908,6 +1908,10 @@ class SolverSession:
                             solver_device=self.diagnostics.solver_device,
                             solver_telemetry=dict(
                                 self.diagnostics.solver_telemetry))
+            # A cancel requested while the progress event was handled wins
+            # over the stall deadline, so a slow host never turns a user
+            # cancel into a stall failure.
+            self._check_cancel()
             if time.monotonic() > deadline:
                 raise _session_error(
                     "The simulation stalled.",
