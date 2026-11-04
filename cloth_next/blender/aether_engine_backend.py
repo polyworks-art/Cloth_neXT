@@ -146,7 +146,9 @@ def not_enforced_notes(context) -> list[str]:
         if settings is None or not settings.enabled or settings.role != "CLOTH":
             continue
         if getattr(settings, "water_flow_enabled", False):
-            notes.append(f"{obj.name}: Water Flow and wetness (GAIA only; the AETHER Engine ignores them)")
+            notes.append(f"{obj.name}: GAIA Water Flow (GAIA only; the AETHER Engine ignores it)")
+        if getattr(getattr(settings, "tethys", None), "enabled", False):
+            notes.append(f"{obj.name}: TETHYS Wetness (needs a GAIA bake; the AETHER Engine ignores it)")
         try:
             notes += [f"{obj.name}: {n}" for n in amat.not_enforced(object_properties.shell_settings_from(settings))]
         except Exception:  # noqa: BLE001 - invalid values are reported by validation

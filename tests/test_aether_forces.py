@@ -37,5 +37,6 @@ def test_air_values_are_reported_not_enforced(backend):
 
 def test_water_flow_is_ignored_not_refused(backend):
     obj = SimpleNamespace(name="Shirt", type="MESH")
-    settings = SimpleNamespace(role="CLOTH", friction_regions=(), water_flow_enabled=True, pinning_enabled=False)
-    assert backend._unsupported_object(obj, settings) == ""   # GAIA water settings stay on, AETHER ignores them
+    settings = SimpleNamespace(role="CLOTH", friction_regions=(), water_flow_enabled=True, pinning_enabled=False,
+                               tethys=SimpleNamespace(enabled=True))
+    assert backend._unsupported_object(obj, settings) == ""   # GAIA Flow and TETHYS stay on, AETHER ignores them
