@@ -19,7 +19,11 @@ import numpy as np
 #   0-2 overstretched edges; a 2-ring watch at 1.3 missed the soft Inlay zone (3.7x, 20 edges kept).
 #   Ball sheet lifted by one point: 0.31 m (1.3) / 0.49 m (1.6) before it stops, no cap 2.6 m (rubber).
 # CLOTH_NEXT_GRAB_CAP / CLOTH_NEXT_GRAB_RINGS override them for tests.
-STRETCH_CAP = float(__import__("os").environ.get("CLOTH_NEXT_GRAB_CAP", "1.6"))
+# Off by default since 2026-11-04 (Tim: the cloth should follow as far as he pulls): 0 = the grab follows the
+# mouse directly, with no stretch cap and no waiting for the cloth (LEAD). CLOTH_NEXT_GRAB_CAP=1.6 brings the
+# measured cap back.
+STRETCH_CAP = float(__import__("os").environ.get("CLOTH_NEXT_GRAB_CAP", "0"))
+MEASURED_CAP = 1.6   # the cap HARD_CAP was measured with (hard limit = cap x HARD_CAP / MEASURED_CAP)
 RINGS = int(__import__("os").environ.get("CLOTH_NEXT_GRAB_RINGS", "0"))   # rings watched (0 = whole cloth)
 # Between the cap and HARD_CAP the grab keeps creeping toward the mouse by CREEP per call (30 Hz: 0.15 m/s),
 # so a heavy cloth that needs more stretch to come along still follows, slowly; beyond HARD_CAP it stops.
@@ -107,13 +111,16 @@ class GrabCap:
         Past the cap the target only moves where it does not pull further away from the cloth around
         it (back toward it, or along it), so the artist can always ease off."""
         proposed = np.asarray(proposed, np.float64)
+        if self.cap <= 0.0:          # no cap: the grab simply follows the mouse
+            self.target = proposed
+            return proposed
         stretch = self.stretch(positions)
         now = time.monotonic() if now is None else now
         if stretch <= self.cap:
             self.over_since = None
         elif self.over_since is None:
             self.over_since = now
-        hard = self.cap * HARD_CAP / STRETCH_CAP
+        hard = self.cap * HARD_CAP / MEASURED_CAP
         if (self.target is None or self.over_since is None or not len(self.ring)
                 or (now - self.over_since < SUSTAIN and stretch <= hard)):
             self.target = self._lead(proposed, positions, grabbed)
@@ -121,7 +128,7 @@ class GrabCap:
         anchor = np.asarray(positions, np.float64)[self.ring].mean(0)
         if np.linalg.norm(proposed - anchor, axis=1).mean() <= np.linalg.norm(self.target - anchor, axis=1).mean():
             self.target = proposed
-        elif stretch <= self.cap * HARD_CAP / STRETCH_CAP:
+        elif stretch <= hard:
             step = proposed - self.target
             dist = float(np.linalg.norm(step, axis=1).max())
             if dist > CREEP:

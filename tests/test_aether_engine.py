@@ -329,7 +329,7 @@ def test_grab_follows_the_mouse_until_the_cloth_would_overstretch(monkeypatch):
     assert np.allclose(crept, mouse + [0.0, 0.0, grab.CREEP])
     torn = rest.copy()
     torn[60, 2] = 0.2                                                    # far past the hard cap: stops
-    assert cap.stretch(torn) > cap.cap * grab.HARD_CAP / grab.STRETCH_CAP
+    assert cap.stretch(torn) > cap.cap * grab.HARD_CAP / grab.MEASURED_CAP
     assert np.allclose(cap.follow(further, torn, [60], now=1.1), crept)
     back = rest[[60]] + [0.0, 0.0, 0.04]
     assert np.allclose(cap.follow(back, pulled, [60], now=1.2), back)   # easing off always works
@@ -342,6 +342,18 @@ def test_grab_on_cloth_that_already_hangs_stretched_can_move():
     start = rest * 1.3                                                  # hangs 30 % stretched
     cap = grab.GrabCap(tris, rest, [3], start=start)
     assert cap.stretch(start) == pytest.approx(1.0)
+
+
+def test_grab_without_cap_follows_the_mouse_as_far_as_pulled():
+    from cloth_next.aether_engine import grab
+    rest = np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0]], float)
+    tris = np.array([[0, 1, 3], [0, 3, 2]])
+    cap = grab.GrabCap(tris, rest, [3], cap=0.0)
+    torn = rest.copy()
+    torn[3] = [5.0, 5.0, 0.0]                                           # 5x stretched: still follows
+    mouse = np.array([[9.0, 9.0, 0.0]])
+    assert np.allclose(cap.follow(mouse, torn, [3], now=0.0), mouse)
+    assert grab.STRETCH_CAP == 0.0 or "CLOTH_NEXT_GRAB_CAP" in __import__("os").environ   # off by default
 
 
 def test_grab_waits_when_the_cloth_falls_behind():
