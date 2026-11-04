@@ -13,5 +13,5 @@
 - [ ] Clean-machine engine setup (AETHER, GAIA with PolyWorks account) and health check pass.
 - [ ] Cloth, multi-object, animated Collider, Rod and Soft Body acceptance scenes pass.
 - [ ] Cancel, RAM auto-cancel, invalid cache cleanup and support export pass.
-- [ ] Beta update is visible in Beta and Dev channels, never Stable.
+- [ ] A new version is offered as an update through the connected Superhive repository in Blender.
 - [ ] Support contact and response workflow are ready.
