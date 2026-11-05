@@ -864,6 +864,7 @@ class AetherBakeJob:
                 log.parent.mkdir(parents=True, exist_ok=True)
                 self.runner = abake.BakeRunner(self.request, self.executable, resume=self.resume, log_path=log,
                                                env=self.testing_env, testing=bool(self.testing_env))
+                self._start_pinch_check()
                 self.stage = "ENGINE"
                 return 0.1
             if self.stage == "ENGINE":
@@ -943,6 +944,44 @@ class AetherBakeJob:
             companion_manager.persist_bake_error(self.controller.snapshot())
         modal_lock.release(self.job_id)
 
+    def _start_pinch_check(self) -> None:
+        """Find frames where an animated collider touches itself, beside the running bake (pure numpy)."""
+        import threading
+        from ..aether_engine import pinch
+        self.pinch_reports = []
+        colliders = tuple(c for c in self.request.colliders if c.frames is not None)
+        if not colliders:
+            self._pinch_thread = None
+            return
+
+        def work():
+            for c in colliders:
+                try:
+                    found = pinch.self_contact(c.name, c.rest_world, c.triangles, c.frames)
+                except Exception:  # noqa: BLE001 - a hint only, never fails the bake
+                    found = None
+                if found is not None:
+                    self.pinch_reports.append(found)
+
+        self._pinch_thread = threading.Thread(target=work, name="ClothNeXt AETHER pinch check", daemon=True)
+        self._pinch_thread.start()
+
+    def _pinch_note(self) -> str:
+        """'Body touches itself ...' for the finished message ('' when nothing or not ready in time)."""
+        from ..aether_engine import pinch
+        thread = getattr(self, "_pinch_thread", None)
+        if thread is None:
+            return ""
+        thread.join(timeout=5.0)
+        if thread.is_alive() or not self.pinch_reports:
+            return ""
+        # collider frames[k] is the pose of output frame k + 1
+        first = int(self.request.frame_start) + 1
+        parts = [f"{r.collider} touches itself in frames {pinch.ranges(r.frames, first)}"
+                 for r in self.pinch_reports]
+        return (" · Pinched (not a simulation error): " + "; ".join(parts)
+                + ", cloth caught there cannot stay free of intersections")
+
     def _end_finished(self, runner: abake.BakeRunner) -> None:
         from ..bake.status import BakeState
         p = runner.progress
@@ -951,7 +990,8 @@ class AetherBakeJob:
                         + (f" (resumed at frame {self.request.frame_start + p.resumed_from}, "
                            f"{p.verified} frames verified)" if p.resumed_from is not None else "")
                         + (" · Not enforced: " + "; ".join(self.preparation.notes)
-                           if self.preparation is not None and self.preparation.notes else ""))
+                           if self.preparation is not None and self.preparation.notes else "")
+                        + self._pinch_note())
         self.level = "INFO"
         if self.owns():
             self.controller.transition(BakeState.FINISHED, status_title="AETHER bake finished",

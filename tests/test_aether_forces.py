@@ -40,3 +40,18 @@ def test_water_flow_is_ignored_not_refused(backend):
     settings = SimpleNamespace(role="CLOTH", friction_regions=(), water_flow_enabled=True, pinning_enabled=False,
                                tethys=SimpleNamespace(enabled=True))
     assert backend._unsupported_object(obj, settings) == ""   # GAIA Flow and TETHYS stay on, AETHER ignores them
+
+
+def test_bake_finished_message_reports_pinched_frames(backend):
+    import numpy as np
+    from cloth_next.aether_engine import bake as abake
+    job = backend.AetherBakeJob.__new__(backend.AetherBakeJob)
+    a = np.array([[0, 0, 0], [0.01, 0, 0], [0, 0.01, 0], [0.2, 0, 0], [0.21, 0, 0], [0.2, 0.01, 0]], np.float32)
+    tris = np.array([0, 1, 2, 3, 4, 5], np.int32)
+    touch = a.copy()
+    touch[3:] -= [0.2, 0.0, 0.0]                       # the second part lands on the first
+    frames = np.stack([a, touch, touch]).astype(np.float32)
+    job.request = SimpleNamespace(frame_start=1, colliders=(abake.ColliderInput("Body", tris, a, frames),))
+    job._start_pinch_check()
+    note = job._pinch_note()
+    assert "Body touches itself in frames 3-4" in note and "not a simulation error" in note
