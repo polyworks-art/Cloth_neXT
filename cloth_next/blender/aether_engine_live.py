@@ -29,6 +29,7 @@ from . import aether_engine_backend as backend
 
 LIVE_MARK = "cloth_next_aether_live"
 TICK_SECONDS = 1.0 / 60.0
+WIND_RESEND_SECONDS = 0.2           # Live: gusts / animated Wind Empties are re-sent this often
 PANEL_REDRAW_SECONDS = 0.25          # the status line; the 3D views redraw on every new frame
 # While the artist moves the view (orbit, pan, zoom), the preview shows at most this many new frames
 # per second. Each preview frame costs Blender's main thread a mesh update and a full 3D redraw
@@ -110,8 +111,11 @@ class LiveSession:
                                       "chain_b": list(s.chain_b), "stiffness": s.stiffness,
                                       "progress": 1.0 if s.closing else 0.0}
                                      for s in request.seams]
+            if request.wind:   # engine API 1.4: the scene's Wind (gusts follow in tick)
+                setup["wind"] = request.wind[0]
             if setup:
                 self.engine.request("set_inputs", setup)
+            self._wind_sent_at = time.monotonic()
             # Draped state (Marvelous style): start from the stored drape, the rest shape stays the basis.
             self.start_state = None
             if any(d is not None for d in prep.drape_world):
@@ -310,6 +314,13 @@ class LiveSession:
         if scene.frame_current != self.last_timeline:
             self.last_timeline = scene.frame_current
             self._send_inputs()
+        if getattr(self.prep, "wind_animated", False) and time.monotonic() - self._wind_sent_at > WIND_RESEND_SECONDS:
+            # gusts and animated Force Empties: the wind of the simulated time, a few times a second
+            self._wind_sent_at = time.monotonic()
+            wind = self.prep.wind_at(bpy.context, self.prep.start_frame,
+                                     gust_frame=self.prep.start_frame + max(0, self.last_frame_seen))
+            if wind is not None:
+                self.command("set_inputs", {"wind": wind})
         self.drew = False
         writes = self.session.frames.write_count
         if writes == self._last_write:

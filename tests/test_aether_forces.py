@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""AETHER Engine and Cloth NeXt Force objects: gravity runs, wind is refused with a clear reason."""
+"""AETHER Engine and Cloth NeXt Force objects: gravity and Wind run, the legacy Wind type is refused."""
 import importlib
 from types import SimpleNamespace
 
@@ -23,16 +23,17 @@ def test_gravity_only_force_runs(backend):
     assert backend._force_reason(SimpleNamespace(name="G"), legacy) == ""
 
 
-def test_wind_is_refused_with_a_reason(backend):
-    reason = backend._force_reason(SimpleNamespace(name="Empty"), _unified(wind=10.0))
-    assert "Wind is not supported" in reason and "Empty" in reason
+def test_wind_runs_and_only_the_legacy_wind_type_is_refused(backend):
+    assert backend._force_reason(SimpleNamespace(name="Empty"), _unified(wind=10.0)) == ""
     legacy = SimpleNamespace(force=SimpleNamespace(force_type="WIND"))
     assert "not supported" in backend._force_reason(SimpleNamespace(name="W"), legacy)
 
 
-def test_air_values_are_reported_not_enforced(backend):
-    assert backend._force_notes(SimpleNamespace(name="Empty"), _unified(air=0.01))
-    assert not backend._force_notes(SimpleNamespace(name="Empty"), _unified())
+def test_unsimulated_air_values_are_reported(backend):
+    f = _unified(air=0.01)
+    assert not backend._force_notes(SimpleNamespace(name="Empty"), f)    # air density drives the Wind now
+    f.force.vertex_air_damp = 0.5
+    assert "Vertex Air Damping" in backend._force_notes(SimpleNamespace(name="Empty"), f)[0]
 
 
 def test_water_flow_is_ignored_not_refused(backend):

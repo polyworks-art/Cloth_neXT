@@ -216,6 +216,40 @@ def _cache_label():
     return ui._cache_state(bpy.context)[1]
 
 
+@scenario("wind")
+def s_wind(out: Path):
+    """A flag pinned along its top edge in a Force Empty's Wind (+X): it blows out, without Wind it hangs."""
+    import math
+    pc2 = importlib.import_module(f"{M}.bake.pc2")
+    results = {}
+    for speed in (0.0, 6.0):
+        clear_scene()
+        flag = make_cloth(add_grid("Flag", 1.0, (0, 0, 1.5), 20, rotation=(0.0, math.pi / 2, 0.0)), out, 1, 36)
+        top = [i for i, v in enumerate(flag.data.vertices) if (flag.matrix_world @ v.co).z > 1.99]
+        pin(flag, top)
+        bpy.ops.object.empty_add(location=(-1.0, 0.0, 1.5))
+        fan = bpy.context.object
+        fan.cloth_next.enabled = True
+        fan.cloth_next.role = "FORCE"
+        force = fan.cloth_next.force
+        force.wind_strength = speed
+        force.wind_radius = 10.0
+        force.wind_obstacles = "NONE"
+        fan.rotation_euler.y = math.pi / 2        # +Z of the Empty along world +X
+        r = bake()
+        frames = list(pc2.iter_frames(Path(bpy.path.abspath(next(
+            m for m in flag.modifiers if m.type == "MESH_CACHE").filepath))))
+        first, last = np.asarray(frames[0]), np.asarray(frames[-1])
+        m = np.asarray(flag.matrix_world)
+        world = lambda x: x @ m[:3, :3].T + m[:3, 3]   # noqa: E731
+        results[speed] = {"state": r["state"], "message": r["message"], "frames": len(frames),
+                          "dx": float((world(last)[:, 0] - world(first)[:, 0]).mean())}
+    calm, windy = results[0.0], results[6.0]
+    r = {"calm": calm, "windy": windy, "state": windy["state"]}
+    r["ok"] = (calm["state"] == windy["state"] == "FINISHED" and abs(calm["dx"]) < 0.02 and windy["dx"] > 0.15)
+    return r
+
+
 @scenario("animated_collider")
 def s_animated(out: Path):
     clear_scene()

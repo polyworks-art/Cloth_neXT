@@ -128,6 +128,9 @@ class BakeRequest:
     # (SW04_reworked: 1212 body intersections at frame 1, 12x stretch); with it 0 from frame 26 on.
     # Clean scenes pay one analysis per frame of the start. CLOTH_NEXT_AETHER_START_RECOVERY=0: off.
     start_recovery: bool = False
+    # Engine API 1.4: the wind input of every step (one entry: the same for all steps; empty: no wind).
+    # Sent every frame, so a resumed bake (a new engine process) blows the same wind.
+    wind: tuple = ()
 
     @property
     def steps(self) -> int:
@@ -220,6 +223,8 @@ def frame_inputs(request: BakeRequest, step: int) -> dict:
                                 "chain_b": list(s.chain_b), "stiffness": s.stiffness,
                                 "progress": 1.0 if s.closing and draped(request) else 0.0}
                                for s in request.seams]
+    if request.wind:
+        inp["wind"] = request.wind[min(step, len(request.wind) - 1)]
     closing = [{"id": i + 1, "progress": min(1.0, (step + 1) / max(1, s.closure_frames))}
                for i, s in enumerate(request.seams) if s.closing and not draped(request)]
     if closing:

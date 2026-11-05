@@ -116,10 +116,7 @@ def _force_reason(obj, settings) -> str:
     if force is None:
         return f"{obj.name}: this Force object is not supported by the AETHER Engine"
     if hasattr(force, "gravity_strength"):   # the unified Force: gravity, air and wind in one object
-        if float(getattr(force, "wind_strength", 0.0)) > 0.0:
-            return (f"{obj.name}: Wind is not supported by the AETHER Engine yet (set Wind Strength to 0 "
-                    "to keep this Force's gravity)")
-        return ""
+        return ""   # gravity and (since API 1.4) Wind run; Air Friction applies to the Wind
     if str(getattr(force, "force_type", "")) == "GRAVITY":
         return ""
     return f"{obj.name}: {str(getattr(force, 'force_type', 'this')).title()} forces are not supported by the AETHER Engine yet"
@@ -129,9 +126,12 @@ def _force_notes(obj, settings) -> list[str]:
     force = getattr(settings, "force", None)
     if force is None or not hasattr(force, "gravity_strength"):
         return []
-    if float(getattr(force, "air_density", 0.0)) > 0.0 or float(getattr(force, "air_friction", 0.0)) > 0.0             or float(getattr(force, "vertex_air_damp", 0.0)) > 0.0:
-        return [f"{obj.name}: Air Density / Air Friction (not simulated by the AETHER Engine; its gravity is)"]
-    return []
+    notes = []
+    if float(getattr(force, "vertex_air_damp", 0.0)) > 0.0:
+        notes.append(f"{obj.name}: Vertex Air Damping (not simulated by the AETHER Engine)")
+    if str(getattr(force, "wind_obstacles", "NONE")) != "NONE":
+        notes.append(f"{obj.name}: Wind obstacles / wakes (the AETHER Engine blows the free Wind field)")
+    return notes
 
 
 def not_enforced_notes(context) -> list[str]:
@@ -430,8 +430,9 @@ class AetherPreparation:
         snapshot = solver_test.validate_scene(context)
         if not live:
             solver_test._require_cache_directories(tuple(e.obj for e in snapshot.deformables))
-        if any(abs(v) > 0.0 for v in snapshot.wind_blender):
-            raise AetherSceneError("Wind is not supported by the AETHER Engine yet")
+        if any(abs(v) > 0.0 for v in snapshot.wind_blender):   # legacy scene-wide Wind force type
+            raise AetherSceneError("The legacy Wind Force type is not supported by the AETHER Engine; use a "
+                                   "Force Empty's Wind")
         self.snapshot = snapshot
         self.fps = solver_test._scene_fps(context)
         self.range = snapshot.bake_range
@@ -462,6 +463,8 @@ class AetherPreparation:
                 self.stack.enter_context(without_owned_playback(entry.obj, update=depsgraph.update))
             scene.frame_set(self.start_frame)
             depsgraph = context.evaluated_depsgraph_get()
+            self._setup_wind(context)
+            self.wind_static = self.wind_at(context, self.start_frame)
             object_ids = {}
             for index, entry in enumerate(snapshot.deformables):
                 obj = entry.obj
@@ -638,7 +641,41 @@ class AetherPreparation:
     @property
     def needs_timeline(self) -> bool:
         return (any(c["animated"] for c in self.colliders) or any(c.follow for c in self.cloths)
-                or bool(self.attachments))
+                or bool(self.attachments) or self.wind_animated)
+
+    # ------------------------------------------------------------------ wind (engine API 1.4)
+    def _setup_wind(self, context) -> None:
+        from . import solver_test, wind_fields
+        from .object_properties import solver_quality_from
+        self.wind_objects = [obj for obj in wind_fields.force_objects(context) if wind_fields.has_wind(obj)]
+        self.wind_frames: list[dict] = []
+        state, _scalars = solver_test._force_state(context)
+        self.wind_air = (float(state.air_density), float(state.air_friction),
+                         float(solver_quality_from(context.scene).time_step))
+        # gusts (Strength Variation) and animated Empties change the wind per frame
+        self.wind_animated = any(float(o.cloth_next.force.wind_variation) > 0.0
+                                 or bool(getattr(o, "animation_data", None)) for o in self.wind_objects)
+
+    def wind_at(self, context, engine_frame0: int, gust_frame: float | None = None) -> dict | None:
+        """The engine's wind input for the scene's current frame (None: no Wind in the scene).
+
+        gust_frame: evaluate the gusts (Strength Variation) at this frame instead of the scene's (Live)."""
+        if not self.wind_objects:
+            return None
+        from dataclasses import replace
+        from . import solver_test, wind_fields
+        from ..aether_engine import wind as awind
+        density, friction, step = self.wind_air
+        sources = []
+        for o in self.wind_objects:
+            src = wind_fields.source_at(context, o)
+            force = o.cloth_next.force
+            if gust_frame is not None and float(force.wind_variation) > 0.0:
+                speed = max(0.0, float(force.wind_strength) + float(force.wind_variation) * solver_test._wind_oscillation(
+                    o, gust_frame, solver_test._scene_fps(context), float(force.wind_noise_scale)))
+                src = replace(src, speed=speed)
+            sources.append(src)
+        return awind.wind_input(sources, density, friction, step, engine_frame0 / max(1e-6, float(self.fps)))
 
     @property
     def total(self) -> int:
@@ -667,6 +704,8 @@ class AetherPreparation:
                     c.pin_targets.append(world[c.pin_vertices])
             for a in self.attachments:
                 a["frames"].append(self.attachment_targets(a, depsgraph))
+            if self.wind_animated:
+                self.wind_frames.append(self.wind_at(self.context, self.range.start))
             self.frame += 1
             if time.monotonic() - t0 > budget:
                 break
@@ -719,7 +758,9 @@ class AetherPreparation:
             geometry_fingerprint=self.geometry_fp, cloth_next_version=self.cloth_next_version,
             blender_version=self.blender_version,
             experimental_recovery=os.environ.get("CLOTH_NEXT_AETHER_EXPERIMENTAL_RECOVERY") == "1",
-            start_recovery=os.environ.get("CLOTH_NEXT_AETHER_START_RECOVERY") != "0")
+            start_recovery=os.environ.get("CLOTH_NEXT_AETHER_START_RECOVERY") != "0",
+            wind=(tuple(self.wind_frames) if self.wind_animated and self.wind_frames
+                  else (self.wind_static,) if self.wind_static is not None else ()))
 
 
 # ------------------------------------------------------------------ playback attach

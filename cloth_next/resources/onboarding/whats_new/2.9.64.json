@@ -2,9 +2,14 @@
   "schema": "cnx.whats-new.v1",
   "version": "2.9.64",
   "title": "What's New in Cloth NeXt 2.9.64",
-  "subtitle": "AETHER: cleaner starts, a freer Grab, water settings can stay on.",
+  "subtitle": "AETHER: Wind, cleaner starts, a freer Grab.",
   "hero_asset": "assets/wireframe-cloth.png",
   "highlights": [
+    {
+      "icon": "icons/check.png",
+      "title": "Wind for AETHER",
+      "description": "Force Empties blow the cloth in Live and in bakes: speed, gusts, turbulence and the same air field as the Wind preview."
+    },
     {
       "icon": "icons/check.png",
       "title": "Grab Cloth",
