@@ -30,6 +30,15 @@ from . import aether_engine_backend as backend
 LIVE_MARK = "cloth_next_aether_live"
 TICK_SECONDS = 1.0 / 60.0
 PANEL_REDRAW_SECONDS = 0.25          # the status line; the 3D views redraw on every new frame
+# While the artist moves the view (orbit, pan, zoom), the preview shows at most this many new frames
+# per second. Each preview frame costs Blender's main thread a mesh update and a full 3D redraw
+# (NEON: ~37 ms at 28 frames/s, so the thread was busy all the time and orbiting felt sluggish).
+NAVIGATING_PREVIEW_FPS = float(__import__("os").environ.get("CLOTH_NEXT_LIVE_NAV_FPS", "8"))
+NAVIGATING_HOLD_SECONDS = 0.25       # a draw with a changed view matrix = the artist navigates
+# The preview leaves Blender at least this share of its main thread for the interface: with heavy
+# scenes (NEON with its 709k-face FLIP surface: ~50 ms per 3D draw) redrawing on every simulated frame
+# kept the main thread busy all the time and every click and view change waited behind a redraw.
+UI_SHARE = float(__import__("os").environ.get("CLOTH_NEXT_LIVE_UI_SHARE", "0"))   # 0: off (measured: only the navigation limit helps)
 PROFILE = bool(os.environ.get("CLOTH_NEXT_AETHER_LIVE_PROFILE"))
 
 _session: "LiveSession | None" = None
@@ -58,6 +67,13 @@ class LiveSession:
         self.paused = True
         self.message = ""
         self.frames_shown = 0
+        self.views: dict = {}         # last drawn view matrix per 3D region
+        self.draw_ms = 0.0            # smoothed duration of one 3D view draw
+        self._draw_t0 = None
+        self._draw_start = bpy.types.SpaceView3D.draw_handler_add(_start_draw, (), "WINDOW", "PRE_VIEW")
+        self.navigating_at = -1.0     # last draw with a changed view (the artist moved the view)
+        self.shown_at = 0.0
+        self._draw_watch = bpy.types.SpaceView3D.draw_handler_add(_watch_draw, (), "WINDOW", "POST_PIXEL")
         self.started = time.monotonic()
         self.targets: list = []              # per preview: (mesh name, local 3x4 float32 or None, buffer)
         self.profile: dict = {}
@@ -250,7 +266,15 @@ class LiveSession:
             kept += 1
         return kept
 
+    def navigating(self, now: float) -> bool:
+        return _grab_operator is None or not _grab_operator.ids             if now - self.navigating_at < NAVIGATING_HOLD_SECONDS else False
+
     def stop(self, keep: bool = False) -> None:
+        for attr in ("_draw_watch", "_draw_start"):
+            handle = getattr(self, attr, None)
+            if handle is not None:
+                bpy.types.SpaceView3D.draw_handler_remove(handle, "WINDOW")
+                setattr(self, attr, None)
         self._wake(False)
         if keep:
             try:
@@ -290,6 +314,12 @@ class LiveSession:
         writes = self.session.frames.write_count
         if writes == self._last_write:
             return True                      # no new frame since the last tick
+        now = time.monotonic()
+        if self.navigating(now) and now - self.shown_at < 1.0 / NAVIGATING_PREVIEW_FPS:
+            return True                      # the artist moves the view: leave Blender the time to draw it
+        if now - self.shown_at < self.draw_ms / 1000.0 / max(0.05, 1.0 - UI_SHARE):
+            return True                      # a heavy scene: keep UI_SHARE of the main thread for the interface
+        self.shown_at = now
         self._last_write = writes
         t0 = time.perf_counter()
         got = self.session.frames.latest()
@@ -438,6 +468,33 @@ def _timer():
         return None
     _redraw(s)
     return TICK_SECONDS
+
+
+def _start_draw() -> None:
+    if _session is not None:
+        _session._draw_t0 = time.perf_counter()
+
+
+def _watch_draw() -> None:
+    """Every 3D view draw: a changed view matrix means the artist moves the view (orbit, pan, zoom)."""
+    s = _session
+    rv3d = getattr(bpy.context, "region_data", None)
+    if s is None or rv3d is None:
+        return
+    if s._draw_t0 is not None:
+        ms = (time.perf_counter() - s._draw_t0) * 1000.0
+        s.draw_ms = ms if s.draw_ms == 0.0 else 0.8 * s.draw_ms + 0.2 * ms
+        s._draw_t0 = None
+    try:
+        m = rv3d.view_matrix
+        key = (m[0][0], m[0][1], m[0][2], m[0][3], m[1][0], m[1][1], m[1][2], m[1][3],
+               m[2][0], m[2][1], m[2][2], m[2][3], rv3d.view_distance)
+    except (AttributeError, ReferenceError):
+        return
+    region = rv3d.as_pointer()
+    if s.views.get(region, key) != key:
+        s.navigating_at = time.monotonic()
+    s.views[region] = key
 
 
 def _redraw(s: LiveSession) -> None:

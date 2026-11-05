@@ -6,6 +6,7 @@
 - AETHER Live: pulling cloth no longer leaves vertices stuck on the body (for example at the ankle when you pull the trouser hem sideways).
 - AETHER Live: Grab Cloth has no stretch limit any more. The cloth follows as far as you pull; the grab only waits briefly while the cloth catches up, so it never tears into spikes.
 - AETHER bakes: when the animated body touches itself (a hand pressed onto the hip), the finished message names those frames as pinched. Cloth caught there cannot stay free of intersections in any solver; it is a hint, not an error.
+- AETHER Live: while you orbit, pan or zoom, the preview shows at most 8 new frames per second, so moving the view stays as smooth as without the Live Simulation (NEON: Blender draws the view 19 instead of 17 times per second, waits for input 40 instead of 50 ms).
 - AETHER: GAIA Water Flow and TETHYS Wetness can stay switched on. The AETHER Engine ignores them (listed as not simulated) instead of refusing the scene.
 
 ## 2.9.63 - 2026-11-04
