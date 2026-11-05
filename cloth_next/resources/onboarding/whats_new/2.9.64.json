@@ -1,0 +1,35 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.64",
+  "title": "What's New in Cloth NeXt 2.9.64",
+  "subtitle": "AETHER: cleaner starts, a freer Grab, water settings can stay on.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/check.png",
+      "title": "Grab Cloth",
+      "description": "No stretch limit: the cloth follows as far as you pull, and no vertices stay stuck on the body afterwards."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Clean starts",
+      "description": "Cloth that starts inside the body is pulled out cleanly in more cases."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Water settings",
+      "description": "GAIA Water Flow and TETHYS Wetness can stay on; the AETHER Engine simply ignores them."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}

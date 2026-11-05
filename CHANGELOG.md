@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.9.64 - 2026-11-05
+
+- AETHER: cloth that starts inside the body (a garment modelled for another pose) is pulled out cleanly in more cases. On SW04 reworked, 7 of 8 test runs end with no intersections (before 4 of 8).
+- AETHER Live: pulling cloth no longer leaves vertices stuck on the body (for example at the ankle when you pull the trouser hem sideways).
+- AETHER Live: Grab Cloth has no stretch limit any more. The cloth follows as far as you pull; the grab only waits briefly while the cloth catches up, so it never tears into spikes.
+- AETHER: GAIA Water Flow and TETHYS Wetness can stay switched on. The AETHER Engine ignores them (listed as not simulated) instead of refusing the scene.
+
 ## 2.9.63 - 2026-11-04
 
 - PATTERN NeXt: the 2D editor works again when another add-on keeps a modal operator running in the background (for example Blaze Puppeteer's overlay hover tracker). Before, the workspace showed the patterns but did not react to clicks or keys.

@@ -1,4 +1,8 @@
-# Cloth NeXt 2.9.63
+# Cloth NeXt 2.9.64
+
+AETHER pulls cloth that starts inside the body out more reliably, Live Grab no longer leaves vertices stuck and has no stretch limit, and GAIA Water Flow and TETHYS settings can stay on when you switch to AETHER.
+
+## 2.9.63
 
 PATTERN NeXt reacts to clicks and keys again when another add-on runs a background modal operator.
 
