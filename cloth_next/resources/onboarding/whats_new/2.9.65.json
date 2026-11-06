@@ -2,9 +2,14 @@
   "schema": "cnx.whats-new.v1",
   "version": "2.9.65",
   "title": "What's New in Cloth NeXt 2.9.65",
-  "subtitle": "AETHER: OGC, Fit Pose, Wind, Shrink, Inflate and a Grab that slides.",
+  "subtitle": "AETHER: sewing like Marvelous, OGC, Fit Pose, Wind, Shrink, Inflate and a Grab that slides.",
   "hero_asset": "assets/wireframe-cloth.png",
   "highlights": [
+    {
+      "icon": "icons/check.png",
+      "title": "Sewing like Marvelous",
+      "description": "Seams close fast and in the air, the seam line no longer fights itself, and a closed seam bends like the cloth (fold angle flat)."
+    },
     {
       "icon": "icons/check.png",
       "title": "Wind for AETHER",
@@ -24,11 +29,6 @@
       "icon": "icons/check.png",
       "title": "Clean starts",
       "description": "Cloth that starts inside the body is pulled out in more cases, and Start from Fit Pose begins a bake from the pose the garment was made for."
-    },
-    {
-      "icon": "icons/check.png",
-      "title": "Water settings",
-      "description": "GAIA Water Flow and TETHYS Wetness can stay on; the AETHER Engine simply ignores them."
     }
   ],
   "actions": [

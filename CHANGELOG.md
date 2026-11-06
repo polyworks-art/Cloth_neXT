@@ -3,6 +3,10 @@
 ## 2.9.65 - 2026-11-06
 
 - AETHER Live (Grab Cloth): cloth lying close on the skin or on another garment now slides along when you pull it, instead of sticking as if it had extreme friction. Pulling the NEON top sideways under the arm (Fitting) left 165 overstretched edges after letting go, now 1; a pulled trouser front left 3 vertices stuck on the body, now 0. Bakes are unchanged.
+- AETHER sewing closes like Marvelous Designer: seams close within a quarter second and at most 1 m/s, the two sides of a seam line no longer collide with each other, and a closed seam bends like the cloth itself (sewing fold angle, flat by default). Two flat panels sewn 40 cm apart stretched 5.7x and hung in mid-air in the Live Simulation; now they fall and lie flat, no edge stretched.
+- PATTERN NeXt: an edge that is already sewn can no longer be sewn a second time (that pulled three edges onto one line); the Sewing tool says so.
+- PATTERN NeXt: fixed a crash (EXCEPTION_ACCESS_VIOLATION in a timer) while the 2D editor ran next to other modal tools such as Grab Cloth; the editor's start check no longer touches running operators. Dev builds write cloth_next_python_crash.txt to the temp folder on a crash.
+- PATTERN NeXt: changing a pattern after keeping an AETHER drape no longer blocks the Live Simulation with CNX-E103; the outdated drape is removed when the pattern is remeshed.
 - AETHER Live: Grab Cloth switches itself back on when Blender ended it while the Live Simulation runs, and a Grab Cloth error now only ends that one pull (logged to cloth_next_grab_errors.txt in the temp folder).
 
 ## 2.9.64 - 2026-11-05

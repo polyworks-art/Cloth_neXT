@@ -1,6 +1,6 @@
 # Cloth NeXt 2.9.65
 
-AETHER Live: pulled cloth slides along the skin instead of sticking to it, and Grab Cloth stays on for the whole Live Simulation.
+AETHER sewing closes like Marvelous Designer (fast, no fight at the seam line, sewing fold angle), PATTERN NeXt no longer crashes next to Grab Cloth and refuses to sew an edge twice, pulled cloth slides along the skin instead of sticking to it, and Grab Cloth stays on for the whole Live Simulation.
 
 ## 2.9.64
 

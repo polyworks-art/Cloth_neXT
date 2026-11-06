@@ -38,7 +38,8 @@ QUALITY_ITEMS = (
     ("FITTING", "Fitting", "Accurate fabric: recommended for final AETHER bakes"),
 )
 CAPTURE_BUDGET_S = 0.04          # main-thread time per capture tick
-SEAM_CLOSURE_SECONDS = 1.0       # seams close gradually over this time
+SEAM_CLOSURE_SECONDS = 0.25      # seams close over this time (AETHER also caps the closing speed at 1 m/s):
+# closed in the air like Marvelous; over 1 s two flat panels landed first and the seam line buckled on the floor
 
 _status_cache = {"time": 0.0, "value": None}
 _job: "AetherBakeJob | None" = None
