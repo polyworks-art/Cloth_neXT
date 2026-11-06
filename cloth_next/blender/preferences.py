@@ -946,7 +946,7 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
                     "automatically and is locked while a Bake is active")
     legacy_engine_chosen: bpy.props.BoolProperty(
         name="Legacy engine chosen", default=False, options={"HIDDEN"},
-        description="The artist chose Legacy (the upstream PPF solver) in the Engine selector")
+        description="The artist chose Legacy (the upstream contact solver) in the Engine selector")
     aether_engine_chosen: bpy.props.BoolProperty(
         name="AETHER Engine chosen", default=False, options={"HIDDEN"},
         description="The artist chose AETHER (the native AETHER Engine) in the Engine selector")

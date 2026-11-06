@@ -364,7 +364,7 @@ def test_aether_row_offers_update_without_switching_selection(
     prefs._draw_solver_section(layout)
 
     labels = [text for text, _icon in layout.labels]
-    assert "AETHER" in labels and "GAIA" in labels and "Legacy (PPF)" in labels
+    assert "AETHER" in labels and "GAIA" in labels and "Legacy" in labels
     assert any(text.startswith("AETHER Engine") and text.endswith("(bundled)") for text in labels)
     assert "old-tag installed" in labels
     updates = [(text, operator) for idname, text, operator, _enabled in layout.operators
@@ -465,7 +465,7 @@ def test_legacy_engine_item_selects_the_ppf_build_and_routes_to_ppf(blender_env,
     monkeypatch.setattr(preferences, "_gaia_access_granted", lambda: False)
     items = preferences._engine_items(None, None)
     assert [item[0] for item in items] == [engines.AETHER, engines.LEGACY]
-    assert items[1][1] == "Legacy (PPF)"
+    assert items[1][1] == "Legacy"
 
     prefs = preferences.CLOTHNEXT_AddonPreferences()
     prefs.aether_engine_chosen, prefs.legacy_engine_chosen = False, False
@@ -492,5 +492,5 @@ def test_legacy_item_listed_without_a_ppf_build_and_asks_to_install(blender_env,
     prefs = preferences.CLOTHNEXT_AddonPreferences()
     prefs.aether_engine_chosen, prefs.legacy_engine_chosen = True, False
     preferences._engine_set(prefs, 2)
-    assert "Legacy (PPF) is not installed" in preferences._session.worker_error
+    assert "Legacy is not installed" in preferences._session.worker_error
     assert preferences._engine_get(prefs) == 0

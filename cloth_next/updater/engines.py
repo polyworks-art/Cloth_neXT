@@ -54,11 +54,11 @@ REPRODUCIBLE_ENVIRONMENT = (
 # shows them as Legacy, and AETHER there is the native AETHER Engine bundled with
 # Cloth NeXt (no installation, no update).
 LEGACY = "LEGACY"
-LEGACY_LABEL = "Legacy (PPF)"
+LEGACY_LABEL = "Legacy"
 ENGINE_DESCRIPTIONS = {
     AETHER: "AETHER Engine: native GPU cloth engine, no account needed (experimental)",
     GAIA: "PolyWorks' separately maintained patched PPF solver",
-    LEGACY: "Upstream PPF contact solver (the solver Cloth NeXt formerly called AETHER)",
+    LEGACY: "Legacy solver: the upstream contact solver Cloth NeXt formerly offered as AETHER",
 }
 
 
