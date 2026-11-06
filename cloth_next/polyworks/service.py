@@ -538,6 +538,35 @@ class AccountService:
         except ApiError as exc:
             raise self._handle(state, exc) from None
 
+    def submit_bug_report(self, fields: dict) -> dict:
+        """POST /v1/bug-reports with the stored session; returns {"id", "submitted_at"}.
+
+        Raises ``bug_reports.BugReportInvalid`` before any network step and
+        ``bug_reports.BugReportError`` for every failure. The hourly bug report
+        limit (429) is not a service outage, so it does not move the licence
+        check-in schedule the way ``_rate_limited`` does.
+        """
+        from .bug_reports import BugReportError, build_report
+        body = build_report(fields)
+        try:
+            token = self._require_token()
+        except ServiceError as exc:
+            raise BugReportError(exc.code) from None
+        state = self.state()
+        try:
+            receipt = self.api.submit_bug_report(token, body)
+        except ApiError as exc:
+            if exc.status == 429 or exc.code == "rate_limited":
+                raise BugReportError("rate_limited", retry_after=exc.retry_after) from None
+            if exc.status == 422:
+                raise BugReportError("rejected", details=exc.details,
+                                     request_id=exc.request_id) from None
+            failure = self._handle(state, exc)
+            raise BugReportError(failure.code, request_id=failure.request_id) from None
+        self._online(state)
+        self._save(state)
+        return receipt
+
     def redeem_gaia_invite(self, text: str) -> bool:
         """Accepts the invite link or the bare token after '#'."""
         invite = text.strip().split("#", 1)[-1].strip()
