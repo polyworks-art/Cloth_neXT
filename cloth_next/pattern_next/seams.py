@@ -78,3 +78,28 @@ def side_polyline(points, side: SeamSide, tolerance=0.0005):
 def polyline_length(line):
     from .shapes import distance
     return sum(distance(a, b) for a, b in zip(line, line[1:]))
+
+
+def sewn_segments(points, sides):
+    """Outline segment indices already covered by any of ``sides``.
+
+    Sides whose points no longer exist are ignored (their seam reports its
+    own error).
+    """
+    covered = set()
+    for side in sides:
+        try:
+            covered.update(side_segments(points, side))
+        except SeamError:
+            continue
+    return covered
+
+
+def overlaps_sewn(points, side: SeamSide, sides):
+    """True when ``side`` shares an outline segment with an existing seam side.
+
+    One edge sewn to two others pulls three edges onto one line: the cloth
+    overstretches between them (Tim's Dev 2.9.64 scene: edge A sewn to B and
+    again to A's neighbouring edge). A shared corner alone is fine.
+    """
+    return bool(set(side_segments(points, side)) & sewn_segments(points, sides))

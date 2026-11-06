@@ -30,7 +30,7 @@ import bpy
 
 from ...pattern_next import editing
 from ...pattern_next.curves import display_polyline
-from ...pattern_next.seams import SeamSide, side_polyline
+from ...pattern_next.seams import SeamSide, overlaps_sewn, side_polyline
 from ...pattern_next.shapes import (Contour, ContourPoint, add, distance, rectangle_points,
                                     ellipse_points, signed_area, sub, to_canvas, to_local,
                                     vector_to_local)
@@ -1154,6 +1154,11 @@ class CLOTHNEXT_OT_pattern_editor(bpy.types.Operator):
         n = len(points)
         side = (pattern.identifier, points[hover["index"] % n].uid,
                 points[(hover["index"] + 1) % n].uid, hover["t"], hover["index"])
+        from .operators import sewn_sides
+        if overlaps_sewn(points, SeamSide(*side[:3]), sewn_sides(scene, pattern)):
+            self.say("This edge is already sewn  ·  click its seam and press X to delete it "
+                     "first", True)
+            return True
         if self.seam_first is None:
             self.seam_first = side
             self.say("Now click the edge to sew it to")
@@ -1468,33 +1473,50 @@ def _reverse(points):
 # interaction the 2D editor must wait for. Transforms, box selects, file browsers
 # and the like either end long before this or are new when the editor would start.
 BACKGROUND_MODAL_SECONDS = 1.0
-_modal_seen = {}  # (window pointer, bl_idname) -> first time it was seen running
+_modal_seen = {}  # window pointer -> (number of modal operators, time that number appeared)
 
 
-def _blocking_modal(window, now=None):
+def _modal_count(window):
+    """Number of running modal operators, without wrapping any of them.
+
+    Only the length of ``Window.modal_operators`` is read. Iterating the
+    collection would build a Python object for every running operator four
+    times a second: for Python operators that means instantiating their
+    classes from a timer while they run (Dev 2.9.63/2.9.64 did this and a
+    Blender 5.2.3 session crashed in that timer, EXCEPTION_ACCESS_VIOLATION
+    in PyType_GenericNew). ``len`` stays in Blender's C collection code.
+    """
+    try:
+        return len(window.modal_operators)
+    except (AttributeError, ReferenceError, TypeError):
+        return 0
+
+
+def _blocking_modal(window, now=None, count=None):
     """True while ``window`` runs a modal operator the editor must not start over.
 
     Before 2.9.63 any modal operator blocked the start, so a persistent tracker
     from another add-on (e.g. Blaze Puppeteer's anchor overlay hover tracker)
     kept the 2D editor from ever starting: PATTERN NeXt drew but ignored every
-    click and key.
+    click and key. Modal operators that have been running for
+    ``BACKGROUND_MODAL_SECONDS`` count as background trackers; a new one
+    (the count grows) blocks again until it ends or ages.
     """
     now = time.monotonic() if now is None else now
+    count = _modal_count(window) if count is None else count
     key = window.as_pointer()
-    running = set()
-    for op in getattr(window, "modal_operators", ()):
-        try:
-            running.add(getattr(op, "bl_idname", "") or type(op).__name__)
-        except ReferenceError:
-            continue
-    for stale in [k for k in _modal_seen if k[0] == key and k[1] not in running]:
-        del _modal_seen[stale]
-    blocking = False
-    for name in running:
-        first = _modal_seen.setdefault((key, name), now)
-        if now - first < BACKGROUND_MODAL_SECONDS:
-            blocking = True
-    return blocking
+    if count <= 0:
+        _modal_seen.pop(key, None)
+        return False
+    seen = _modal_seen.get(key)
+    if seen is None or count > seen[0]:
+        # A new modal operator started: wait until it ends or ages.
+        seen = (count, now)
+    elif count < seen[0]:
+        # One ended; the ones still running are at least as old as before.
+        seen = (count, seen[1])
+    _modal_seen[key] = seen
+    return now - seen[1] < BACKGROUND_MODAL_SECONDS
 
 
 def _autostart():

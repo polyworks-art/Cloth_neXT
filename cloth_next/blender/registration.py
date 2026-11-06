@@ -132,6 +132,8 @@ def register() -> None:
             revert_step()
         raise
     _registered = True
+    from . import crash_trace
+    crash_trace.enable()
     preferences.initialize_owner_runtime()
     addon_update_operators.initialize_updates()
 
@@ -155,4 +157,6 @@ def unregister() -> None:
     companion_manager.shutdown()
     for _apply_step, revert_step in reversed(_steps()):
         revert_step()
+    from . import crash_trace
+    crash_trace.disable()
     _registered = False

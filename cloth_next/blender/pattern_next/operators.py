@@ -10,6 +10,7 @@ import bpy
 
 from ...pattern_next import editing
 from ...pattern_next.curves import segment_length
+from ...pattern_next.seams import SeamError, SeamSide, overlaps_sewn
 from ...pattern_next.shapes import Contour, mirror_points
 from ...pattern_next.validation import PatternError
 from . import draw, model, sync
@@ -103,6 +104,17 @@ def sync_symmetry(scene, pattern):
     ok, message = sync.commit(scene, partner, mirror_points(model.outline(pattern)), contours)
     if not ok:
         partner.status = f"Symmetry: {message}"
+
+
+def sewn_sides(scene, pattern):
+    """Seam sides already sewn on ``pattern`` (both ends of every seam)."""
+    sides = []
+    for seam in scene.cloth_next_pattern_seams:
+        if seam.a_pattern == pattern.identifier:
+            sides.append(SeamSide(pattern.identifier, seam.a_start, seam.a_end))
+        if seam.b_pattern == pattern.identifier:
+            sides.append(SeamSide(pattern.identifier, seam.b_start, seam.b_end))
+    return sides
 
 
 class _PatternOperator(bpy.types.Operator):
@@ -489,6 +501,20 @@ class CLOTHNEXT_OT_pattern_seam_add(_PatternOperator):
         pa, pb = _target(context, self.a_pattern), _target(context, self.b_pattern)
         if pa is None or pb is None:
             return {"CANCELLED"}
+        side_a = SeamSide(pa.identifier, self.a_start, self.a_end)
+        side_b = SeamSide(pb.identifier, self.b_start, self.b_end)
+        try:
+            if side_a == side_b or (pa.identifier == pb.identifier and overlaps_sewn(
+                    model.outline(pa), side_a, (side_b,))):
+                self.report({"ERROR"}, "Both sides of a seam must be different edges")
+                return {"CANCELLED"}
+            for pattern, side in ((pa, side_a), (pb, side_b)):
+                if overlaps_sewn(model.outline(pattern), side, sewn_sides(scene, pattern)):
+                    self.report({"ERROR"}, f"An edge of {pattern.name} is already sewn; "
+                                "delete that seam first")
+                    return {"CANCELLED"}
+        except SeamError:
+            pass  # unknown points: saved below with a "not sewable yet" status
         seam = scene.cloth_next_pattern_seams.add()
         seam.identifier = uuid.uuid4().hex
         seam.name = f"{pa.name} ↔ {pb.name}"
