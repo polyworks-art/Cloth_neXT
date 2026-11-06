@@ -478,7 +478,51 @@ def _timer():
             print(f"Cloth NeXt AETHER Live: {message}")
         return None
     _redraw(s)
+    _keep_grab()
     return TICK_SECONDS
+
+
+GRAB_WATCH_SECONDS = 0.5
+_grab_watch_at = 0.0
+
+
+def _grab_alive(op) -> bool:
+    """False when Blender ended the modal grab without telling it (undo, file load, a closed window)."""
+    try:
+        op.properties   # the operator's RNA: gone once Blender freed it
+        window = op.window
+        return window is not None and window.screen is not None
+    except (ReferenceError, AttributeError):
+        return False
+
+
+def _keep_grab() -> None:
+    """Grab Cloth stays on while the Live Simulation runs: restart it when Blender ended it (before, an undo
+    or a window change left the Live Simulation without Grab Cloth until it was restarted)."""
+    global _grab_operator, _grab_watch_at, _grab_draw_handle
+    now = time.monotonic()
+    if now - _grab_watch_at < GRAB_WATCH_SECONDS or _session is None:
+        return
+    _grab_watch_at = now
+    op = _grab_operator
+    if op is not None and not _grab_alive(op):
+        if _grab_draw_handle is not None:
+            try:
+                bpy.types.SpaceView3D.draw_handler_remove(_grab_draw_handle, "WINDOW")
+            except (ValueError, RuntimeError):
+                pass
+            _grab_draw_handle = None
+        try:
+            if op.ids:
+                _session.release(op.ids)
+        except (ReferenceError, AttributeError):
+            pass
+        _grab_operator = None
+    if _grab_operator is None:
+        try:
+            start_grab(bpy.context)
+        except (RuntimeError, AttributeError, TypeError) as exc:
+            print(f"Cloth NeXt AETHER Live: Grab Cloth could not restart: {exc}")
 
 
 def _start_draw() -> None:
@@ -690,6 +734,7 @@ def _inverted_icon(floating_simulation, name: str) -> str:
 
 
 _grab_operator = None   # the running always-on grab (one per Live Simulation)
+_grab_draw_handle = None   # its cursor draw handler (removed by the watchdog if Blender dropped the grab)
 
 
 def _view3d_under(window, event):
@@ -801,7 +846,7 @@ class CLOTHNEXT_OT_aether_live_grab(bpy.types.Operator):
         gpu.state.blend_set("NONE")
 
     def invoke(self, context, event):
-        global _grab_operator
+        global _grab_operator, _grab_draw_handle
         if _session is None or _grab_operator is not None:
             return {"CANCELLED"}
         self.ids, self.offsets, self.depth = [], None, None
@@ -813,6 +858,7 @@ class CLOTHNEXT_OT_aether_live_grab(bpy.types.Operator):
         self._handle = bpy.types.SpaceView3D.draw_handler_add(self._draw_cursor, (context,), "WINDOW", "POST_PIXEL")
         context.window_manager.modal_handler_add(self)
         _grab_operator = self
+        _grab_draw_handle = self._handle
         return {"RUNNING_MODAL"}
 
     def _hit(self, context, region, rv3d, event):
@@ -843,10 +889,12 @@ class CLOTHNEXT_OT_aether_live_grab(bpy.types.Operator):
             self.cursor_hidden = hidden
 
     def _finish(self, context):
-        global _grab_operator
+        global _grab_operator, _grab_draw_handle
         self._let_go()
         if getattr(self, "_handle", None) is not None:
             bpy.types.SpaceView3D.draw_handler_remove(self._handle, "WINDOW")
+            if _grab_draw_handle is self._handle:
+                _grab_draw_handle = None
             self._handle = None
         self._set_cursor(False)
         if _grab_operator is self:
