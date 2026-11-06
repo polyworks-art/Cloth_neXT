@@ -486,6 +486,17 @@ GRAB_WATCH_SECONDS = 0.5
 _grab_watch_at = 0.0
 
 
+def _log_grab_error(text: str) -> None:
+    """Keep the last Grab Cloth errors in the temp folder (cloth_next_grab_errors.txt) for bug reports."""
+    import tempfile
+    try:
+        path = os.path.join(tempfile.gettempdir(), "cloth_next_grab_errors.txt")
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(time.strftime("%Y-%m-%d %H:%M:%S ") + text + "\n")
+    except OSError:
+        pass
+
+
 def _grab_alive(op) -> bool:
     """False when Blender ended the modal grab without telling it (undo, file load, a closed window)."""
     try:
@@ -930,10 +941,17 @@ class CLOTHNEXT_OT_aether_live_grab(bpy.types.Operator):
         try:
             return self._modal(context, event)
         except Exception:  # noqa: BLE001 - never leave the cloth held by a grab that lost its operator
-            self._let_go()
-            self.swallow = False
             import traceback
-            traceback.print_exc()
+            text = traceback.format_exc()
+            print(text)
+            _log_grab_error(text)
+            try:
+                self._let_go()
+            except Exception:  # noqa: BLE001
+                self.ids = []
+            # end this grab: the Live watchdog starts a fresh one (a grab that failed on every event
+            # looked like Grab Cloth had switched itself off)
+            self._finish(context)
             return {"PASS_THROUGH"}
 
     def _modal(self, context, event):
