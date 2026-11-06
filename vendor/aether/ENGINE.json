@@ -1,17 +1,17 @@
 {
   "api": [
     1,
-    5
+    6
   ],
   "binaries": {
     "windows-x64": {
-      "file_size": 9630720,
+      "file_size": 9742336,
       "filename": "AETHER Engine.exe",
-      "sha256": "8272632ba37149a44bf0aec1ff9a4ce0013628702c76491c592d13fff80bb715"
+      "sha256": "77b91e566faae9e63e3c46c3ffc7a148bda01b7b71566a03f393c72649e84b8e"
     }
   },
-  "build_id": "26df45d2b4a06af4",
-  "engine_commit": "43054d859d68",
+  "build_id": "13f1f44e47aa9560",
+  "engine_commit": "f13b92705647",
   "engine_repository": "polyworks-art/AETHER",
   "engine_version": "0.4.6-dev",
   "protocol": 1,
