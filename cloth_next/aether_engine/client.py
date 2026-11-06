@@ -40,7 +40,7 @@ from typing import Any, Callable, Mapping, Sequence
 import numpy as np
 
 PROTOCOL_VERSION = 1
-API_VERSION = (1, 5)   # 1.4: wind; 1.5: shrink (warp / weft), surface offset
+API_VERSION = (1, 6)   # 1.4: wind; 1.5: shrink (warp / weft), surface offset; 1.6: plasticity, flat bending rest, pressure
 FRAME_MAGIC = 0x31484541  # "AEH1"
 SHM_MAGIC = b"AETHSHM1"
 SHM_HEADER_BYTES = 4096
@@ -441,8 +441,9 @@ class EngineProcess:
                         # engine API 1.5
                         **({"shrink": f32(c["shrink"])} if c.get("shrink") is not None else {}),
                         **({"shrink_uv": f32(c["shrink_uv"])} if c.get("shrink_uv") is not None else {}),
-                        **({"surface_offset": float(c["surface_offset"])} if c.get("surface_offset") else {})}
-                       for c in cloths],
+                        **({"surface_offset": float(c["surface_offset"])} if c.get("surface_offset") else {}),
+                        **({"flat_bending_rest": True} if c.get("flat_bending_rest") else {}),
+                        **({"pressure": float(c["pressure"])} if c.get("pressure") else {})} for c in cloths],
             "spheres": [{"center": list(map(float, s["center"])), "radius": float(s["radius"])} for s in spheres],
             "planes": [{"point": list(map(float, p["point"])), "normal": list(map(float, p["normal"]))} for p in planes],
             "meshes": [{"vertices": f32(m["vertices"]), "triangles": i32(m["triangles"]),
