@@ -1,6 +1,6 @@
 # Cloth NeXt 2.9.64
 
-AETHER now simulates Wind from Force Empties, moves cloth out of the way of fast body motion before it gets caught, can start a bake from the pose a garment was made for (Start from Fit Pose), pulls cloth that starts inside the body out more reliably, Live Grab no longer leaves vertices stuck and has no stretch limit, and GAIA Water Flow and TETHYS settings can stay on when you switch to AETHER.
+AETHER now simulates Wind from Force Empties, Shrink Warp / Weft, Surface Offset, Permanent Stretch / Bends and Inflate Pressure, moves cloth out of the way of fast body motion before it gets caught, can start a bake from the pose a garment was made for (Start from Fit Pose), pulls cloth that starts inside the body out more reliably, Live Grab no longer leaves vertices stuck and has no stretch limit, and GAIA Water Flow and TETHYS settings can stay on when you switch to AETHER.
 
 ## 2.9.63
 

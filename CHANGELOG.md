@@ -1,13 +1,11 @@
 # Changelog
 
-## Unreleased (3.0.0)
+## 2.9.64 - 2026-11-05
 
 - Shrink Warp / Weft (like Marvelous Designer's Shrinkage Warp and Weft): the Shrink panel now has Warp (along the grain, the UV map's V axis) and Weft (across it, U) on top of Uniform Shrink. GAIA and AETHER both simulate it; differing Warp and Weft need a UV map (PATTERN NeXt garments have one). AETHER eases the shrink in over the first second, so a garment tightens instead of snapping.
 - AETHER: Shrink and Surface Offset are simulated instead of refused. Surface Offset keeps the cloth that much farther from bodies and other garments (a 10 mm offset plus 5 mm on the floor rests the cloth 15 mm higher); a Collider's own Surface Offset adds to it, as in GAIA.
 - AETHER: cloth no longer falls through very large collider faces, such as Blender's default Plane used as a floor (one 4 m quad). Large faces are split internally; scenes without them are unchanged.
-
-## 2.9.64 - 2026-11-05
-
+- AETHER: Permanent Stretch, Permanent Bends, a flat bend rest shape and Inflate Pressure are simulated instead of refused, with GAIA's meaning (a balloon at 300 Pa grows about 3 %; a stretched sheet with Permanent Stretch stays longer).
 - AETHER: Wind. A Force Empty's Wind (speed, radius and falloff, gusts, turbulence, Air Density and Air Friction) now blows the cloth in Live and in bakes, with the same air field as the Wind preview and GAIA. Wind obstacles and wakes are not simulated by AETHER yet (shown as a note).
 - AETHER: cloth is now moved out of the way before a moving body part reaches it (OGC-style contact), instead of being caught and carried afterwards. Fewer garment layers end up crossed in fast motion (stress test elbow_run: 342 instead of 926 crossings); real scenes stay at 0, at 3 to 8 % more bake time.
 - AETHER bakes: Start from Fit Pose (AETHER section: Frame, Over). For a garment made for the body's pose at another frame (for example the rest pose at frame 0): before the first cached frame the body moves from that pose into its start pose over a few hidden frames, and the cloth comes along. Tested on NEON with the body 30 and 60 frames further on: 0 intersections in every frame instead of thousands.
