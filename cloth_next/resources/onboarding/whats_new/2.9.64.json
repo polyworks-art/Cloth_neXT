@@ -23,7 +23,7 @@
     {
       "icon": "icons/check.png",
       "title": "Clean starts",
-      "description": "Cloth that starts inside the body is pulled out cleanly in more cases."
+      "description": "Cloth that starts inside the body is pulled out in more cases, and Start from Fit Pose begins a bake from the pose the garment was made for."
     },
     {
       "icon": "icons/check.png",

@@ -4,6 +4,7 @@
 
 - AETHER: Wind. A Force Empty's Wind (speed, radius and falloff, gusts, turbulence, Air Density and Air Friction) now blows the cloth in Live and in bakes, with the same air field as the Wind preview and GAIA. Wind obstacles and wakes are not simulated by AETHER yet (shown as a note).
 - AETHER: cloth is now moved out of the way before a moving body part reaches it (OGC-style contact), instead of being caught and carried afterwards. Fewer garment layers end up crossed in fast motion (stress test elbow_run: 342 instead of 926 crossings); real scenes stay at 0, at 3 to 8 % more bake time.
+- AETHER bakes: Start from Fit Pose (AETHER section: Frame, Over). For a garment made for the body's pose at another frame (for example the rest pose at frame 0): before the first cached frame the body moves from that pose into its start pose over a few hidden frames, and the cloth comes along. Tested on NEON with the body 30 and 60 frames further on: 0 intersections in every frame instead of thousands.
 - AETHER: cloth that starts inside the body (a garment modelled for another pose) is pulled out cleanly in more cases. On SW04 reworked, 7 of 8 test runs end with no intersections (before 4 of 8).
 - AETHER Live: pulling cloth no longer leaves vertices stuck on the body (for example at the ankle when you pull the trouser hem sideways).
 - AETHER Live: Grab Cloth has no stretch limit any more. The cloth follows as far as you pull; the grab only waits briefly while the cloth catches up, so it never tears into spikes.

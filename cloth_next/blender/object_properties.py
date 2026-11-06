@@ -944,6 +944,18 @@ class CLOTHNEXT_PG_solver_backend_settings(bpy.types.PropertyGroup):
     aether_checkpoint_interval: bpy.props.IntProperty(
         name="Checkpoint Interval", default=24, min=1, soft_max=240,
         description="AETHER Engine bakes save a recovery checkpoint every this many frames")
+    aether_fit_pose: bpy.props.BoolProperty(
+        name="Fit Pose", default=False,
+        description="The garment was made for the body's pose at another frame (for example the rest pose "
+                    "at frame 0). Before the first cached frame the AETHER bake moves the body from that pose "
+                    "into its start pose, so the cloth comes along instead of starting inside the body")
+    aether_fit_frame: bpy.props.IntProperty(
+        name="Fit Frame", default=0,
+        description="Frame at which the body's pose matches the garment")
+    aether_fit_transition: bpy.props.IntProperty(
+        name="Transition", default=20, min=1, soft_max=120, max=600,
+        description="Hidden frames in which the body moves from the Fit Frame's pose to the start pose "
+                    "(more frames: gentler for large pose changes)")
     quality_preset: bpy.props.EnumProperty(
         name="Quality", default="HIGH", update=_on_settings_update,
         items=(("LOW", "Low", "Fast setup bake"),

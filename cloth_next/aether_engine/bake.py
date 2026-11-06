@@ -131,10 +131,25 @@ class BakeRequest:
     # Engine API 1.4: the wind input of every step (one entry: the same for all steps; empty: no wind).
     # Sent every frame, so a resumed bake (a new engine process) blows the same wind.
     wind: tuple = ()
+    # Fit Pose: the garment was modelled for the body's pose at another frame. The bake first runs
+    # ``lead_in`` hidden engine steps in which the animated colliders (and animated pin targets) move
+    # linearly from that pose (``lead_colliders`` / ``lead_pins``, one array or None per collider / pin
+    # track) to the pose at the start frame; the cache starts after them. Without it a body several
+    # centimetres inside the garment at the start tangled the cloth for good (NEON with the body 30 or
+    # 60 frames further on: 3145 / 440 body and 53503 / 1056 cloth intersections at the end; with a
+    # 10 / 20 frame lead-in 0 / 0 in every frame).
+    lead_in: int = 0
+    lead_colliders: tuple = ()
+    lead_pins: tuple = ()
 
     @property
     def steps(self) -> int:
         return self.frame_end - self.frame_start
+
+    @property
+    def engine_steps(self) -> int:
+        """Engine steps of the bake: the hidden lead-in plus one per cached frame."""
+        return self.lead_in + self.steps
 
     @property
     def output_count(self) -> int:
@@ -158,6 +173,7 @@ def scene_digest(request: BakeRequest) -> str:
     h.update(json.dumps({"quality": request.quality, "fps": request.fps, "gravity": request.gravity,
                          **({"experimental_recovery": True} if request.experimental_recovery else {}),
                          **({"start_recovery": START_RECOVERY_FRAMES} if request.start_recovery else {}),
+                         **({"lead_in": request.lead_in} if request.lead_in else {}),
                          "self_collision": request.self_collision, "range": [request.frame_start,
                                                                               request.frame_end]},
                         sort_keys=True).encode())
@@ -189,7 +205,16 @@ def input_digest(request: BakeRequest) -> str:
         _digest_arrays(h, c.frames)
     for p in request.pins:
         _digest_arrays(h, p.targets)
+    if request.lead_in:
+        h.update(b"lead")
+        _digest_arrays(h, *request.lead_colliders, *request.lead_pins)
     return h.hexdigest()
+
+
+def _lead(start: np.ndarray, end: np.ndarray, step: int, lead_in: int) -> np.ndarray:
+    """Lead-in pose of engine step ``step``: from ``start`` (the fit pose) to ``end`` (the start pose)."""
+    a = float(step + 1) / float(lead_in)
+    return (np.asarray(start, np.float32) + (np.asarray(end, np.float32) - np.asarray(start, np.float32)) * a)
 
 
 # ---------------------------------------------------------------- protocol messages
@@ -197,16 +222,19 @@ START_RECOVERY_FRAMES = 48   # frames from the start in which the recovery runs
 
 
 def frame_inputs(request: BakeRequest, step: int) -> dict:
-    """Inputs for engine step ``step`` (0-based): poses at Blender frame start+step+1."""
+    """Inputs for engine step ``step`` (0-based): poses at Blender frame start+step+1-lead_in (the
+    first ``lead_in`` steps move the body from its fit pose to the start pose)."""
     inp: dict = {"frame": step}
+    lead = request.lead_in
+    t = step - lead   # index into the captured frames; < 0 during the lead-in
     # The engine refuses a checkpoint while a recovery runs, which failed the bake (CNX-E169) when the
     # cloth still intersected at the first checkpoint: the frame that ends at one runs without it.
     interval = request.checkpoint_interval
-    if interval > 0 and ((step + 1) % interval == 0 or step + 1 == request.steps):
+    if interval > 0 and ((step + 1) % interval == 0 or step + 1 == request.engine_steps):
         pass
     elif request.experimental_recovery:
         inp["untangle"] = {"frames": 1}   # analysis this frame; recovery only where intersections exist
-    elif request.start_recovery and step < START_RECOVERY_FRAMES:
+    elif request.start_recovery and step < START_RECOVERY_FRAMES + lead:
         # analysis every frame of the start, recovery only where intersections exist (one request for
         # all frames stopped at 18 left: the engine gives up after 12 frames without a new minimum)
         inp["untangle"] = {"frames": 1}
@@ -224,7 +252,7 @@ def frame_inputs(request: BakeRequest, step: int) -> dict:
                                 "progress": 1.0 if s.closing and draped(request) else 0.0}
                                for s in request.seams]
     if request.wind:
-        inp["wind"] = request.wind[min(step, len(request.wind) - 1)]
+        inp["wind"] = request.wind[min(max(t, 0), len(request.wind) - 1)]
     closing = [{"id": i + 1, "progress": min(1.0, (step + 1) / max(1, s.closure_frames))}
                for i, s in enumerate(request.seams) if s.closing and not draped(request)]
     if closing:
@@ -232,19 +260,38 @@ def frame_inputs(request: BakeRequest, step: int) -> dict:
     # runtime pin ids are 1.. in pin_add order (engine ids are deterministic)
     ids, targets = [], []
     next_id = 1
-    for p in request.pins:
+    for k, p in enumerate(request.pins):
         n = len(p.vertices)
         if p.targets is not None:
             ids.extend(range(next_id, next_id + n))
-            targets.append(p.targets[step])
+            fit = request.lead_pins[k] if k < len(request.lead_pins) else None
+            if t >= 0:
+                targets.append(p.targets[t])
+            elif fit is not None:
+                targets.append(_lead(fit, p.targets[0], step, lead))
+            else:
+                targets.append(p.targets[0])
         next_id += n
     if ids:
         inp["pin_targets"] = {"ids": client.i32(ids), "targets": client.f32(np.concatenate(targets))}
-    meshes = [{"index": i, "vertices": client.f32(c.frames[step])}
-              for i, c in enumerate(request.colliders) if c.frames is not None]
+    meshes = []
+    for i, c in enumerate(request.colliders):
+        fit = request.lead_colliders[i] if i < len(request.lead_colliders) else None
+        if t >= 0:
+            if c.frames is not None:
+                meshes.append({"index": i, "vertices": client.f32(c.frames[t])})
+        elif fit is not None:
+            meshes.append({"index": i, "vertices": client.f32(_lead(fit, c.rest_world, step, lead))})
     if meshes:
         inp["mesh_colliders"] = meshes
     return inp
+
+
+def start_collider(request: BakeRequest, index: int) -> np.ndarray:
+    """A collider's pose when the engine scene is built: its fit pose with a lead-in, else the start pose."""
+    c = request.colliders[index]
+    fit = request.lead_colliders[index] if request.lead_in and index < len(request.lead_colliders) else None
+    return c.rest_world if fit is None else np.asarray(fit, np.float32)
 
 
 def draped(request: BakeRequest) -> bool:
@@ -413,7 +460,7 @@ class BakeRunner:
             w = pc2.StreamingPc2Writer(c.pc2_path, vertex_count=len(c.rest_local),
                                        frame_count=self.request.output_count, start_frame=0.0,
                                        sample_rate=1.0, resume_path=temp)
-            if w.frames_written == 0:
+            if w.frames_written == 0 and not self.request.lead_in:   # with a lead-in: its last engine frame
                 w.write_frame(c.start_local if c.start_local is not None else c.rest_local)
             writers.append(w)
         return writers
@@ -439,15 +486,18 @@ class BakeRunner:
             session = e.create_session(mode="bake", quality=req.quality, fps=req.fps, gravity=req.gravity,
                                        self_collision=req.self_collision,
                                        cloths=[session_cloth(c) for c in req.cloths],
-                                       meshes=[{"vertices": c.rest_world, "triangles": c.triangles}
-                                               for c in req.colliders],
+                                       meshes=[{"vertices": start_collider(req, i), "triangles": c.triangles}
+                                               for i, c in enumerate(req.colliders)],
                                        start_positions=start_positions(req))
             self.timings["engine_startup_s"] = time.monotonic() - t0
             if session.vertex_count != sum(len(c.rest_world) for c in req.cloths):
                 raise AetherBakeError("The AETHER scene does not match the exported cloth", "CNX-E176")
             req.checkpoint_dir.mkdir(parents=True, exist_ok=True)
             writers = self._open_writers(None)
-            on_disk = min(w.frames_written for w in writers) - 1   # engine frames already in the cache
+            lead = req.lead_in
+            total = req.engine_steps
+            on_disk = min(w.frames_written for w in writers) - 1   # cache frames after the first one
+            on_engine = on_disk + lead                               # ... as engine frames
             start_step = 0
             if self.resume:
                 # The engine runs ahead of the PC2 by up to the ring size, so a
@@ -455,34 +505,35 @@ class BakeRunner:
                 # the cache already covers are usable (no gap, no duplicate);
                 # without one, the bake restarts at its first frame and verifies
                 # the cached frames instead of rewriting them.
-                usable = _drop_checkpoints_after(req.checkpoint_dir, on_disk)
+                usable = _drop_checkpoints_after(req.checkpoint_dir, on_engine)
                 if usable:
-                    r = e.request("bake_resume", {"end_frame": req.steps,
+                    r = e.request("bake_resume", {"end_frame": total,
                                                   "checkpoint_dir": str(req.checkpoint_dir),
                                                   "checkpoint_interval": req.checkpoint_interval,
                                                   "checkpoint_keep": 2})
                     start_step = int(r["start_frame"])
                 else:
-                    e.request("bake_start", {"end_frame": req.steps, "checkpoint_dir": str(req.checkpoint_dir),
+                    e.request("bake_start", {"end_frame": total, "checkpoint_dir": str(req.checkpoint_dir),
                                              "checkpoint_interval": req.checkpoint_interval,
                                              "checkpoint_keep": 2})
-                if start_step > on_disk:
+                if start_step > on_engine:
                     raise AetherBakeError(
                         f"The AETHER checkpoint (frame {start_step}) is newer than the cache on disk "
                         f"({on_disk} frames); the bake cannot be resumed without a gap", "CNX-E129")
-                self.progress.resumed_from = start_step
+                self.progress.resumed_from = max(0, start_step - lead)
             else:
                 for f in req.checkpoint_dir.glob("aether_*"):
                     f.unlink(missing_ok=True)
-                e.request("bake_start", {"end_frame": req.steps, "checkpoint_dir": str(req.checkpoint_dir),
+                e.request("bake_start", {"end_frame": total, "checkpoint_dir": str(req.checkpoint_dir),
                                          "checkpoint_interval": req.checkpoint_interval, "checkpoint_keep": 2})
             _atomic_json(req.recovery_path, recovery_record(req, self.hello, session))
-            self.progress.phase = "Simulating with the AETHER Engine"
+            self.progress.phase = ("Moving the body from its Fit Pose" if lead and start_step < lead
+                                   else "Simulating with the AETHER Engine")
             sent = start_step
-            for step in range(start_step, req.steps):
+            for step in range(start_step, total):
                 if self._cancel.is_set():
                     break
-                while sent < min(req.steps, step + INPUT_LOOKAHEAD):
+                while sent < min(total, step + INPUT_LOOKAHEAD):
                     e.request("set_inputs", frame_inputs(req, sent), timeout=60)
                     sent += 1
                 got = None
@@ -493,10 +544,15 @@ class BakeRunner:
                     self._drain_events()
                 if got is None:
                     break
-                frame, world, _t = got
-                if frame != step + 1:
-                    raise AetherBakeError(f"The AETHER Engine delivered frame {frame}, expected {step + 1}",
+                engine_frame, world, _t = got
+                if engine_frame != step + 1:
+                    raise AetherBakeError(f"The AETHER Engine delivered frame {engine_frame}, expected {step + 1}",
                                           "CNX-E174")
+                frame = engine_frame - lead   # cache frame; the lead-in's last frame is cache frame 0
+                if frame < 0:
+                    continue
+                if frame == 0:
+                    self.progress.phase = "Simulating with the AETHER Engine"
                 offset = 0
                 verify = frame <= on_disk
                 for c, w in zip(req.cloths, writers):
@@ -516,7 +572,7 @@ class BakeRunner:
                         w.write_frame(local)
                 if verify:
                     self.progress.verified += 1
-                self.progress.frames_done = frame
+                self.progress.frames_done = max(0, frame)
             if self._cancel.is_set() and self.progress.frames_done < req.steps:
                 self.cancelled = True
                 try:

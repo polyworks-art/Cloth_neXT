@@ -250,6 +250,41 @@ def s_wind(out: Path):
     return r
 
 
+@scenario("fit_pose")
+def s_fit_pose(out: Path):
+    """A ball under a sheet at the Fit Frame (0) and 50 cm higher, through the sheet, at the start (1):
+    with Start from Fit Pose the hidden lead-in lifts the sheet onto the ball; without it the sheet
+    starts inside the ball."""
+    pc2 = importlib.import_module(f"{M}.bake.pc2")
+    results = {}
+    for fit in (False, True):
+        clear_scene()
+        sheet = make_cloth(add_grid("Sheet", 1.4, (0, 0, 0.9), 24), out, 1, 12)
+        bpy.ops.mesh.primitive_uv_sphere_add(radius=0.35, location=(0.0, 0.0, 0.3))
+        ball = make_collider(bpy.context.object, animated=True)
+        ball.keyframe_insert("location", frame=0)
+        ball.location = (0.0, 0.0, 0.8)
+        ball.keyframe_insert("location", frame=1)
+        settings = bpy.context.scene.cloth_next_solver
+        settings.aether_fit_pose = fit
+        settings.aether_fit_frame = 0
+        settings.aether_fit_transition = 10
+        r = bake()
+        frames = list(pc2.iter_frames(Path(bpy.path.abspath(next(
+            m for m in sheet.modifiers if m.type == "MESH_CACHE").filepath))))
+        m = np.asarray(sheet.matrix_world)
+        first = np.asarray(frames[0]) @ m[:3, :3].T + m[:3, 3]
+        centre = first[np.argmin(np.linalg.norm(first[:, :2], axis=1))]
+        results[fit] = {"state": r["state"], "message": r["message"], "frames": len(frames),
+                        "centre_z": float(centre[2])}
+    top = 0.8 + 0.35
+    r = {"plain": results[False], "fit": results[True], "state": results[True]["state"]}
+    r["ok"] = (results[True]["state"] == "FINISHED" and results[True]["frames"] == 12
+               and results[True]["centre_z"] > top - 0.01 and results[False]["centre_z"] < top - 0.1
+               and "Fit Pose" in (results[True]["message"] or ""))
+    return r
+
+
 @scenario("animated_collider")
 def s_animated(out: Path):
     clear_scene()

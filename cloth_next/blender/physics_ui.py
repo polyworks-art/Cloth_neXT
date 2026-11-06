@@ -737,6 +737,14 @@ def _draw_aether_section(layout, context, bake_active: bool) -> bool:
         row = section.row(align=True)
         row.enabled = not aether_engine_live.is_running()
         row.prop(settings, "aether_live_quality", text="Live")
+        if hasattr(settings, "aether_fit_pose"):
+            row = section.row(align=True)
+            row.enabled = not bake_active
+            row.prop(settings, "aether_fit_pose", text="Start from Fit Pose")
+            if settings.aether_fit_pose:
+                sub = row.row(align=True)
+                sub.prop(settings, "aether_fit_frame", text="Frame")
+                sub.prop(settings, "aether_fit_transition", text="Over")
     for note in aether_engine_backend.not_enforced_notes(context)[:3]:
         layout.label(text=note.split(" (", 1)[0] + " · not enforced by AETHER", icon="INFO")
     live = layout.row(align=True)

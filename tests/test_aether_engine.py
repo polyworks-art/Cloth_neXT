@@ -391,3 +391,67 @@ def test_start_recovery_runs_in_the_first_frames_only(tmp_path):
     assert "untangle" not in bake.frame_inputs(off, 0)
     assert bake.scene_digest(req) != bake.scene_digest(off)   # a resume never mixes the two
 
+
+
+def _lead_request(tmp_path, lead=6, end=46):
+    from dataclasses import replace
+    req = _request(tmp_path, end=end)
+    box = req.colliders[0]
+    fit_box = box.rest_world + np.asarray((-0.3, 0.0, 0.0), np.float32)   # the garment's pose: box elsewhere
+    fit_pin = req.pins[0].targets[0] + np.asarray((0.0, 0.0, 0.05), np.float32)
+    return replace(req, lead_in=lead, lead_colliders=(fit_box,), lead_pins=(fit_pin,))
+
+
+def test_fit_pose_lead_in_moves_the_body_from_its_fit_pose(tmp_path):
+    req = _lead_request(tmp_path)
+    box = req.colliders[0]
+    assert req.engine_steps == req.steps + 6
+    assert np.array_equal(bake.start_collider(req, 0), req.lead_colliders[0])   # the scene starts in the fit pose
+    first = bake.frame_inputs(req, 0)
+    mid = bake.frame_inputs(req, 2)
+    last = bake.frame_inputs(req, 5)
+    assert "pin_add" in first and "pin_add" not in mid                         # step 0 still sets the scene up
+    def v(inp):
+        return inp["mesh_colliders"][0]["vertices"].array.reshape(-1, 3)
+    fit, start = req.lead_colliders[0], box.rest_world
+    assert np.allclose(v(mid), fit + (start - fit) * 0.5, atol=1e-6)          # halfway after 3 of 6 steps
+    assert np.allclose(v(last), start, atol=1e-6)                              # the lead-in ends in the start pose
+    assert np.allclose(v(bake.frame_inputs(req, 6)), box.frames[0])           # then the captured animation
+    assert np.allclose(v(bake.frame_inputs(req, 9)), box.frames[3])
+    assert bake.frame_inputs(req, 0)["frame"] == 0 and bake.frame_inputs(req, 9)["frame"] == 9
+    plain = _request(tmp_path)
+    assert bake.scene_digest(req) != bake.scene_digest(plain)                 # a resume never mixes the two
+    assert bake.input_digest(req) != bake.input_digest(plain)
+
+
+def test_fit_pose_start_recovery_window_follows_the_lead_in(tmp_path):
+    from dataclasses import replace
+    req = replace(_lead_request(tmp_path, lead=20, end=10 + bake.START_RECOVERY_FRAMES + 4), start_recovery=True)
+    assert "untangle" in bake.frame_inputs(req, bake.START_RECOVERY_FRAMES + 18)
+    assert "untangle" not in bake.frame_inputs(req, bake.START_RECOVERY_FRAMES + 20)
+
+
+@needs_engine
+def test_fit_pose_bake_hides_the_lead_in_and_resumes_bit_identically(tmp_path):
+    ref = _lead_request(tmp_path / "ref")
+    r = _run(ref)
+    assert r.error is None, r.error and (r.error.code, str(r.error), r.error.details)
+    for c in ref.cloths:
+        header = pc2.read_header(c.pc2_path)
+        assert header.frame_count == ref.output_count == 37
+        first = np.frombuffer(c.pc2_path.read_bytes()[32:32 + len(c.rest_local) * 12], "<f4").reshape(-1, 3)
+        assert not np.array_equal(first, c.rest_local)   # sample 0 = the state after the lead-in
+    req = _lead_request(tmp_path / "run")
+    procs = []
+    run = bake.BakeRunner(req, Path(ENGINE), on_process=procs.append)
+    deadline = time.monotonic() + 120
+    while run.progress.frames_done < 28 and time.monotonic() < deadline and not run.done:
+        time.sleep(0.01)
+    procs[0].proc.kill()
+    run.join(60)
+    assert run.error is not None and run.error.code == "CNX-E164"
+    resumed = _run(req, resume=True)
+    assert resumed.error is None, (resumed.error.code, str(resumed.error))
+    assert resumed.progress.verified >= 1
+    for a, b in zip(ref.cloths, req.cloths):
+        assert a.pc2_path.read_bytes() == b.pc2_path.read_bytes()

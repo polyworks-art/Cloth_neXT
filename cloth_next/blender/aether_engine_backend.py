@@ -532,9 +532,40 @@ class AetherPreparation:
             self.seams = _sewing(scene, index_of, object_ids,
                                  {i: c.material for i, c in enumerate(self.cloths)}, self.fps)
             self.seams = self.seams + self._attachments(scene, object_ids, index_of, depsgraph)
+            self._capture_fit_pose(scene, context)
         except Exception:
             self.close()
             raise
+
+    def _capture_fit_pose(self, scene, context) -> None:
+        """Fit Pose (bakes): the animated colliders and pin targets at the Fit Frame (see BakeRequest.lead_in)."""
+        self.lead_in = 0
+        self.fit_note = ""
+        self.fit_colliders: list = []
+        self.fit_cloth_pins: dict = {}
+        self.fit_attachments: list = []
+        settings = getattr(scene, "cloth_next_solver", None)
+        if self.live or settings is None or not bool(getattr(settings, "aether_fit_pose", False)):
+            return
+        fit = int(getattr(settings, "aether_fit_frame", 0))
+        if fit == self.start_frame or not any(c["animated"] for c in self.colliders):
+            return
+        scene.frame_set(fit)
+        try:
+            depsgraph = context.evaluated_depsgraph_get()
+            self.fit_colliders = [_evaluated_world(c["obj"], depsgraph, c["count"]) if c["animated"] else None
+                                  for c in self.colliders]
+            for i, c in enumerate(self.cloths):
+                if c.follow and len(c.pin_vertices):
+                    world = _evaluated_world(c.entry.obj, depsgraph, len(c.local))
+                    self.fit_cloth_pins[i] = world[c.pin_vertices].astype(np.float32)
+            self.fit_attachments = [self.attachment_targets(a, depsgraph).astype(np.float32)
+                                    for a in self.attachments]
+        finally:
+            scene.frame_set(self.start_frame)
+        self.lead_in = int(getattr(settings, "aether_fit_transition", 20))
+        self.fit_note = (f"Fit Pose: the body moved from frame {fit} into its start pose over "
+                         f"{self.lead_in} hidden frames")
 
     def _attachments(self, scene, object_ids: dict, index_of: dict, depsgraph) -> tuple:
         """Object Attachments as AETHER constraints (the bound points stored on each attachment).
@@ -726,6 +757,8 @@ class AetherPreparation:
     def request(self) -> abake.BakeRequest:
         cloths = []
         pins = []
+        lead_pins = []
+        lead_in = int(getattr(self, "lead_in", 0))
         for i, c in enumerate(self.cloths):
             drape = self.drape_world[i] if i < len(self.drape_world) else None
             start_local = None
@@ -740,10 +773,13 @@ class AetherPreparation:
                 targets = (np.stack(c.pin_targets).astype(np.float32)
                            if c.follow and c.pin_targets else None)
                 pins.append(abake.PinTrack(i, c.pin_vertices, c.pin_stiffness, targets))
+                lead_pins.append(self.fit_cloth_pins.get(i) if lead_in and targets is not None else None)
         # Live sessions capture no timeline: their animated inputs are sampled while they run.
-        for a in self.attachments:
+        for k, a in enumerate(self.attachments):
             pins.append(abake.PinTrack(a["cloth"], a["vertices"], a["stiffness"],
                                        np.stack(a["frames"]).astype(np.float32) if a["frames"] else None))
+            lead_pins.append(self.fit_attachments[k] if lead_in and a["frames"] and k < len(self.fit_attachments)
+                             else None)
         colliders = tuple(abake.ColliderInput(c["name"], c["triangles"], c["world"],
                                               np.stack(c["frames"]).astype(np.float32)
                                               if c["animated"] and c["frames"] else None)
@@ -760,7 +796,10 @@ class AetherPreparation:
             experimental_recovery=os.environ.get("CLOTH_NEXT_AETHER_EXPERIMENTAL_RECOVERY") == "1",
             start_recovery=os.environ.get("CLOTH_NEXT_AETHER_START_RECOVERY") != "0",
             wind=(tuple(self.wind_frames) if self.wind_animated and self.wind_frames
-                  else (self.wind_static,) if self.wind_static is not None else ()))
+                  else (self.wind_static,) if self.wind_static is not None else ()),
+            lead_in=lead_in,
+            lead_colliders=tuple(self.fit_colliders) if lead_in else (),
+            lead_pins=tuple(lead_pins) if lead_in else ())
 
 
 # ------------------------------------------------------------------ playback attach
@@ -1030,6 +1069,8 @@ class AetherBakeJob:
                         f"{time.monotonic() - self.started:.1f} s"
                         + (f" (resumed at frame {self.request.frame_start + p.resumed_from}, "
                            f"{p.verified} frames verified)" if p.resumed_from is not None else "")
+                        + (" · " + self.preparation.fit_note
+                           if self.preparation is not None and getattr(self.preparation, "fit_note", "") else "")
                         + (" · Not enforced: " + "; ".join(self.preparation.notes)
                            if self.preparation is not None and self.preparation.notes else "")
                         + self._pinch_note())
