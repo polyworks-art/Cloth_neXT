@@ -20,6 +20,12 @@ derives them instead of copying numbers:
   sum of both half-gaps);
 * Rayleigh damping [s] = shape / fold damping (different formulation: approximate).
 
+* Permanent Stretch / Permanent Bends = the engine's plasticity (API 1.6),
+  the same dead-zone creep GAIA uses: rate per second, stretch threshold as a
+  fraction, bend threshold in radians;
+* Use Initial Bend Shape off = flat bending rest of the cloth (API 1.6);
+* Inflate Pressure [Pa] = the engine's pressure (API 1.6), same force as GAIA's.
+
 Everything else either has no AETHER equivalent and is refused when it is
 active (never silently approximated), or is reported as approximate.
 ``docs/AETHER_ENGINE_INTEGRATION.md`` lists the measured reference cases.
@@ -96,6 +102,23 @@ class AetherMaterial:
     friction: float
     thickness: float
     strain_limit: float = 0.0   # largest principal stretch above rest (0.05 = 5 %), 0 = none (engine API 1.3)
+    # engine API 1.6: Permanent Stretch / Permanent Bends (rates 1/s, 0 = off; thresholds: fraction, radians)
+    plastic_rate: float = 0.0
+    plastic_threshold: float = 0.0
+    bend_plastic_rate: float = 0.0
+    bend_plastic_threshold: float = 0.0
+    # engine API 1.6, per cloth (sent beside the material, see cloth_protocol): flat bending rest, pressure [Pa]
+    flat_bending_rest: bool = False
+    pressure: float = 0.0
+
+    def cloth_protocol(self) -> dict:
+        """The cloth-level fields of a create_session cloth (not part of a zone material)."""
+        out = {}
+        if self.flat_bending_rest:
+            out["flat_bending_rest"] = True
+        if self.pressure > 0.0:
+            out["pressure"] = self.pressure
+        return out
 
     def as_protocol(self) -> dict:
         out = {"density": self.density, "youngs": self.youngs, "poisson": self.poisson,
@@ -104,6 +127,12 @@ class AetherMaterial:
                "friction": self.friction, "thickness": self.thickness}
         if self.strain_limit > 0.0:
             out["strain_limit"] = self.strain_limit
+        if self.plastic_rate > 0.0:
+            out["plastic_rate"] = self.plastic_rate
+            out["plastic_threshold"] = self.plastic_threshold
+        if self.bend_plastic_rate > 0.0:
+            out["bend_plastic_rate"] = self.bend_plastic_rate
+            out["bend_plastic_threshold"] = self.bend_plastic_threshold
         return out
 
 
@@ -124,6 +153,14 @@ FIELD_MAPPINGS = {
     "surface_grip": ("APPROXIMATE", "Coulomb coefficient = grip × 0.5; colliders use the cloth's value."),
     "collision_gap": ("APPROXIMATE", "Cloth half-gap = gap / 2; colliders use the cloth's gap."),
     "surface_offset": ("UNSUPPORTED", "No contact offset in AETHER: refused when non-zero."),
+    "stretch_plasticity": ("APPROXIMATE", "Engine plasticity (API 1.6), GAIA's dead-zone creep of the rest shape; "
+                                          "applied once per frame instead of every substep."),
+    "bend_plasticity": ("APPROXIMATE", "Engine bend plasticity (API 1.6), GAIA's dead-zone creep of the hinge "
+                                       "rest angles; applied once per frame instead of every substep."),
+    "bend_rest_from_geometry": ("EXACT", "Off: flat bending rest of the cloth (API 1.6). Edges where three or more "
+                                         "panels meet keep their initial angle, as in GAIA's builder."),
+    "inflate_pressure": ("APPROXIMATE", "Pressure [Pa] along each triangle's normal (API 1.6), GAIA's force; "
+                                        "evaluated at the start of each substep instead of implicitly."),
 }
 
 
@@ -133,14 +170,6 @@ def unsupported_controls(material) -> list[str]:
     model = str(getattr(material, "model", "FABRIC"))
     if model != "FABRIC":
         found.append("Shape-Preserving material model (AETHER simulates Fabric only)")
-    if getattr(material, "stretch_plasticity_enabled", False):
-        found.append("Permanent Stretch")
-    if getattr(material, "bend_plasticity_enabled", False):
-        found.append("Permanent Bends")
-    if not getattr(material, "bend_rest_from_geometry", True):
-        found.append("flat bend rest shape (AETHER always uses the initial shape)")
-    if getattr(material, "enable_inflate", False) and float(getattr(material, "inflate_pressure", 0.0)) != 0.0:
-        found.append("Inflate / Pressure")
     if float(getattr(material, "shrink_percent", 0.0)) != 0.0:
         found.append("Shrink")
     if float(getattr(material, "surface_offset", 0.0)) != 0.0:
@@ -219,7 +248,41 @@ def map_material(material, live: bool = False) -> AetherMaterial:
         stretch_damping=max(MIN_DAMPING, _finite("Shape Damping", material.shape_damping)),
         bend_damping=max(MIN_FOLD_DAMPING if live else 0.0, _finite("Fold Damping", material.fold_damping)),
         friction=max(0.0, _finite("Surface Grip", material.surface_grip)) * FRICTION_SCALE,
-        thickness=max(MIN_HALF_GAP, 0.5 * gap), strain_limit=strain_limit(material, live))
+        thickness=max(MIN_HALF_GAP, 0.5 * gap), strain_limit=strain_limit(material, live),
+        **plasticity(material), flat_bending_rest=not bool(getattr(material, "bend_rest_from_geometry", True)),
+        pressure=pressure(material))
+
+
+def plasticity(material) -> dict:
+    """Permanent Stretch / Permanent Bends as the engine's plasticity fields (API 1.6)."""
+    out = {}
+    if getattr(material, "stretch_plasticity_enabled", False):
+        rate = _finite("Stretch Creep Rate", getattr(material, "stretch_plasticity_rate", 0.0))
+        threshold = _finite("Stretch Threshold", getattr(material, "stretch_plasticity_threshold_percent", 0.0))
+        if rate < 0.0 or threshold < 0.0:
+            raise UnsupportedMaterial("Permanent Stretch rate and threshold must not be negative")
+        if rate > 0.0:
+            out["plastic_rate"] = rate
+            out["plastic_threshold"] = threshold / 100.0
+    if getattr(material, "bend_plasticity_enabled", False):
+        rate = _finite("Bend Creep Rate", getattr(material, "bend_plasticity_rate", 0.0))
+        threshold = _finite("Bend Threshold", getattr(material, "bend_plasticity_threshold_degrees", 0.0))
+        if rate < 0.0 or not 0.0 <= threshold <= 180.0:
+            raise UnsupportedMaterial("Permanent Bends rate must not be negative and its threshold must be 0-180°")
+        if rate > 0.0:
+            out["bend_plastic_rate"] = rate
+            out["bend_plastic_threshold"] = math.radians(threshold)
+    return out
+
+
+def pressure(material) -> float:
+    """Inflate Pressure [Pa] (0 when off), the same quantity GAIA receives."""
+    if not getattr(material, "enable_inflate", False):
+        return 0.0
+    value = _finite("Pressure", getattr(material, "inflate_pressure", 0.0))
+    if value < 0.0:
+        raise UnsupportedMaterial("Pressure must not be negative")
+    return value
 
 
 def seam_stiffness(strength: float, a: AetherMaterial, b: AetherMaterial) -> float:

@@ -165,6 +165,8 @@ def scene_digest(request: BakeRequest) -> str:
         h.update(c.uuid.encode())
         _digest_arrays(h, c.rest_world, c.triangles, c.registered_pins)
         h.update(json.dumps(c.material.as_protocol(), sort_keys=True).encode())
+        if c.material.cloth_protocol():   # engine API 1.6 cloth fields (absent: digest as before)
+            h.update(json.dumps(c.material.cloth_protocol(), sort_keys=True).encode())
         if c.triangle_zones is not None:
             h.update(json.dumps([z.as_protocol() for z in c.zones], sort_keys=True).encode())
             _digest_arrays(h, c.triangle_zones)
@@ -262,7 +264,7 @@ def start_positions(request: BakeRequest) -> np.ndarray | None:
 def session_cloth(c: ClothInput) -> dict:
     """One cloth of a create_session request (bake and Live)."""
     out = {"positions": c.rest_world, "triangles": c.triangles, "material": c.material.as_protocol(),
-           "pins": c.registered_pins if len(c.registered_pins) else None}
+           "pins": c.registered_pins if len(c.registered_pins) else None, **c.material.cloth_protocol()}
     if c.triangle_zones is not None:
         out["zones"] = [z.as_protocol() for z in c.zones]
         out["triangle_zones"] = c.triangle_zones

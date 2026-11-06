@@ -136,7 +136,10 @@ copied:
 | Surface Grip | Coulomb coefficient = grip × 0.5 (the coefficient the default solver receives) | approximate; colliders use the cloth's value |
 | Collision Gap | cloth half-gap = gap / 2 | approximate; colliders use the cloth's gap |
 | Stretch Limit | **not enforced**, reported (below); engine strain limiting (API 1.3) only with `CLOTH_NEXT_AETHER_STRAIN_LIMIT=1` | experimental |
-| Surface Offset, Shrink, Inflate / Pressure, Permanent Stretch or Bends, flat bend rest, Shape-Preserving model, loose-edge Sewing | **refused** | unsupported |
+| Permanent Stretch / Permanent Bends (rate, threshold) | engine plasticity (API 1.6): GAIA's dead-zone creep of the rest shape (principal stretches beyond the threshold, hinge angles beyond the bend threshold) at 1 - exp(-rate dt), once per frame instead of every substep | approximate |
+| Use Initial Bend Shape off | flat bending rest of the cloth (API 1.6); edges where 3+ panels meet keep their initial angle | exact |
+| Inflate Pressure (Pa) | pressure × area along each triangle's normal (API 1.6), GAIA's force, evaluated at each substep start | approximate |
+| Surface Offset, Shrink, Shape-Preserving model, loose-edge Sewing | **refused** | unsupported |
 | Sewing Strength 0–100 | seam stiffness = strength / 100 × 10 × mean membrane modulus (2μ+λ) of both panels | approximate |
 | Soft Pin pull strength | attachment stiffness = pull × 10 × (2μ+λ) | approximate |
 

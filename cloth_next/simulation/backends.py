@@ -87,7 +87,7 @@ AETHER_ENGINE_BACKEND = SolverBackendSpec(
     "Native GPU cloth engine for live simulation and baking",
     SolverCapabilities(
         live_preview=True, recovery=True, cloth=True, rods=False, soft_bodies=False,
-        rigid_bodies=False, mixed_simulation=False, pressure=False, sewing=True,
+        rigid_bodies=False, mixed_simulation=False, pressure=True, sewing=True,
         self_collision=True, animated_colliders=True, follow_animation_pins=True,
         gravity=True, wind=False),
     _aether_mappings())

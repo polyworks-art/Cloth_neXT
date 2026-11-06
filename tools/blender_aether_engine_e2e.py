@@ -250,6 +250,55 @@ def s_wind(out: Path):
     return r
 
 
+def _pc2_world(obj):
+    pc2 = importlib.import_module(f"{M}.bake.pc2")
+    frames = list(pc2.iter_frames(Path(bpy.path.abspath(next(
+        m for m in obj.modifiers if m.type == "MESH_CACHE").filepath))))
+    m = np.asarray(obj.matrix_world)
+    return [np.asarray(f) @ m[:3, :3].T + m[:3, 3] for f in frames]
+
+
+@scenario("inflate_permanent")
+def s_inflate_permanent(out: Path):
+    """Engine API 1.6 through the add-on: Inflate Pressure blows a closed balloon up; Permanent Stretch lets
+    a hanging sheet keep lengthening; Permanent Bends and a flat bend rest bake (no refusal)."""
+    import math
+    results = {}
+    for pressure in (0.0, 300.0):
+        clear_scene()
+        bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=3, radius=0.3, location=(0, 0, 1.5))
+        ball = make_cloth(bpy.context.object, out, 1, 24)
+        ball.name = "Balloon"
+        ball.cloth_next.pressure.enable_inflate = pressure > 0.0
+        ball.cloth_next.pressure.inflate_pressure = pressure
+        r = bake()
+        last = _pc2_world(ball)[-1]
+        results[f"balloon_{pressure:g}"] = {"state": r["state"], "message": r["message"],
+                                            "mean_radius": float(np.linalg.norm(last - last.mean(0), axis=1).mean())}
+    for plastic in (False, True):
+        clear_scene()
+        sheet = make_cloth(add_grid("Hang", 1.0, (0, 0, 1.5), 20, rotation=(math.pi / 2, 0.0, 0.0)), out, 1, 48)
+        pin(sheet, [i for i, v in enumerate(sheet.data.vertices) if (sheet.matrix_world @ v.co).z > 1.99])
+        mat = sheet.cloth_next.material
+        mat.stretch_plasticity_enabled = plastic
+        mat.stretch_plasticity_rate = 5.0
+        mat.stretch_plasticity_threshold_percent = 0.0
+        mat.bend_plasticity_enabled = plastic
+        mat.bend_rest_from_geometry = not plastic
+        r = bake()
+        last = _pc2_world(sheet)[-1]
+        results["plastic" if plastic else "elastic"] = {"state": r["state"], "message": r["message"],
+                                                         "lowest_z": float(last[:, 2].min())}
+    calm, blown = results["balloon_0"], results["balloon_300"]
+    elastic, plastic = results["elastic"], results["plastic"]
+    r = dict(results)
+    r["state"] = plastic["state"]
+    r["ok"] = (all(v["state"] == "FINISHED" for v in results.values())
+               and blown["mean_radius"] > calm["mean_radius"] * 1.01
+               and plastic["lowest_z"] < elastic["lowest_z"] - 0.002)
+    return r
+
+
 @scenario("animated_collider")
 def s_animated(out: Path):
     clear_scene()

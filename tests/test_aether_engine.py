@@ -102,8 +102,30 @@ def test_gaia_bending_factor_follows_mesh_resolution(monkeypatch):
     assert materials.gaia_bending_factor(0.0417) == 1.0
 
 
+def test_plasticity_flat_rest_and_pressure_map_to_engine_api_1_6():
+    import math
+    plain = materials.map_material(ShellMaterialSettings())
+    assert plain.cloth_protocol() == {}
+    assert not {"plastic_rate", "bend_plastic_rate"} & set(plain.as_protocol())
+    m = materials.map_material(ShellMaterialSettings(
+        stretch_plasticity_enabled=True, stretch_plasticity_rate=2.0, stretch_plasticity_threshold_percent=5.0,
+        bend_plasticity_enabled=True, bend_plasticity_rate=0.5, bend_plasticity_threshold_degrees=10.0,
+        bend_rest_from_geometry=False, enable_inflate=True, inflate_pressure=40.0))
+    proto = m.as_protocol()
+    assert proto["plastic_rate"] == pytest.approx(2.0) and proto["plastic_threshold"] == pytest.approx(0.05)
+    assert proto["bend_plastic_rate"] == pytest.approx(0.5)
+    assert proto["bend_plastic_threshold"] == pytest.approx(math.radians(10.0))
+    assert m.cloth_protocol() == {"flat_bending_rest": True, "pressure": pytest.approx(40.0)}
+    # switched off or zero: nothing is sent (scenes without them stay bit-identical)
+    off = materials.map_material(ShellMaterialSettings(stretch_plasticity_enabled=False, stretch_plasticity_rate=2.0,
+                                                       enable_inflate=False, inflate_pressure=40.0))
+    assert "plastic_rate" not in off.as_protocol() and off.cloth_protocol() == {}
+    assert materials.unsupported_controls(ShellMaterialSettings(
+        stretch_plasticity_enabled=True, bend_plasticity_enabled=True, bend_rest_from_geometry=False,
+        enable_inflate=True, inflate_pressure=1.0)) == []
+
+
 @pytest.mark.parametrize("change,label", [
-    ({"stretch_plasticity_enabled": True}, "Permanent Stretch"),
     ({"shrink_percent": 3.0}, "Shrink"),
     ({"surface_offset": 0.001}, "Surface Offset"),
     ({"model": "SHAPE_PRESERVING"}, "Shape-Preserving"),
