@@ -4,6 +4,7 @@
 
 - Shrink Warp / Weft (like Marvelous Designer's Shrinkage Warp and Weft): the Shrink panel now has Warp (along the grain, the UV map's V axis) and Weft (across it, U) on top of Uniform Shrink. GAIA and AETHER both simulate it; differing Warp and Weft need a UV map (PATTERN NeXt garments have one). AETHER eases the shrink in over the first second, so a garment tightens instead of snapping.
 - AETHER: Shrink and Surface Offset are simulated instead of refused. Surface Offset keeps the cloth that much farther from bodies and other garments (a 10 mm offset plus 5 mm on the floor rests the cloth 15 mm higher); a Collider's own Surface Offset adds to it, as in GAIA.
+- AETHER: cloth no longer falls through very large collider faces, such as Blender's default Plane used as a floor (one 4 m quad). Large faces are split internally; scenes without them are unchanged.
 
 ## 2.9.64 - 2026-11-05
 

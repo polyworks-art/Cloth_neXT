@@ -283,6 +283,25 @@ def s_shrink_offset(out: Path):
     return r
 
 
+@scenario("plane_floor")
+def s_plane_floor(out: Path):
+    """A sheet dropped onto Blender's default Plane (one 4 m quad) stays on it (before engine 43054d8 the
+    quad's two triangles were too large for the contact grid and the cloth fell through)."""
+    pc2 = importlib.import_module(f"{M}.bake.pc2")
+    clear_scene()
+    sheet = make_cloth(add_grid("Sheet", 1.0, (0, 0, 0.3), 20), out, 1, 36)
+    bpy.ops.mesh.primitive_plane_add(size=4.0, location=(0, 0, 0))
+    make_collider(bpy.context.object)
+    r = bake()
+    frames = list(pc2.iter_frames(Path(bpy.path.abspath(next(
+        m for m in sheet.modifiers if m.type == "MESH_CACHE").filepath))))
+    m = np.asarray(sheet.matrix_world)
+    last = np.asarray(frames[-1]) @ m[:3, :3].T + m[:3, 3]
+    r["min_z"] = float(last[:, 2].min())
+    r["ok"] = r["state"] == "FINISHED" and len(frames) == 36 and r["min_z"] > -0.002
+    return r
+
+
 @scenario("animated_collider")
 def s_animated(out: Path):
     clear_scene()
