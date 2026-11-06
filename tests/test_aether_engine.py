@@ -439,3 +439,25 @@ def test_collider_surface_offset_is_sent_and_digested(tmp_path):
     thick = replace(col, surface_offset=0.004)
     assert bake.session_collider(thick)["surface_offset"] == pytest.approx(0.004)
     assert bake.scene_digest(replace(req, colliders=(thick,))) != bake.scene_digest(req)
+
+
+@needs_engine
+def test_bake_with_shrink_and_surface_offset_runs_and_differs(tmp_path):
+    """Engine API 1.5 end to end: grain shrink + cloth and collider offsets reach the engine."""
+    from dataclasses import replace
+    plain = _request(tmp_path / "plain")
+    assert _run(plain).error is None
+    req = _request(tmp_path / "shrunk")
+    cloths = []
+    for c in req.cloths:
+        t = len(c.triangles) // 3
+        uv = c.rest_world[c.triangles][:, [0, 2]].astype(np.float32).reshape(-1)   # pattern = sheet's x, z
+        cloths.append(replace(c, material=replace(c.material, shrink_weft=0.9, shrink_warp=1.0,
+                                                  surface_offset=0.002), shrink_uv=uv))
+        assert len(uv) == t * 6
+    req = replace(req, cloths=tuple(cloths), colliders=(replace(req.colliders[0], surface_offset=0.003),))
+    r = _run(req)
+    assert r.error is None, r.error and (r.error.code, str(r.error), r.error.details)
+    a = plain.cloths[0].pc2_path.read_bytes()
+    b = req.cloths[0].pc2_path.read_bytes()
+    assert len(a) == len(b) and a != b
