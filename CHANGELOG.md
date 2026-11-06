@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.9.65 - 2026-11-06
+
+- AETHER Live (Grab Cloth): cloth lying close on the skin or on another garment now slides along when you pull it, instead of sticking as if it had extreme friction. Pulling the NEON top sideways under the arm (Fitting) left 165 overstretched edges after letting go, now 1; a pulled trouser front left 3 vertices stuck on the body, now 0. Bakes are unchanged.
+- AETHER Live: Grab Cloth switches itself back on when Blender ended it while the Live Simulation runs, and a Grab Cloth error now only ends that one pull (logged to cloth_next_grab_errors.txt in the temp folder).
+
 ## 2.9.64 - 2026-11-05
 
 - Shrink Warp / Weft (like Marvelous Designer's Shrinkage Warp and Weft): the Shrink panel now has Warp (along the grain, the UV map's V axis) and Weft (across it, U) on top of Uniform Shrink. GAIA and AETHER both simulate it; differing Warp and Weft need a UV map (PATTERN NeXt garments have one). AETHER eases the shrink in over the first second, so a garment tightens instead of snapping.

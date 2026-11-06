@@ -1,0 +1,45 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.65",
+  "title": "What's New in Cloth NeXt 2.9.65",
+  "subtitle": "AETHER: OGC, Fit Pose, Wind, Shrink, Inflate and a Grab that slides.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/check.png",
+      "title": "Wind for AETHER",
+      "description": "Force Empties blow the cloth in Live and in bakes: speed, gusts, turbulence and the same air field as the Wind preview."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Grab Cloth",
+      "description": "No stretch limit, the cloth slides along the skin as you pull, and Grab Cloth stays on for the whole Live Simulation."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Fewer crossed layers",
+      "description": "Cloth is moved ahead of a moving arm or leg before it gets caught, so fast motion leaves fewer layers crossed."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Clean starts",
+      "description": "Cloth that starts inside the body is pulled out in more cases, and Start from Fit Pose begins a bake from the pose the garment was made for."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Water settings",
+      "description": "GAIA Water Flow and TETHYS Wetness can stay on; the AETHER Engine simply ignores them."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}
