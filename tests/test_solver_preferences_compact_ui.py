@@ -286,7 +286,7 @@ def test_manage_menu_offers_downloadable_generations(blender_env, monkeypatch,
     }
     assert set(release_actions) == {"ppf-0.18-current", "ppf-0.22-gaia"}
     lumen_text, lumen = release_actions["ppf-0.18-current"]
-    assert lumen_text == "Install AETHER lumen-tag"
+    assert lumen_text == "Install Legacy lumen-tag"
     assert lumen.activate_after_install is False
     assert release_actions["ppf-0.22-gaia"][1].activate_after_install is True
 
@@ -364,11 +364,13 @@ def test_aether_row_offers_update_without_switching_selection(
     prefs._draw_solver_section(layout)
 
     labels = [text for text, _icon in layout.labels]
-    assert "AETHER" in labels and "GAIA" in labels
+    assert "AETHER" in labels and "GAIA" in labels and "Legacy (PPF)" in labels
+    assert any(text.startswith("AETHER Engine") and text.endswith("(bundled)") for text in labels)
     assert "old-tag installed" in labels
     updates = [(text, operator) for idname, text, operator, _enabled in layout.operators
                if idname == "clothnext.solver_download"]
-    assert [text for text, _operator in updates] == ["Update AETHER"]
+    # The update belongs to Legacy (the upstream PPF solver), never to the bundled AETHER Engine
+    assert [text for text, _operator in updates] == ["Update Legacy"]
     assert updates[0][1].release_id == "ppf-new"
     assert updates[0][1].activate_after_install is False
 
@@ -448,3 +450,42 @@ def test_reproducible_bake_shares_the_backend_row(
     ]
     assert not any(text.startswith("Slower.") for text, _icon in layout.labels)
     compact_ui.uninstall()
+
+
+def test_legacy_engine_item_selects_the_ppf_build_and_routes_to_ppf(blender_env, monkeypatch,
+                                                                      tmp_path):
+    """Tim (2.9.65): AETHER showed "Update" because the upstream PPF build still carried its
+    name. AETHER is the bundled engine; the PPF build is the separate Legacy item."""
+    from cloth_next.blender import preferences, solver_backends
+    from cloth_next.updater import engines
+    ppf = make_installation(tmp_path, installation_id="ppf", display_name="PPF",
+                            protocol="0.13", schema="2", release_tag="old-tag")
+    registry = SolverRegistry((ppf,), ppf.installation_id)
+    monkeypatch.setattr(preferences, "_read_registry", lambda: (registry, None))
+    monkeypatch.setattr(preferences, "_gaia_access_granted", lambda: False)
+    items = preferences._engine_items(None, None)
+    assert [item[0] for item in items] == [engines.AETHER, engines.LEGACY]
+    assert items[1][1] == "Legacy (PPF)"
+
+    prefs = preferences.CLOTHNEXT_AddonPreferences()
+    prefs.aether_engine_chosen, prefs.legacy_engine_chosen = False, False
+    assert preferences._engine_get(prefs) == 0          # default: the bundled AETHER Engine
+    preferences._engine_set(prefs, 2)
+    assert prefs.legacy_engine_chosen and not prefs.aether_engine_chosen
+    assert preferences._engine_get(prefs) == 2
+    preferences._engine_set(prefs, 0)
+    assert prefs.aether_engine_chosen and not prefs.legacy_engine_chosen
+    assert preferences._engine_get(prefs) == 0
+
+    for engine, backend in (("LEGACY", "PPF"), ("GAIA", "PPF"), ("AETHER", "AETHER_ENGINE")):
+        monkeypatch.setattr(solver_backends, "_preferences",
+                            lambda engine=engine: SimpleNamespace(solver_engine=engine))
+        assert solver_backends.active_backend_id(None).name == backend
+
+
+def test_legacy_item_hidden_without_a_ppf_build(blender_env, monkeypatch):
+    from cloth_next.blender import preferences
+    from cloth_next.updater import engines
+    monkeypatch.setattr(preferences, "_read_registry", lambda: (SolverRegistry(), None))
+    monkeypatch.setattr(preferences, "_gaia_access_granted", lambda: False)
+    assert [item[0] for item in preferences._engine_items(None, None)] == [engines.AETHER]

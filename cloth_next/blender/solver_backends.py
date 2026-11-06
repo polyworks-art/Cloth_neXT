@@ -29,7 +29,8 @@ def active_backend_id(scene) -> BackendId:
         engine = str(prefs.solver_engine)
     except (AttributeError, TypeError, ValueError):
         return BackendId.PPF
-    return BackendId.PPF if engine == "GAIA" else BackendId.AETHER_ENGINE
+    # GAIA and Legacy (the upstream PPF solver) bake through the PPF solver path
+    return BackendId.PPF if engine in ("GAIA", "LEGACY") else BackendId.AETHER_ENGINE
 
 
 def active_backend(scene):

@@ -142,7 +142,8 @@ _ENGINE_ITEMS: list = []
 
 
 def _engine_items(_self, _context):
-    """AETHER always; GAIA once a GAIA build is installed or access is known.
+    """AETHER always; GAIA once a GAIA build is installed or access is known;
+    Legacy (the upstream PPF solver) once one of its builds is installed.
 
     Visibility is only a convenience: the server and the installed build's
     identity decide whether GAIA can actually be installed or run.
@@ -154,6 +155,9 @@ def _engine_items(_self, _context):
     _ENGINE_ITEMS[:] = [(engines.AETHER, "AETHER", engines.ENGINE_DESCRIPTIONS[engines.AETHER], 0)]
     if show_gaia:
         _ENGINE_ITEMS.append((engines.GAIA, "GAIA", engines.ENGINE_DESCRIPTIONS[engines.GAIA], 1))
+    if engines.installations_for(registry, engines.AETHER):
+        _ENGINE_ITEMS.append((engines.LEGACY, engines.LEGACY_LABEL,
+                              engines.ENGINE_DESCRIPTIONS[engines.LEGACY], 2))
     return _ENGINE_ITEMS
 
 
@@ -166,7 +170,8 @@ def _gaia_access_granted() -> bool:
 
 
 def _engine_get(self) -> int:
-    """GAIA only while a GAIA build is selected and AETHER was not chosen since.
+    """GAIA only while a GAIA build is selected and AETHER was not chosen since;
+    Legacy only when the artist chose it and its PPF build is selected.
 
     AETHER is the native AETHER Engine (testing builds: it replaces the
     upstream PPF build that used this name). Existing GAIA selections stay GAIA."""
@@ -174,35 +179,45 @@ def _engine_get(self) -> int:
     if bool(getattr(self, "aether_engine_chosen", False)):
         return 0
     registry, _error = _read_registry()
-    return 1 if engines.selected_engine(registry) == engines.GAIA else 0
+    selected = engines.selected_engine(registry)
+    if selected == engines.GAIA:
+        return 1
+    if bool(getattr(self, "legacy_engine_chosen", False)) and selected == engines.AETHER:
+        return 2
+    return 0
 
 
 def _engine_set(self, value: int) -> None:
     """Switch engine only by explicit choice, to that engine's best healthy build."""
     from ..updater import engines
-    engine = engines.GAIA if value == 1 else engines.AETHER
     if _solver_session_active():
         _session.worker_error = "The solver engine cannot change while a Bake is active."
         return
-    if engine == engines.AETHER:
+    if value == 0:
         # The native AETHER Engine ships with Cloth NeXt: no installation to select.
         self.aether_engine_chosen = True
+        self.legacy_engine_chosen = False
         _session.worker_error = None
         return
+    # GAIA, or Legacy: the upstream PPF builds (internal engine id AETHER)
+    engine = engines.GAIA if value == 1 else engines.AETHER
+    legacy = value == 2
     registry, error = _read_registry()
     if error:
         _session.worker_error = error
         return
     if engines.selected_engine(registry) == engine:
         self.aether_engine_chosen = False
+        self.legacy_engine_chosen = legacy
         return
     if _solver_session_active():
         _session.worker_error = "The solver engine cannot change while a Bake is active."
         return
     target = engines.best_installation(registry, engine)
     if target is None:
+        name = engines.LEGACY_LABEL if legacy else engine
         _session.worker_error = (
-            f"{engine} is not installed. Install {engine} below; the current engine stays selected.")
+            f"{name} is not installed. Install {name} below; the current engine stays selected.")
         return
     try:
         write_registry(ManagedSolverPaths.default().registry_json,
@@ -212,6 +227,7 @@ def _engine_set(self, value: int) -> None:
         return
     self.selected_solver_installation_id = target.installation_id
     self.aether_engine_chosen = False
+    self.legacy_engine_chosen = legacy
     _session.worker_error = None
 
 
@@ -928,6 +944,9 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
         name="Engine", items=_engine_items, get=_engine_get, set=_engine_set,
         description="Solver engine for future Bakes. Changing it never happens "
                     "automatically and is locked while a Bake is active")
+    legacy_engine_chosen: bpy.props.BoolProperty(
+        name="Legacy engine chosen", default=False, options={"HIDDEN"},
+        description="The artist chose Legacy (the upstream PPF solver) in the Engine selector")
     aether_engine_chosen: bpy.props.BoolProperty(
         name="AETHER Engine chosen", default=False, options={"HIDDEN"},
         description="The artist chose AETHER (the native AETHER Engine) in the Engine selector")

@@ -49,9 +49,16 @@ REPRODUCIBLE_ENVIRONMENT = (
     ("PPF_REPRO_WALK_SPMV", "1"),
 )
 
+# The upstream PPF contact solver used to be offered as "AETHER". Its installations
+# keep the internal engine id AETHER (registry compatibility); the Engine selector
+# shows them as Legacy, and AETHER there is the native AETHER Engine bundled with
+# Cloth NeXt (no installation, no update).
+LEGACY = "LEGACY"
+LEGACY_LABEL = "Legacy (PPF)"
 ENGINE_DESCRIPTIONS = {
     AETHER: "AETHER Engine: native GPU cloth engine, no account needed (experimental)",
     GAIA: "PolyWorks' separately maintained patched PPF solver",
+    LEGACY: "Upstream PPF contact solver (the solver Cloth NeXt formerly called AETHER)",
 }
 
 

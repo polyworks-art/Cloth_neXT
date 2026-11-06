@@ -207,12 +207,14 @@ def _draw_engines(box, registry, supported, active, busy) -> None:
     from ..updater import engines
     box.separator()
     column = box.column()
-    _draw_aether_row(_engine_row(column, "AETHER"), registry, supported, active, busy)
+    _draw_native_aether_row(_engine_row(column, "AETHER"))
     column.separator()
     gaia = _engine_row(column, "GAIA")
     _draw_installed_gaia(gaia, registry, gaia_account.snapshot())
     installed = engines.best_installation(registry, engines.GAIA) is not None
     gaia_account.draw_gaia_rows(gaia, installed=installed)
+    column.separator()
+    _draw_aether_row(_engine_row(column, engines.LEGACY_LABEL), registry, supported, active, busy)
 
 
 def _draw_installed_gaia(column, registry, state) -> None:
@@ -225,7 +227,21 @@ def _draw_installed_gaia(column, registry, state) -> None:
         column.label(text=f"{build.version} installed", icon="CHECKMARK")
 
 
+def _draw_native_aether_row(column) -> None:
+    """The native AETHER Engine ships inside Cloth NeXt: its version, never an update."""
+    try:
+        import json
+        from ..aether_engine import engine as aengine
+        manifest = json.loads((aengine.extension_root() / aengine.MANIFEST).read_text("utf-8"))
+        text = f"AETHER Engine {manifest.get('engine_version', '?')} (bundled)"
+        icon = "CHECKMARK"
+    except Exception:  # noqa: BLE001 - shown, never raised in a draw
+        text, icon = "AETHER Engine (bundled)", "CHECKMARK"
+    column.label(text=text, icon=icon)
+
+
 def _draw_aether_row(column, registry, supported, active, busy) -> None:
+    """Legacy: the upstream PPF solver builds (internal engine id AETHER)."""
     from ..updater import engines
     installed = engines.best_installation(registry, engines.AETHER)
     installed_tags = {
@@ -250,7 +266,7 @@ def _draw_aether_row(column, registry, supported, active, busy) -> None:
     action.enabled = not busy
     operator = action.operator(
         "clothnext.solver_download",
-        text="Update AETHER" if installed is not None else "Install AETHER",
+        text="Update Legacy" if installed is not None else "Install Legacy",
     )
     operator.release_id = offer.release_id
     # Never switches an active selection; only fills an empty one.
@@ -334,7 +350,7 @@ class CLOTHNEXT_MT_solver_manage(bpy.types.Menu):
             if installed is None:
                 operator = release_row.operator(
                     "clothnext.solver_download",
-                    text=f"Install AETHER {entry.official_release_tag}",
+                    text=f"Install Legacy {entry.official_release_tag}",
                 )
                 operator.release_id = entry.release_id
                 preferred = _preferences._session.entry
