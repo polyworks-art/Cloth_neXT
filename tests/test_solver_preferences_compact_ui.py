@@ -483,9 +483,14 @@ def test_legacy_engine_item_selects_the_ppf_build_and_routes_to_ppf(blender_env,
         assert solver_backends.active_backend_id(None).name == backend
 
 
-def test_legacy_item_hidden_without_a_ppf_build(blender_env, monkeypatch):
+def test_legacy_item_listed_without_a_ppf_build_and_asks_to_install(blender_env, monkeypatch):
     from cloth_next.blender import preferences
     from cloth_next.updater import engines
     monkeypatch.setattr(preferences, "_read_registry", lambda: (SolverRegistry(), None))
     monkeypatch.setattr(preferences, "_gaia_access_granted", lambda: False)
-    assert [item[0] for item in preferences._engine_items(None, None)] == [engines.AETHER]
+    assert [item[0] for item in preferences._engine_items(None, None)] == [engines.AETHER, engines.LEGACY]
+    prefs = preferences.CLOTHNEXT_AddonPreferences()
+    prefs.aether_engine_chosen, prefs.legacy_engine_chosen = True, False
+    preferences._engine_set(prefs, 2)
+    assert "Legacy (PPF) is not installed" in preferences._session.worker_error
+    assert preferences._engine_get(prefs) == 0

@@ -143,7 +143,7 @@ _ENGINE_ITEMS: list = []
 
 def _engine_items(_self, _context):
     """AETHER always; GAIA once a GAIA build is installed or access is known;
-    Legacy (the upstream PPF solver) once one of its builds is installed.
+    Legacy (the upstream PPF solver) always, installed or not.
 
     Visibility is only a convenience: the server and the installed build's
     identity decide whether GAIA can actually be installed or run.
@@ -155,9 +155,9 @@ def _engine_items(_self, _context):
     _ENGINE_ITEMS[:] = [(engines.AETHER, "AETHER", engines.ENGINE_DESCRIPTIONS[engines.AETHER], 0)]
     if show_gaia:
         _ENGINE_ITEMS.append((engines.GAIA, "GAIA", engines.ENGINE_DESCRIPTIONS[engines.GAIA], 1))
-    if engines.installations_for(registry, engines.AETHER):
-        _ENGINE_ITEMS.append((engines.LEGACY, engines.LEGACY_LABEL,
-                              engines.ENGINE_DESCRIPTIONS[engines.LEGACY], 2))
+    # always listed (Tim, 2.9.65); choosing it without a build says to install it below
+    _ENGINE_ITEMS.append((engines.LEGACY, engines.LEGACY_LABEL,
+                          engines.ENGINE_DESCRIPTIONS[engines.LEGACY], 2))
     return _ENGINE_ITEMS
 
 
