@@ -448,6 +448,24 @@ class CLOTHNEXT_PG_pressure_settings(bpy.types.PropertyGroup):
                     "values expand/pre-stretch it. +10% gives 90% rest size; "
                     "-10% gives 110% rest size. Cannot be combined with an "
                     "enabled non-zero Stretch Limit")
+    shrink_warp_percent: bpy.props.FloatProperty(
+        name="Warp", default=0.0, min=-100.0, max=90.0,
+        soft_min=-50.0, soft_max=25.0,
+        precision=2, subtype="PERCENTAGE", update=_on_settings_update,
+        description="Shrinkage along the grain (warp threads, the UV map's V "
+                    "axis), on top of Uniform Shrink. +10% gives 90% rest "
+                    "length along the grain; -10% gives 110%. Like Marvelous "
+                    "Designer's Shrinkage Warp. Needs a UV map when Warp and "
+                    "Weft differ")
+    shrink_weft_percent: bpy.props.FloatProperty(
+        name="Weft", default=0.0, min=-100.0, max=90.0,
+        soft_min=-50.0, soft_max=25.0,
+        precision=2, subtype="PERCENTAGE", update=_on_settings_update,
+        description="Shrinkage across the grain (weft threads, the UV map's U "
+                    "axis), on top of Uniform Shrink. +10% gives 90% rest "
+                    "width across the grain; -10% gives 110%. Like Marvelous "
+                    "Designer's Shrinkage Weft. Needs a UV map when Warp and "
+                    "Weft differ")
     sewing_enabled: bpy.props.BoolProperty(
         name="Sewing", default=False, update=_on_settings_update,
         description="Treat edges that are not used by any face as Sewing "
@@ -1257,6 +1275,8 @@ def shell_settings_from(settings) -> ShellMaterialSettings:
         enable_inflate=bool(settings.pressure.enable_inflate),
         inflate_pressure=float(settings.pressure.inflate_pressure),
         shrink_percent=float(settings.pressure.shrink_percent),
+        shrink_warp_percent=float(getattr(settings.pressure, "shrink_warp_percent", 0.0)),
+        shrink_weft_percent=float(getattr(settings.pressure, "shrink_weft_percent", 0.0)),
         sewing_enabled=bool(settings.pressure.sewing_enabled),
         sewing_stiffness=float(settings.pressure.sewing_stiffness))
 

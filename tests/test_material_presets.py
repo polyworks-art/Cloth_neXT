@@ -60,7 +60,8 @@ def test_pure_material_models_use_artist_facing_field_contract():
         "fold_damping", "surface_grip", "collision_gap",
         "surface_offset", "stretch_limit_enabled",
         "maximum_stretch_percent", "enable_inflate", "inflate_pressure",
-        "shrink_percent", "sewing_enabled", "sewing_stiffness",
+        "shrink_percent", "shrink_warp_percent", "shrink_weft_percent",
+        "sewing_enabled", "sewing_stiffness",
     ]
     assert [field.name for field in fields(StaticMaterialSettings)] == [
         "surface_grip", "collision_gap", "surface_offset",

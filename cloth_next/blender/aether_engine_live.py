@@ -91,7 +91,7 @@ class LiveSession:
                 self_collision=request.self_collision,
                 air_damping=LIVE_AIR_DAMPING.get(str(self.quality).lower(), LIVE_AIR_DAMPING["normal"]),
                 cloths=[abake.session_cloth(c) for c in request.cloths],
-                meshes=[{"vertices": c.rest_world, "triangles": c.triangles} for c in request.colliders])
+                meshes=[abake.session_collider(c) for c in request.colliders])
             setup: dict = {}
             adds, next_id = [], 1
             for p in request.pins:

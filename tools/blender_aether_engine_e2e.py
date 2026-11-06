@@ -250,6 +250,58 @@ def s_wind(out: Path):
     return r
 
 
+@scenario("shrink_offset")
+def s_shrink_offset(out: Path):
+    """Engine API 1.5: Shrink Weft 20 % narrows a falling sheet along its UV U axis (world X) only; Surface
+    Offset 10 mm on the cloth + 5 mm on the floor lifts the resting sheet by ~15 mm."""
+    pc2 = importlib.import_module(f"{M}.bake.pc2")
+    results = {}
+    for label, weft, offset, floor_offset in (("plain", 0.0, 0.0, 0.0), ("shrunk", 20.0, 0.0, 0.0),
+                                              ("offset", 0.0, 0.01, 0.005)):
+        clear_scene()
+        sheet = make_cloth(add_grid("Sheet", 1.0, (0, 0, 0.3), 20), out, 1, 48)
+        sheet.cloth_next.material.stretch_limit_enabled = False
+        sheet.cloth_next.pressure.shrink_weft_percent = weft
+        sheet.cloth_next.collision.surface_offset = offset
+        floor = make_collider(add_grid("Floor", 3.0, (0, 0, 0), 30))
+        floor.cloth_next.collision.surface_offset = floor_offset
+        r = bake()
+        frames = list(pc2.iter_frames(Path(bpy.path.abspath(next(
+            m for m in sheet.modifiers if m.type == "MESH_CACHE").filepath))))
+        m = np.asarray(sheet.matrix_world)
+        last = np.asarray(frames[-1]) @ m[:3, :3].T + m[:3, 3]
+        results[label] = {"state": r["state"], "message": r["message"], "frames": len(frames),
+                          "extent_x": float(np.ptp(last[:, 0])), "extent_y": float(np.ptp(last[:, 1])),
+                          "mean_z": float(last[:, 2].mean())}
+    plain, shrunk, lifted = results["plain"], results["shrunk"], results["offset"]
+    r = {"plain": plain, "shrunk": shrunk, "offset": lifted, "state": shrunk["state"],
+         "lift_mm": round(1000.0 * (lifted["mean_z"] - plain["mean_z"]), 2)}
+    r["ok"] = (plain["state"] == shrunk["state"] == lifted["state"] == "FINISHED"
+               and abs(shrunk["extent_x"] / plain["extent_x"] - 0.8) < 0.05
+               and abs(shrunk["extent_y"] / plain["extent_y"] - 1.0) < 0.06
+               and 12.0 < r["lift_mm"] < 18.0)
+    return r
+
+
+@scenario("plane_floor")
+def s_plane_floor(out: Path):
+    """A sheet dropped onto Blender's default Plane (one 4 m quad) stays on it (before engine 43054d8 the
+    quad's two triangles were too large for the contact grid and the cloth fell through)."""
+    pc2 = importlib.import_module(f"{M}.bake.pc2")
+    clear_scene()
+    sheet = make_cloth(add_grid("Sheet", 1.0, (0, 0, 0.3), 20), out, 1, 36)
+    bpy.ops.mesh.primitive_plane_add(size=4.0, location=(0, 0, 0))
+    make_collider(bpy.context.object)
+    r = bake()
+    frames = list(pc2.iter_frames(Path(bpy.path.abspath(next(
+        m for m in sheet.modifiers if m.type == "MESH_CACHE").filepath))))
+    m = np.asarray(sheet.matrix_world)
+    last = np.asarray(frames[-1]) @ m[:3, :3].T + m[:3, 3]
+    r["min_z"] = float(last[:, 2].min())
+    r["ok"] = r["state"] == "FINISHED" and len(frames) == 36 and r["min_z"] > -0.002
+    return r
+
+
 @scenario("fit_pose")
 def s_fit_pose(out: Path):
     """A ball under a sheet at the Fit Frame (0) and 50 cm higher, through the sheet, at the start (1):

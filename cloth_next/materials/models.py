@@ -65,6 +65,10 @@ class ShellMaterialSettings:
     enable_inflate: bool = False          # object-specific pressure toggle
     inflate_pressure: float = 0.0         # -> PPF pressure
     shrink_percent: float = 0.0           # signed % -> PPF shrink-x/y
+    # Marvelous-style Shrinkage Warp / Weft (signed %, on top of the uniform Shrink): warp runs along the
+    # grain = the UV map's V axis, weft across it = U. GAIA: shrink-y / shrink-x; AETHER: engine API 1.5.
+    shrink_warp_percent: float = 0.0
+    shrink_weft_percent: float = 0.0
     sewing_enabled: bool = False          # loose edges -> PPF stitches
     sewing_stiffness: float = 100.0       # -> PPF stitch-stiffness
 

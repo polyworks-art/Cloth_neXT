@@ -98,7 +98,8 @@ def shell_wire_params(shell: ShellMaterialSettings) -> dict[str, object]:
     division (see the module docstring).
     """
     validate_shell_values(shell)
-    shrink_factor = 1.0 - shell.shrink_percent / 100.0
+    from ...materials.formatting import shrink_factors
+    shrink_x, shrink_y = shrink_factors(shell)   # x = weft (UV U), y = warp (UV V)
     strain_limit = (shell.maximum_stretch_percent / 100.0
                     if shell.stretch_limit_enabled else 0.0)
     return {
@@ -126,8 +127,8 @@ def shell_wire_params(shell: ShellMaterialSettings) -> dict[str, object]:
         "contact-gap": float32_wire(shell.collision_gap),
         "contact-offset": float32_wire(shell.surface_offset),
         "strain-limit": float32_wire(strain_limit),
-        "shrink-x": float32_wire(shrink_factor),
-        "shrink-y": float32_wire(shrink_factor),
+        "shrink-x": float32_wire(shrink_x),
+        "shrink-y": float32_wire(shrink_y),
         "pressure": float32_wire(shell.inflate_pressure
                                  if shell.enable_inflate else 0.0),
         "stitch-stiffness": float32_wire(shell.sewing_stiffness),

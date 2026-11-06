@@ -255,6 +255,30 @@ def _evaluated(obj, depsgraph) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     return local, world, tris
 
 
+def _triangle_uvs(obj, depsgraph, triangle_count: int) -> np.ndarray | None:
+    """(T*6,) float32 active-UV coordinates of each loop triangle's corners (the grain for Shrink Warp /
+    Weft: warp = V, weft = U), aligned with ``_evaluated``'s triangles; None without a usable UV map."""
+    evaluated = obj.evaluated_get(depsgraph)
+    mesh = evaluated.to_mesh()
+    try:
+        layer = getattr(getattr(mesh, "uv_layers", None), "active", None)
+        if layer is None or not len(layer.data):
+            return None
+        mesh.calc_loop_triangles()
+        if len(mesh.loop_triangles) != triangle_count:
+            return None
+        loops = np.empty(triangle_count * 3, np.int32)
+        mesh.loop_triangles.foreach_get("loops", loops)
+        uv = np.empty(len(layer.data) * 2, np.float32)
+        layer.data.foreach_get("uv", uv)
+    finally:
+        evaluated.to_mesh_clear()
+    out = uv.reshape(-1, 2)[loops].reshape(-1)
+    if not np.isfinite(out).all():
+        return None
+    return np.ascontiguousarray(out, np.float32)
+
+
 def _evaluated_world(obj, depsgraph, count: int) -> np.ndarray:
     evaluated = obj.evaluated_get(depsgraph)
     mesh = evaluated.to_mesh()
@@ -336,6 +360,7 @@ class _ClothCapture:
     meta: dict
     zones: tuple = ()                   # ((zone name, AetherMaterial), ...)
     triangle_zones: np.ndarray | None = None
+    shrink_uv: np.ndarray | None = None  # (T*6,) float32 grain (UV) per triangle corner, engine API 1.5
 
 
 def _frames(corners: np.ndarray) -> np.ndarray:
@@ -508,6 +533,14 @@ class AetherPreparation:
                     from dataclasses import replace as _replace
                     material = _replace(material, bend=material.bend * factor)
                     zones = tuple((name, _replace(z, bend=z.bend * factor)) for name, z in zones)
+                shrink_uv = None
+                if any(m.shrink_weft != m.shrink_warp for m in (material,) + tuple(z for _n, z in zones)):
+                    shrink_uv = _triangle_uvs(obj, depsgraph, len(tris) // 3)
+                    if shrink_uv is None:
+                        raise AetherSceneError(
+                            f"{obj.name}: Shrink Warp and Weft differ, but the mesh has no usable UV map. Warp "
+                            "follows the UV map's V axis (the grain) and Weft its U axis: add a UV map (PATTERN "
+                            "NeXt garments have one) or use the same value for Warp and Weft.", "CNX-E104")
                 uuid = export_uuid(obj)
                 object_ids[str(obj.cloth_next.persistent_export_id)] = obj
                 matrix = np.array(obj.matrix_world, dtype=np.float64)
@@ -515,7 +548,7 @@ class AetherPreparation:
                 meta = self._meta(entry, material, len(local), zones, triangle_zones)
                 self.cloths.append(_ClothCapture(obj.name, uuid, entry, local, world, tris, matrix, material,
                                                  registered, pin_vertices, stiffness, follow, [], pc2_path, meta,
-                                                 zones, triangle_zones))
+                                                 zones, triangle_zones, shrink_uv))
                 drape = drapes.get(obj.name)
                 if drape is not None and len(drape) != len(local):
                     raise AetherSceneError(f"{obj.name}: the stored drape does not match the mesh; use Clear Drape",
@@ -526,8 +559,13 @@ class AetherPreparation:
             for obj in snapshot.collider_objs:
                 local, world, tris = _evaluated(obj, depsgraph)
                 animated = str(object_properties.collider_motion_from(obj.cloth_next)) == "ANIMATED"
+                offset = float(object_properties.static_settings_from(obj.cloth_next).surface_offset)
+                if not (0.0 <= offset <= 1.0):
+                    raise AetherSceneError(f"{obj.name}: Surface Offset must be between 0 and 1 m for AETHER",
+                                           "CNX-E104")
                 self.colliders.append({"name": obj.name, "obj": obj, "world": world, "triangles": tris,
-                                       "animated": animated, "frames": [], "count": len(world)})
+                                       "animated": animated, "frames": [], "count": len(world),
+                                       "surface_offset": offset})
             index_of = {self.cloths[i].entry.obj: i for i in range(len(self.cloths))}
             self.seams = _sewing(scene, index_of, object_ids,
                                  {i: c.material for i, c in enumerate(self.cloths)}, self.fps)
@@ -768,7 +806,7 @@ class AetherPreparation:
             cloths.append(abake.ClothInput(c.uuid, c.obj_name, c.world, c.local, c.triangles, c.matrix,
                                            c.material, c.registered, c.pc2_path, c.meta,
                                            tuple(z for _name, z in c.zones), c.triangle_zones,
-                                           drape, start_local))
+                                           drape, start_local, c.shrink_uv))
             if len(c.pin_vertices):
                 targets = (np.stack(c.pin_targets).astype(np.float32)
                            if c.follow and c.pin_targets else None)
@@ -782,7 +820,8 @@ class AetherPreparation:
                              else None)
         colliders = tuple(abake.ColliderInput(c["name"], c["triangles"], c["world"],
                                               np.stack(c["frames"]).astype(np.float32)
-                                              if c["animated"] and c["frames"] else None)
+                                              if c["animated"] and c["frames"] else None,
+                                              float(c.get("surface_offset", 0.0)))
                           for c in self.colliders)
         first = self.cloths[0].pc2_path.parent
         folder = first / f"cn_aether_recovery_{self.cloths[0].uuid[:16]}"

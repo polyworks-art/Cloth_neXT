@@ -70,6 +70,7 @@ class ClothInput:
     triangle_zones: np.ndarray | None = None     # (T,) int32, 0 = base material
     start_world: np.ndarray | None = None        # (V, 3) float32: kept drape the simulation starts from
     start_local: np.ndarray | None = None        # the same in object space (PC2 sample 0)
+    shrink_uv: np.ndarray | None = None          # (T*6,) float32 UV of each triangle's corners (engine API 1.5)
 
 
 @dataclass(frozen=True)
@@ -78,6 +79,7 @@ class ColliderInput:
     triangles: np.ndarray           # (T*3,) int32
     rest_world: np.ndarray          # (V, 3) float32 at frame_start
     frames: np.ndarray | None       # (F, V, 3) float32 at frame_start+1 .. frame_end; None: static
+    surface_offset: float = 0.0     # m, the collider's Surface Offset (engine API 1.5)
 
 
 @dataclass(frozen=True)
@@ -187,8 +189,18 @@ def scene_digest(request: BakeRequest) -> str:
         if c.start_world is not None:
             h.update(b"drape")
             _digest_arrays(h, c.start_world)
+        factors = shrink_factors(c)   # engine API 1.5 (only when set: older bakes keep their digest)
+        if factors is not None:
+            h.update(b"shrink")
+            _digest_arrays(h, factors)
+            if c.shrink_uv is not None and needs_grain(c):
+                _digest_arrays(h, c.shrink_uv)
+        if surface_offset(c) > 0.0:
+            h.update(f"offset {surface_offset(c)!r}".encode())
     for c in request.colliders:
         _digest_arrays(h, c.triangles, c.rest_world)
+        if c.surface_offset > 0.0:
+            h.update(f"offset {c.surface_offset!r}".encode())
     for s in request.seams:
         h.update(json.dumps([s.cloth_a, s.cloth_b, s.chain_a, s.chain_b, s.stiffness, s.closure_frames,
                              s.closing]).encode())
@@ -306,6 +318,30 @@ def start_positions(request: BakeRequest) -> np.ndarray | None:
                            for c in request.cloths]).astype(np.float32)
 
 
+def shrink_factors(c: ClothInput) -> np.ndarray | None:
+    """(T*2,) float32 (weft, warp) rest-size factors per triangle (engine API 1.5); None: no shrink.
+
+    Material Zones carry their own Shrink; triangles outside every zone use the cloth's."""
+    mats = (c.material,) + tuple(c.zones)
+    if not any(m.shrinks for m in mats):
+        return None
+    table = np.array([[m.shrink_weft, m.shrink_warp] for m in mats], np.float32)
+    count = len(c.triangles) // 3
+    index = (np.zeros(count, np.int64) if c.triangle_zones is None
+             else np.asarray(c.triangle_zones, np.int64))
+    return np.ascontiguousarray(table[index].reshape(-1))
+
+
+def needs_grain(c: ClothInput) -> bool:
+    """Some triangle shrinks differently along warp and weft (the UV map gives the grain)."""
+    return any(m.shrink_weft != m.shrink_warp for m in (c.material,) + tuple(c.zones))
+
+
+def surface_offset(c: ClothInput) -> float:
+    """The cloth's Surface Offset (engine API 1.5: one per cloth; with zones the largest)."""
+    return max(m.surface_offset for m in (c.material,) + tuple(c.zones))
+
+
 def session_cloth(c: ClothInput) -> dict:
     """One cloth of a create_session request (bake and Live)."""
     out = {"positions": c.rest_world, "triangles": c.triangles, "material": c.material.as_protocol(),
@@ -313,6 +349,22 @@ def session_cloth(c: ClothInput) -> dict:
     if c.triangle_zones is not None:
         out["zones"] = [z.as_protocol() for z in c.zones]
         out["triangle_zones"] = c.triangle_zones
+    factors = shrink_factors(c)
+    if factors is not None:
+        out["shrink"] = factors
+        if c.shrink_uv is not None and needs_grain(c):
+            out["shrink_uv"] = np.ascontiguousarray(c.shrink_uv, np.float32).reshape(-1)
+    offset = surface_offset(c)
+    if offset > 0.0:
+        out["surface_offset"] = float(offset)
+    return out
+
+
+def session_collider(c: ColliderInput) -> dict:
+    """One mesh collider of a create_session request."""
+    out = {"vertices": c.rest_world, "triangles": c.triangles}
+    if c.surface_offset > 0.0:
+        out["surface_offset"] = float(c.surface_offset)
     return out
 
 
@@ -486,7 +538,7 @@ class BakeRunner:
             session = e.create_session(mode="bake", quality=req.quality, fps=req.fps, gravity=req.gravity,
                                        self_collision=req.self_collision,
                                        cloths=[session_cloth(c) for c in req.cloths],
-                                       meshes=[{"vertices": start_collider(req, i), "triangles": c.triangles}
+                                       meshes=[{**session_collider(c), "vertices": start_collider(req, i)}
                                                for i, c in enumerate(req.colliders)],
                                        start_positions=start_positions(req))
             self.timings["engine_startup_s"] = time.monotonic() - t0
