@@ -13,7 +13,7 @@ copyright = ["2026 Tim Christmann and Cloth NeXt contributors"]
 platforms = ["windows-x64", "linux-x64"]
 
 [permissions]
-network = "Download explicitly selected external solver dependencies"
+network = "Download selected solver dependencies, send opt-in diagnostics"
 files = "Manage the separate solver installation outside the extension"
 
 [build]
