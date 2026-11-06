@@ -64,6 +64,9 @@ class LiveSession:
         self.attached: list = []
         self.prep = prep
         self.last_frame_seen = -1
+        self.seam_ramp = []            # (engine seam id, closure frames) of seams still closing
+        self._seam_progress_frame = -1
+        self._seams_closed = False
         self.last_timeline = None
         self.paused = True
         self.message = ""
@@ -106,10 +109,16 @@ class LiveSession:
                     self.attached.append((attached, ids))
             if adds:
                 setup["pin_add"] = adds
+            # Seams close gradually, as in a Bake: at full strength from the first step a seam
+            # yanked its edge across the gap ahead of the rest of the panel (two flat panels
+            # 40 cm apart stretched 5.8x). From a kept drape they are already sewn.
+            sewn = any(d is not None for d in prep.drape_world)
+            self.seam_ramp = [(i + 1, max(1, int(s.closure_frames))) for i, s in enumerate(request.seams)
+                              if s.closing and not sewn]
             if request.seams:
                 setup["seam_add"] = [{"cloth_a": s.cloth_a, "cloth_b": s.cloth_b, "chain_a": list(s.chain_a),
                                       "chain_b": list(s.chain_b), "stiffness": s.stiffness,
-                                      "progress": 1.0 if s.closing else 0.0}
+                                      "progress": 1.0 if s.closing and sewn else 0.0}
                                      for s in request.seams]
             if request.wind:   # engine API 1.4: the scene's Wind (gusts follow in tick)
                 setup["wind"] = request.wind[0]
@@ -247,6 +256,10 @@ class LiveSession:
     def reset(self) -> None:
         self.pause()
         self.command("reset")
+        self._seam_progress_frame = -1
+        self._seams_closed = False
+        if self.seam_ramp:
+            self.command("set_inputs", {"seam_progress": seam_progress(self.seam_ramp, -1)})
         if self.start_state is not None:
             try:
                 self._send_start_state()
@@ -321,6 +334,7 @@ class LiveSession:
                                      gust_frame=self.prep.start_frame + max(0, self.last_frame_seen))
             if wind is not None:
                 self.command("set_inputs", {"wind": wind})
+        self._ramp_seams()
         self.drew = False
         writes = self.session.frames.write_count
         if writes == self._last_write:
@@ -357,6 +371,16 @@ class LiveSession:
             if PROFILE:
                 self.profile = {"read_ms": (t1 - t0) * 1000.0, "write_ms": (time.perf_counter() - t1) * 1000.0}
         return True
+
+    def _ramp_seams(self) -> None:
+        """Close the seams over their closure time of simulated frames (Bake behaviour)."""
+        frame = max(0, self.last_frame_seen)
+        if not self.seam_ramp or self._seams_closed or frame == self._seam_progress_frame:
+            return
+        self._seam_progress_frame = frame
+        progress = seam_progress(self.seam_ramp, frame)
+        self.command("set_inputs", {"seam_progress": progress})
+        self._seams_closed = all(p["progress"] >= 1.0 for p in progress)
 
     def _send_inputs(self) -> None:
         if not any(animated for _n, _c, animated in self.colliders) and not self.follow and not self.attached:
@@ -441,6 +465,12 @@ class LiveSession:
 
 
 # ------------------------------------------------------------------ module API
+def seam_progress(ramp, frame: int) -> list:
+    """Engine seam_progress for simulated ``frame`` (-1 = before the first step: open)."""
+    return [{"id": seam_id, "progress": 0.0 if frame < 0 else min(1.0, (frame + 1) / frames)}
+            for seam_id, frames in ramp]
+
+
 def is_running() -> bool:
     return _session is not None
 

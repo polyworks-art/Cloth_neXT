@@ -120,3 +120,14 @@ def test_edge_sewn_twice_is_detected():
     assert not overlaps_sewn(points, SeamSide("A", 1, 2), [first])  # shares only corner 1
     assert not overlaps_sewn(points, SeamSide("A", 1, 2), [])
     assert not overlaps_sewn(points, SeamSide("A", 1, 2), [SeamSide("A", 9, 8)])  # stale seam
+
+
+def test_live_seams_close_over_their_closure_time(blender_env):
+    """Live used to sew at full strength from the first step: two flat panels 40 cm
+    apart stretched 5.7x (Tim's SewingBug.blend); now 1.2x, like a Bake."""
+    live = importlib.import_module("cloth_next.blender.aether_engine_live")
+    ramp = [(1, 24), (3, 1)]
+    assert live.seam_progress(ramp, -1) == [{"id": 1, "progress": 0.0}, {"id": 3, "progress": 0.0}]
+    assert live.seam_progress(ramp, 0) == [{"id": 1, "progress": 1 / 24}, {"id": 3, "progress": 1.0}]
+    assert live.seam_progress(ramp, 11)[0]["progress"] == 0.5
+    assert live.seam_progress(ramp, 500)[0]["progress"] == 1.0

@@ -137,6 +137,10 @@ def write_mesh(obj, result, pattern):
     vertices = result.vertices
     triangles = result.triangles
     n, m = len(vertices), len(triangles)
+    if data.shape_keys is not None:
+        # A remesh regenerates every vertex: shape keys (the AETHER drape "Cloth NeXt Drape"
+        # included) no longer fit and AETHER refused the Live Simulation with CNX-E103.
+        obj.shape_key_clear()
     data.clear_geometry()
     data.vertices.add(n)
     co = np.zeros((n, 3), dtype=np.float32)
