@@ -1,4 +1,8 @@
-# Cloth NeXt 2.9.65
+# Cloth NeXt 2.9.66
+
+AETHER Live: a grabbed vertex no longer freezes when you lift a seam end or a corner; it pushes the cloth in its way ahead of it.
+
+## 2.9.65
 
 AETHER sewing closes like Marvelous Designer (fast, no fight at the seam line, sewing fold angle), PATTERN NeXt no longer crashes next to Grab Cloth and refuses to sew an edge twice, pulled cloth slides along the skin instead of sticking to it, and Grab Cloth stays on for the whole Live Simulation.
 

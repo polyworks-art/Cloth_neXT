@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.9.66 - 2026-11-06
+
+- AETHER Live (Grab Cloth): a grabbed vertex no longer freezes in place. Lifting the end of a seam that lay under a fold of the other panel stopped at 3 to 4 cm instead of following the mouse; the grabbed vertex now pushes the cloth in its way ahead of it. SewingBug.blend in Fitting: lifting a seam end or a free corner 45 cm is clean in 8 of 8 runs (at most 1.07x stretch while held, 1.00x after letting go). Bakes are unchanged.
+- AETHER sewing: the bend across a closed seam (sewing fold angle) eases off only where the seam is folded over itself, and not at grabbed vertices, so a lifted seam no longer gets pushed through the other panel.
+
 ## 2.9.65 - 2026-11-06
 
 - AETHER Live (Grab Cloth): cloth lying close on the skin or on another garment now slides along when you pull it, instead of sticking as if it had extreme friction. Pulling the NEON top sideways under the arm (Fitting) left 165 overstretched edges after letting go, now 1; a pulled trouser front left 3 vertices stuck on the body, now 0. Bakes are unchanged.
