@@ -3,10 +3,10 @@
 Stand: 2026-11-06 morgens. Grundlage: `CODEX_CLAUDE_STATUS.md`, `docs/RELEASE_POLICY.md`, Changelogs, Branches auf GitHub, Projekt-Threads.
 Nichts hiervon ist erledigt, nur aufgeschrieben. **[ENTSCHEIDUNG]** = du musst entscheiden.
 
-## 0. Zwei Punkte, die zuerst geklärt werden müssen
+## 0. Entschieden
 
-- [ ] **[ENTSCHEIDUNG] Versionsnummer der Beta.** Die Release-Policy erlaubt für Beta nur `STABLE.BETA.0` mit BETA ≥ 1, Stable nur `STABLE.0.0`. Eine Beta mit der Nummer `3.0.0` ist damit nicht möglich (das wäre schon Stable). Naheliegend: **Beta = `2.10.0`**, Stable = `3.0.0`. Alternative wäre eine Policy-Änderung, die nur du freigeben kannst.
-- [ ] **[ENTSCHEIDUNG] Code-Signing in der Beta oder nicht** (siehe `CODE_SIGNING_PLAN.md`). Laut Policy muss neue Release-Infrastruktur erst durch eine Beta. Wenn signiert werden soll, Zertifikat jetzt bestellen.
+- [x] **Beta = `2.10.0`**, Stable = `3.0.0` (Tim, 06.11.; passt zur Release-Policy `STABLE.BETA.0`).
+- [x] **Keine kostenpflichtige Code-Signatur** (Tim, 06.11.). Exes bleiben unsigniert; kostenlose Maßnahmen siehe `CODE_SIGNING_PLAN.md`.
 
 ## 1. Code-Stand einsammeln (bis ca. 12.11.)
 
@@ -42,7 +42,8 @@ Nichts hiervon ist erledigt, nur aufgeschrieben. **[ENTSCHEIDUNG]** = du musst e
 - [ ] Beta- und Stable-Archive dürfen kein `dev_build.json` enthalten und keine Developer Tools aktivieren. Prüfen, dass Dev-only-UI (z. B. TETHYS Debug, Testwerkzeuge) im Beta-Paket aus ist.
 - [ ] ZIP ≤ 100 MiB (AETHER-Exe ist ~9,6 MB, Dev-ZIPs lagen um 34 MB; mit allen Engines neu messen).
 - [ ] `release-preflight` gegen den exakten Commit laufen lassen, Kandidat-Artefakt ansehen, erst dann Tag setzen (Tag erst nach deinem Go; Tags sind unveränderlich).
-- [ ] Falls Signing: Signier-Schritt + Signaturprüfung in `build-release-candidate.yml` und vorher einmal in einer Dev durchlaufen lassen.
+- [ ] Datei-Details (Versionsressource) für die Companion-Exe ergänzen; AETHER-Exe auf Datei-Details prüfen.
+- [ ] Nach dem Beta-Build: die drei Exes bei Microsoft (Security Intelligence, Fehlalarm) einreichen und gegen Virenscanner prüfen.
 
 ## 5. Beta-End-to-End-Test (Pflicht laut Policy vor Stable)
 
@@ -71,11 +72,11 @@ Auf einem sauberen Windows-Benutzerprofil mit der Beta aus dem Kanal (nicht aus 
 
 | Datum | Meilenstein |
 |---|---|
-| 06.–07.11. | Entscheidungen aus Abschnitt 0 und 3; Zertifikat bestellen |
+| 06.–07.11. | Entscheidungen aus Abschnitt 3 |
 | bis 12.11. | Laufende Threads gemergt oder zurückgestellt; letzte Dev veröffentlicht und von dir geprüft |
-| 13.–14.11. | What's New, Notes, Policy-Text; Preflight; ggf. Signing in einer Dev |
+| 13.–14.11. | What's New 2.10.0, Notes, Policy-Text, Datei-Details Companion; Preflight |
 | 15.11. | Preflight auf finalem Commit grün, dein Go |
-| 16.11. | Beta-Tag und Veröffentlichung, danach E2E-Test aus Abschnitt 5 |
+| 16.11. | Beta-Tag 2.10.0 und Veröffentlichung, danach E2E-Test aus Abschnitt 5; Exes bei Microsoft einreichen |
 | 16.–25.11. | Nur Fixes; Beta-Feedback |
 | 26.11. | Preflight Stable, Superhive-Seite final |
 | 28.11. | 3.0.0 Stable |

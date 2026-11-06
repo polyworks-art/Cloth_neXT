@@ -1,4 +1,4 @@
-# Cloth NeXt 3.0 — Release Notes (Entwurf)
+# Cloth NeXt 2.10.0 Beta / 3.0.0 — Release Notes (Entwurf)
 
 > **Hinweis für Tim (nicht Teil der Notes):** Entwurf aus den Changelog-Einträgen Dev 2.9.55 bis 2.9.64,
 > nach Themen statt nach Versionen sortiert, interne Testszenen-Namen und Messwerte weggelassen.
