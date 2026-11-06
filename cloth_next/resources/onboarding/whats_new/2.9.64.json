@@ -17,6 +17,11 @@
     },
     {
       "icon": "icons/check.png",
+      "title": "Fewer crossed layers",
+      "description": "Cloth is moved ahead of a moving arm or leg before it gets caught, so fast motion leaves fewer layers crossed."
+    },
+    {
+      "icon": "icons/check.png",
       "title": "Clean starts",
       "description": "Cloth that starts inside the body is pulled out cleanly in more cases."
     },
