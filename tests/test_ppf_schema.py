@@ -809,3 +809,18 @@ def test_zero_area_triangle_detection():
     vertices = ((0, 0, 0), (1, 0, 0), (0, 1, 0), (2, 0, 0))
     assert zero_area_triangles(vertices, ((0, 1, 2),)) == []
     assert zero_area_triangles(vertices, ((0, 1, 3), (0, 1, 2))) == [0]
+
+
+def test_shrink_warp_weft_map_to_ppf_uv_axes():
+    # weft runs across the grain = UV U = PPF shrink-x; warp along it = UV V = shrink-y;
+    # both multiply the uniform Shrink.
+    wire = shell_wire_params(ShellMaterialSettings(shrink_percent=10.0, shrink_warp_percent=20.0,
+                                                   shrink_weft_percent=-10.0))
+    assert wire["shrink-x"] == float32_wire(0.9 * 1.1)
+    assert wire["shrink-y"] == float32_wire(0.9 * 0.8)
+
+
+def test_shrink_warp_conflicts_with_stretch_limit_like_uniform_shrink():
+    with pytest.raises(Exception):
+        ShellMaterialSettings(shrink_warp_percent=5.0, stretch_limit_enabled=True,
+                              maximum_stretch_percent=5.0)

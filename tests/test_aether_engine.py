@@ -104,8 +104,6 @@ def test_gaia_bending_factor_follows_mesh_resolution(monkeypatch):
 
 @pytest.mark.parametrize("change,label", [
     ({"stretch_plasticity_enabled": True}, "Permanent Stretch"),
-    ({"shrink_percent": 3.0}, "Shrink"),
-    ({"surface_offset": 0.001}, "Surface Offset"),
     ({"model": "SHAPE_PRESERVING"}, "Shape-Preserving"),
 ])
 def test_unsupported_controls_are_refused_not_approximated(change, label):
@@ -391,3 +389,53 @@ def test_start_recovery_runs_in_the_first_frames_only(tmp_path):
     assert "untangle" not in bake.frame_inputs(off, 0)
     assert bake.scene_digest(req) != bake.scene_digest(off)   # a resume never mixes the two
 
+
+
+# ---------------------------------------------------------------- shrink and surface offset (engine API 1.5)
+def test_shrink_and_surface_offset_map_to_the_engine():
+    m = materials.map_material(ShellMaterialSettings(shrink_percent=10.0, shrink_warp_percent=5.0,
+                                                     shrink_weft_percent=-10.0, surface_offset=0.003))
+    assert m.shrink_weft == pytest.approx(0.9 * 1.1)
+    assert m.shrink_warp == pytest.approx(0.9 * 0.95)
+    assert m.surface_offset == pytest.approx(0.003)
+    assert "shrink_weft" not in m.as_protocol() and "surface_offset" not in m.as_protocol()   # sent beside it
+    plain = materials.map_material(ShellMaterialSettings())
+    assert not plain.shrinks and plain.surface_offset == 0.0
+    assert materials.unsupported_controls(ShellMaterialSettings(shrink_percent=3.0, surface_offset=0.001)) == []
+
+
+def test_session_cloth_sends_shrink_per_triangle_with_grain_only_when_needed(tmp_path):
+    from dataclasses import replace
+    req = _request(tmp_path)
+    c = req.cloths[0]
+    tcount = len(c.triangles) // 3
+    assert "shrink" not in bake.session_cloth(c) and "surface_offset" not in bake.session_cloth(c)
+    uniform = replace(c, material=replace(c.material, shrink_weft=0.9, shrink_warp=0.9))
+    out = bake.session_cloth(uniform)
+    assert out["shrink"].shape == (tcount * 2,) and np.all(out["shrink"] == np.float32(0.9))
+    assert "shrink_uv" not in out                          # equal factors need no grain
+    uv = np.arange(tcount * 6, dtype=np.float32)
+    grain = replace(c, material=replace(c.material, shrink_weft=0.8, shrink_warp=1.0, surface_offset=0.002),
+                    shrink_uv=uv)
+    out = bake.session_cloth(grain)
+    assert np.allclose(out["shrink"].reshape(-1, 2), [0.8, 1.0])
+    assert np.array_equal(out["shrink_uv"], uv)
+    assert out["surface_offset"] == pytest.approx(0.002)
+    # zones carry their own shrink
+    zoned = replace(grain, zones=(replace(c.material, shrink_weft=0.5, shrink_warp=0.5),),
+                    triangle_zones=np.r_[np.ones(1, np.int32), np.zeros(tcount - 1, np.int32)])
+    f = bake.session_cloth(zoned)["shrink"].reshape(-1, 2)
+    assert np.allclose(f[0], [0.5, 0.5]) and np.allclose(f[1], [0.8, 1.0])
+    # the scene digest changes with them, and stays as before without them
+    assert bake.scene_digest(req) == bake.scene_digest(replace(req, cloths=(c,) + req.cloths[1:]))
+    assert bake.scene_digest(replace(req, cloths=(grain,) + req.cloths[1:])) != bake.scene_digest(req)
+
+
+def test_collider_surface_offset_is_sent_and_digested(tmp_path):
+    from dataclasses import replace
+    req = _request(tmp_path)
+    col = req.colliders[0]
+    assert "surface_offset" not in bake.session_collider(col)
+    thick = replace(col, surface_offset=0.004)
+    assert bake.session_collider(thick)["surface_offset"] == pytest.approx(0.004)
+    assert bake.scene_digest(replace(req, colliders=(thick,))) != bake.scene_digest(req)

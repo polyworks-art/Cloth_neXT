@@ -404,7 +404,7 @@ def test_shape_uses_only_mapped_controls_and_inert_concepts(blender_env):
     expected = {
         env.physics_ui.CLOTHNEXT_PT_pinning:
             ["pinning_enabled", "pin_group", "pin_mode"],
-        env.physics_ui.CLOTHNEXT_PT_rest_shape: ["shrink_percent"],
+        env.physics_ui.CLOTHNEXT_PT_rest_shape: ["shrink_percent", "shrink_warp_percent", "shrink_weft_percent"],
         env.physics_ui.CLOTHNEXT_PT_pressure:
             ["enable_inflate", "inflate_pressure"],
         # Display settings stay folded until the artist opens them.

@@ -18,7 +18,11 @@ derives them instead of copying numbers:
 * friction coefficient = surface_grip x 0.5 (the coefficient PPF receives);
 * collision half-gap [m] = collision_gap / 2 (AETHER's cloth-cloth gap is the
   sum of both half-gaps);
-* Rayleigh damping [s] = shape / fold damping (different formulation: approximate).
+* Rayleigh damping [s] = shape / fold damping (different formulation: approximate);
+* Shrink / Shrink Warp / Shrink Weft = the cloth's rest-shape factors along the
+  UV map's V (warp, the grain) and U (weft) axis (engine API 1.5);
+* Surface Offset [m] = a collision skin the engine adds in full to every contact
+  distance of the cloth (engine API 1.5), as PPF's contact-offset.
 
 Everything else either has no AETHER equivalent and is refused when it is
 active (never silently approximated), or is reported as approximate.
@@ -96,6 +100,14 @@ class AetherMaterial:
     friction: float
     thickness: float
     strain_limit: float = 0.0   # largest principal stretch above rest (0.05 = 5 %), 0 = none (engine API 1.3)
+    # Engine API 1.5, sent beside the material (per triangle / per cloth), not inside it:
+    shrink_weft: float = 1.0    # rest-size factor across the grain (UV U), 0.9 = 10 % smaller
+    shrink_warp: float = 1.0    # rest-size factor along the grain (UV V)
+    surface_offset: float = 0.0 # m, collision skin of the cloth
+
+    @property
+    def shrinks(self) -> bool:
+        return self.shrink_weft != 1.0 or self.shrink_warp != 1.0
 
     def as_protocol(self) -> dict:
         out = {"density": self.density, "youngs": self.youngs, "poisson": self.poisson,
@@ -123,7 +135,11 @@ FIELD_MAPPINGS = {
     "fold_damping": ("APPROXIMATE", "Rayleigh bending damping in seconds."),
     "surface_grip": ("APPROXIMATE", "Coulomb coefficient = grip × 0.5; colliders use the cloth's value."),
     "collision_gap": ("APPROXIMATE", "Cloth half-gap = gap / 2; colliders use the cloth's gap."),
-    "surface_offset": ("UNSUPPORTED", "No contact offset in AETHER: refused when non-zero."),
+    "surface_offset": ("EXACT", "Collision skin added to every contact distance of the cloth (engine API 1.5); "
+                                "a Collider's Surface Offset adds to it."),
+    "shrink_percent": ("EXACT", "Rest-shape scale (engine API 1.5); combined with Shrink Warp / Weft."),
+    "shrink_warp_percent": ("EXACT", "Rest-shape scale along the grain = the UV map's V axis (engine API 1.5)."),
+    "shrink_weft_percent": ("EXACT", "Rest-shape scale across the grain = the UV map's U axis (engine API 1.5)."),
 }
 
 
@@ -141,10 +157,6 @@ def unsupported_controls(material) -> list[str]:
         found.append("flat bend rest shape (AETHER always uses the initial shape)")
     if getattr(material, "enable_inflate", False) and float(getattr(material, "inflate_pressure", 0.0)) != 0.0:
         found.append("Inflate / Pressure")
-    if float(getattr(material, "shrink_percent", 0.0)) != 0.0:
-        found.append("Shrink")
-    if float(getattr(material, "surface_offset", 0.0)) != 0.0:
-        found.append("Surface Offset")
     if getattr(material, "sewing_enabled", False):
         found.append("loose-edge Sewing (use Sewing definitions)")
     return found
@@ -214,12 +226,21 @@ def map_material(material, live: bool = False) -> AetherMaterial:
     if not 0.0 <= poisson < 0.5:
         raise UnsupportedMaterial("Sideways Response must be at least 0 and below 0.5 for AETHER")
     gap = _finite("Collision Gap", material.collision_gap)
+    from ..materials.formatting import shrink_factors
+    weft, warp = shrink_factors(material)
+    for name, factor in (("Shrink Weft", weft), ("Shrink Warp", warp)):
+        if not (math.isfinite(factor) and 0.0 < factor <= 10.0):
+            raise UnsupportedMaterial(f"{name}: the combined rest size {factor:g} is outside (0, 10]")
+    offset = _finite("Surface Offset", getattr(material, "surface_offset", 0.0))
+    if not 0.0 <= offset <= 1.0:
+        raise UnsupportedMaterial("Surface Offset must be between 0 and 1 m for AETHER")
     return AetherMaterial(
         density=density, youngs=youngs, poisson=poisson, shear_scale=1.0, bend=bend,
         stretch_damping=max(MIN_DAMPING, _finite("Shape Damping", material.shape_damping)),
         bend_damping=max(MIN_FOLD_DAMPING if live else 0.0, _finite("Fold Damping", material.fold_damping)),
         friction=max(0.0, _finite("Surface Grip", material.surface_grip)) * FRICTION_SCALE,
-        thickness=max(MIN_HALF_GAP, 0.5 * gap), strain_limit=strain_limit(material, live))
+        thickness=max(MIN_HALF_GAP, 0.5 * gap), strain_limit=strain_limit(material, live),
+        shrink_weft=float(weft), shrink_warp=float(warp), surface_offset=float(offset))
 
 
 def seam_stiffness(strength: float, a: AetherMaterial, b: AetherMaterial) -> float:

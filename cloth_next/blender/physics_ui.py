@@ -1547,8 +1547,11 @@ class CLOTHNEXT_PT_rest_shape(_ClothNextSubpanel, bpy.types.Panel):
 
     def draw(self, context):
         self.layout.use_property_split = True
-        self.layout.prop(context.object.cloth_next.pressure, "shrink_percent",
-                         text="Uniform Shrink")
+        pressure = context.object.cloth_next.pressure
+        self.layout.prop(pressure, "shrink_percent", text="Uniform Shrink")
+        column = self.layout.column(align=True)
+        column.prop(pressure, "shrink_warp_percent", text="Warp")
+        column.prop(pressure, "shrink_weft_percent", text="Weft")
 
 
 class CLOTHNEXT_PT_soft_body_rest_shape(_ClothNextSubpanel, bpy.types.Panel):

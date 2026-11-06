@@ -1507,6 +1507,26 @@ def _validate_boundary_topology_range(context, obj, bake_range,
         scene.frame_set(original, subframe=original_subframe)
 
 
+NEUTRAL_UV_FACE = ((0.0, 0.0), (1.0, 0.0), (0.0, 1.0))
+
+
+def _require_grain_uvs(obj, material, uv_faces) -> None:
+    """Shrink Warp != Weft needs authored UVs: they give the grain direction.
+
+    Without them every triangle would get the neutral basis and shrink along
+    its own first edge (noise instead of a grain)."""
+    from ..materials.formatting import shrink_factors
+    weft, warp = shrink_factors(material)
+    if weft == warp:
+        return
+    if not uv_faces or all(face == NEUTRAL_UV_FACE for face in uv_faces):
+        raise SceneValidationError(
+            f"{obj.name}: Shrink Warp and Weft differ, but the mesh has no "
+            "usable UV map. Warp follows the UV map's V axis (the grain) and "
+            "Weft its U axis: add a UV map (PATTERN NeXt garments have one) "
+            "or use the same value for Warp and Weft.")
+
+
 def _uv_faces_for_export(obj, triangles):
     """Use authored UVs only when they still align with evaluated triangles."""
     neutral = ((0.0, 0.0), (1.0, 0.0), (0.0, 1.0))
@@ -5920,6 +5940,8 @@ def _build_multi_run_plan(context, snapshot: ValidationSnapshot,
                     edges = ()
                     uv_faces = (_uv_faces_for_export(obj, triangles)
                                 if entry.role == "CLOTH" else ())
+                    if entry.role == "CLOTH":
+                        _require_grain_uvs(obj, entry.material, uv_faces)
                     face_friction = (_extract_face_friction(
                         obj, triangles, entry.material.surface_grip)
                         if entry.role == "CLOTH" else ())

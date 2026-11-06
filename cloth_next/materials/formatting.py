@@ -53,6 +53,8 @@ SHELL_FIELD_INFO: tuple[FieldInfo, ...] = (
               "world units"),
     FieldInfo("inflate_pressure", "Pressure", "pressure", "solver pressure"),
     FieldInfo("shrink_percent", "Shrink", "shrink-x/shrink-y", "%"),
+    FieldInfo("shrink_weft_percent", "Shrink Weft", "shrink-x", "%"),
+    FieldInfo("shrink_warp_percent", "Shrink Warp", "shrink-y", "%"),
     FieldInfo("sewing_stiffness", "Sewing Strength", "stitch-stiffness", ""),
 )
 
@@ -63,6 +65,19 @@ STATIC_FIELD_INFO: tuple[FieldInfo, ...] = (
     FieldInfo("surface_offset", "Surface Offset", "contact-offset",
               "world units"),
 )
+
+
+_LATER_FIELDS = frozenset({"shrink_warp_percent", "shrink_weft_percent"})
+
+
+def shrink_factors(shell) -> tuple[float, float]:
+    """(weft, warp) rest-size factors: uniform Shrink times the per-direction Shrink.
+
+    Weft runs across the grain (UV U, PPF shrink-x), warp along it (UV V, PPF shrink-y); +10 % gives 0.9."""
+    uniform = 1.0 - float(getattr(shell, "shrink_percent", 0.0)) / 100.0
+    weft = 1.0 - float(getattr(shell, "shrink_weft_percent", 0.0)) / 100.0
+    warp = 1.0 - float(getattr(shell, "shrink_warp_percent", 0.0)) / 100.0
+    return uniform * weft, uniform * warp
 
 
 def strain_limit_fraction(shell: ShellMaterialSettings) -> float:
@@ -92,6 +107,10 @@ def shell_wire_rows(shell: ShellMaterialSettings) \
             value = math.radians(float(value))
         elif info.field == "shrink_percent":
             value = 1.0 - float(value) / 100.0
+        elif info.field == "shrink_weft_percent":
+            value = shrink_factors(shell)[0]
+        elif info.field == "shrink_warp_percent":
+            value = shrink_factors(shell)[1]
         if info.field == "model":
             display = WIRE_MODEL_NAMES[shell.model]
         else:
@@ -129,8 +148,10 @@ def settings_fingerprint(shell: ShellMaterialSettings,
         "version": FINGERPRINT_VERSION,
         "preset": preset_identifier,
         "contact_enabled": bool(contact_enabled),
+        # Fields added later (Shrink Warp / Weft) join only when set, so existing bakes stay current.
         "shell": {info.field: getattr(shell, info.field)
-                  for info in SHELL_FIELD_INFO},
+                  for info in SHELL_FIELD_INFO
+                  if info.field not in _LATER_FIELDS or getattr(shell, info.field) != 0.0},
         "shell_stretch_limit_enabled": shell.stretch_limit_enabled,
         "shell_stretch_plasticity_enabled": shell.stretch_plasticity_enabled,
         "shell_bend_plasticity_enabled": shell.bend_plasticity_enabled,
