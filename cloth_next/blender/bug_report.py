@@ -235,11 +235,15 @@ CLASSES = (CLOTHNEXT_OT_report_bug,)
 
 
 def draw_help_menu(self, _context) -> None:
-    """Help menu entry: the quickest way to the dialog from anywhere in Blender."""
-    self.layout.separator()
+    """Own Cloth NeXt section in Help: logo heading, then the entries without icons."""
     from . import icon_registry
-    self.layout.operator(CLOTHNEXT_OT_report_bug.bl_idname, text="Report a Cloth NeXt Bug…",
-                         **icon_registry.icon_kwargs("cloth_next", "ERROR"))
+    from .preferences import LEARNING_CENTER_URL
+    layout = self.layout
+    layout.separator()
+    layout.label(text="Cloth NeXt", **icon_registry.icon_kwargs("cloth_next", "MOD_CLOTH"))
+    layout.operator(CLOTHNEXT_OT_report_bug.bl_idname, text="Report a Bug…")
+    layout.operator("clothnext.open_whats_new", text="What's New…")
+    layout.operator("wm.url_open", text="Learning Center").url = LEARNING_CENTER_URL
 
 
 def _help_menu():

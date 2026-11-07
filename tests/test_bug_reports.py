@@ -239,16 +239,25 @@ def test_nothing_is_sent_during_a_bake(bug_module, monkeypatch):
     assert "Bake" in bug_module.snapshot().message
 
 
-def test_help_menu_entry_opens_the_dialog(bug_module):
+def test_help_menu_has_a_cloth_next_section(bug_module):
+    from types import SimpleNamespace
+
     class Layout:
         def __init__(self):
-            self.operators = []
+            self.operators, self.labels = [], []
 
         def separator(self):
             pass
 
+        def label(self, text="", **_kwargs):
+            self.labels.append(text)
+
         def operator(self, idname, **kwargs):
             self.operators.append((idname, kwargs.get("text")))
+            return SimpleNamespace()
     layout = Layout()
-    bug_module.draw_help_menu(type("Menu", (), {"layout": layout})(), None)
-    assert layout.operators == [("clothnext.report_bug", "Report a Cloth NeXt Bug…")]
+    bug_module.draw_help_menu(SimpleNamespace(layout=layout), None)
+    assert layout.labels == ["Cloth NeXt"]
+    assert layout.operators[0] == ("clothnext.report_bug", "Report a Bug…")
+    assert [name for name, _ in layout.operators] == [
+        "clothnext.report_bug", "clothnext.open_whats_new", "wm.url_open"]
