@@ -15,6 +15,12 @@ import pytest
 from tests import fake_bpy
 
 
+@pytest.fixture(autouse=True)
+def _isolated_native_engines(tmp_path_factory, monkeypatch):
+    """Never read or write the real installed AETHER/TETHYS engines."""
+    monkeypatch.setenv("CLOTH_NEXT_ENGINES_ROOT", str(tmp_path_factory.mktemp("native-engines")))
+
+
 def _pop_blender_modules():
     removed = {}
     for name in list(sys.modules):

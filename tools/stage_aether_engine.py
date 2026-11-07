@@ -11,6 +11,8 @@ size, SHA-256, protocol, API version and the engine's own build id, and
 Not used by any release workflow yet (Milestone 5 is an experimental
 integration); see docs/AETHER_ENGINE_INTEGRATION.md, "Distribution".
 """
+# Local development only: release ZIPs no longer bundle native engines; the add-on
+# installs them from the server (tools/release_engine.py uploads a build).
 from __future__ import annotations
 
 import argparse

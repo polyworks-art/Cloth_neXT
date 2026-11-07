@@ -398,6 +398,30 @@ class PolyWorksApi:
         return {"url": _field(value, "url", str), "sha256": digest, "size_bytes": size,
                 "expires_at": _field(value, "expires_at", str, optional=True)}
 
+    # Native engines (AETHER, TETHYS): docs/polyworks/NATIVE_ENGINE_DOWNLOADS_SERVER_SPEC.md
+    def engine_builds(self, engine: str, *, platform: str, addon_version: str, channel: str,
+                      token: str | None = None) -> list:
+        """Builds of a native engine this client may install. AETHER needs no
+        token; TETHYS needs a session with GAIA access (the server decides)."""
+        from urllib.parse import quote, urlencode
+        query = urlencode({"platform": platform, "addon_version": addon_version, "channel": channel})
+        value = self._call("GET", f"/v1/engines/{quote(engine, safe='')}/builds?{query}", token=token)
+        builds = value.get("builds") if isinstance(value, dict) else None
+        if not isinstance(builds, list):
+            raise ApiError("invalid_response")
+        return [gaia_build_from(item) for item in builds]
+
+    def engine_download_session(self, engine: str, build_id: str, token: str | None = None) -> dict:
+        from urllib.parse import quote
+        value = self._call("POST", f"/v1/engines/{quote(engine, safe='')}/builds/"
+                           f"{quote(build_id, safe='')}/download-session", token=token)
+        digest = _field(value, "sha256", str).lower()
+        size = _field(value, "size_bytes", int)
+        if len(digest) != 64 or not set(digest) <= _HEX64 or size <= 0:
+            raise ApiError("invalid_response")
+        return {"url": _field(value, "url", str), "sha256": digest, "size_bytes": size,
+                "expires_at": _field(value, "expires_at", str, optional=True)}
+
     def public_key(self) -> dict:
         value = self._call("GET", "/v1/entitlements/public-key")
         return {"key_id": _field(value, "key_id", str),
@@ -421,7 +445,7 @@ def gaia_build_from(value) -> dict:
         raise ApiError("invalid_response")
     result = {"build_id": _field(value, "build_id", str), "version": _field(value, "version", str),
               "sha256": digest, "size_bytes": size}
-    for name in ("channel", "platform", "backend", "min_addon_version", "max_addon_version",
+    for name in ("engine", "channel", "platform", "backend", "min_addon_version", "max_addon_version",
                  "release_notes", "published_at"):
         item = value.get(name)
         result[name] = item if isinstance(item, str) else None

@@ -51,8 +51,8 @@ REPRODUCIBLE_ENVIRONMENT = (
 
 # The upstream PPF contact solver used to be offered as "AETHER". Its installations
 # keep the internal engine id AETHER (registry compatibility); the Engine selector
-# shows them as Legacy, and AETHER there is the native AETHER Engine bundled with
-# Cloth NeXt (no installation, no update).
+# shows them as Legacy, and AETHER there is the native AETHER Engine, installed
+# from the PolyWorks server (updater.native_engines; not a solver-registry entry).
 LEGACY = "LEGACY"
 LEGACY_LABEL = "Legacy"
 ENGINE_DESCRIPTIONS = {

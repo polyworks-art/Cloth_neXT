@@ -59,6 +59,8 @@ def compatible_builds(builds: list[dict], addon_version: str, *,
     local = _version_key(addon_version)
     result = []
     for build in builds:
+        if build.get("engine") not in (None, "gaia"):
+            continue  # the downloads list may also carry other engines
         if build.get("platform") != platform or build.get("backend") != backend:
             continue
         minimum, maximum = build.get("min_addon_version"), build.get("max_addon_version")

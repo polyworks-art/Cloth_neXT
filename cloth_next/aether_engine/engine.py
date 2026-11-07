@@ -6,10 +6,13 @@ The native AETHER Engine is a separate backend from the PPF-based solvers
 (including the historical upstream PPF build that the solver dropdown calls
 "AETHER"); it never shares installations, caches or recovery data with them.
 
-The engine ships as ``bin/AETHER Engine.exe`` authenticated by
-``aether_engine_manifest.json`` (size, SHA-256, protocol and API version),
-following the TETHYS Engine convention. ``CLOTH_NEXT_AETHER_ENGINE`` points a
-development build at an engine outside the extension (developer override).
+The engine is installed from the PolyWorks server into the local engines
+folder (``updater.native_engines``; no account needed) and authenticated there
+by its package ``engine.json`` (size, SHA-256, protocol and API version). A
+development ZIP may still carry a staged ``bin/AETHER Engine.exe`` with
+``aether_engine_manifest.json``; it is used only when no engine is installed.
+``CLOTH_NEXT_AETHER_ENGINE`` points a development build at any engine file
+(developer override).
 Nothing here starts a CUDA context: the engine runs in its own process.
 """
 from __future__ import annotations
@@ -59,8 +62,66 @@ def _platform() -> str:
     return platform_spec().blender_platform
 
 
+INSTALL_HINT = "Install it in Preferences > Add-ons > Cloth NeXt > Solver Engine"
+
+
+def package_compatible(manifest: dict) -> str | None:
+    """None when a server package fits this add-on, else the reason (install check)."""
+    if manifest.get("protocol") != PROTOCOL_VERSION or list(manifest.get("api") or ()) != list(API_VERSION):
+        return ("This AETHER Engine build does not match this Cloth NeXt version. "
+                "Update Cloth NeXt or wait for a matching engine build.")
+    if not isinstance(manifest.get("build_id"), str) or not re.fullmatch(r"[0-9a-f]{16}", manifest["build_id"]):
+        return "The AETHER Engine package description is invalid."
+    return None
+
+
+def package_probe(binary: Path, manifest: dict) -> str | None:
+    """None when the binary reports the version and build the package names."""
+    try:
+        identity = probe(binary)
+    except EngineUnavailable as exc:
+        return str(exc)
+    if identity.build_id != manifest.get("build_id") or identity.version != manifest.get("version"):
+        return "The AETHER Engine in the download does not match its description."
+    return None
+
+
+def _installed(platform: str):
+    """(binary, manifest) of the engine installed from the server, or None."""
+    from ..updater import native_engines
+    item = native_engines.installed(native_engines.AETHER, platform=platform)
+    if item is None:
+        return None
+    if package_compatible(item.manifest):
+        raise EngineUnavailable("The installed AETHER Engine does not match this Cloth NeXt version. "
+                                "Update it in Preferences > Add-ons > Cloth NeXt > Solver Engine", "CNX-E132")
+    problem = native_engines.verify_binary(item.root, item.manifest)
+    if problem:
+        raise EngineUnavailable(f"The installed AETHER Engine is {problem}. Repair it in Preferences > "
+                                "Add-ons > Cloth NeXt > Solver Engine", "CNX-E131")
+    return item.binary, item.manifest
+
+
+def installed_manifest() -> dict | None:
+    """Package description of the engine ``locate()`` would use (no hashing)."""
+    from ..updater import native_engines
+    try:
+        item = native_engines.installed(native_engines.AETHER, platform=_platform())
+    except Exception:  # noqa: BLE001 - informational
+        item = None
+    if item is not None:
+        return item.manifest
+    try:
+        return json.loads((extension_root() / MANIFEST).read_text("utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
 def locate(root: Path | None = None, *, platform: str | None = None) -> tuple[Path, bool]:
-    """(authenticated engine path, developer override?). Raises EngineUnavailable."""
+    """(authenticated engine path, developer override?). Raises EngineUnavailable.
+
+    Order: developer override, the engine installed from the server, then a
+    development ZIP's staged engine (``root`` names that extension folder)."""
     override = os.environ.get(DEVELOPER_OVERRIDE, "").strip()
     if override and root is None:
         path = Path(override)
@@ -71,11 +132,15 @@ def locate(root: Path | None = None, *, platform: str | None = None) -> tuple[Pa
     filename = FILENAMES.get(selected)
     if filename is None:
         raise EngineUnavailable(f"The AETHER Engine is not available for {selected}", "CNX-E132")
+    if root is None:
+        found = _installed(selected)
+        if found is not None:
+            return found[0], False
     root = Path(root) if root is not None else extension_root()
     try:
         payload = json.loads((root / MANIFEST).read_text("utf-8"))
     except FileNotFoundError:
-        raise EngineUnavailable("The AETHER Engine is not included in this Cloth NeXt build",
+        raise EngineUnavailable(f"The AETHER Engine is not installed. {INSTALL_HINT}",
                                 "CNX-E131") from None
     except (OSError, ValueError) as exc:
         raise EngineUnavailable("The AETHER Engine manifest is damaged. Reinstall Cloth NeXt",
@@ -157,10 +222,10 @@ def identify() -> EngineIdentity:
     path, override = locate()
     identity = probe(path, developer_override=override)
     if not override:
-        manifest = json.loads((extension_root() / MANIFEST).read_text("utf-8"))
+        manifest = installed_manifest() or {}
         if manifest.get("build_id") != identity.build_id:
-            raise EngineUnavailable("The AETHER Engine build does not match its manifest. Reinstall Cloth NeXt",
-                                    "CNX-E132")
+            raise EngineUnavailable("The AETHER Engine build does not match its description. Repair it in "
+                                    "Preferences > Add-ons > Cloth NeXt > Solver Engine", "CNX-E132")
     return identity
 
 

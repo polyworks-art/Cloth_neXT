@@ -1,10 +1,12 @@
 # SPDX-FileCopyrightText: 2026 Tim Christmann and Cloth NeXt contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Bundled native TETHYS Engine: discovery, availability and one owned process.
+"""Native TETHYS Engine: discovery, availability and one owned process.
 
-The engine ships inside the extension at ``bin/<platform filename>`` and is
-authenticated by ``tethys_manifest.json`` (size and SHA-256), the same way
-as the Bake companion. GAIA availability is decided by the caller from the
+The engine is installed from the PolyWorks server (GAIA access required) into
+the local engines folder (``updater.native_engines``) and authenticated there
+by its package ``engine.json`` (size, SHA-256, protocol). A development ZIP
+may still carry a staged ``bin/<platform filename>`` with
+``tethys_manifest.json``; it is used only when no engine is installed. GAIA availability is decided by the caller from the
 existing solver selection and GAIA access; this module never launches the
 engine on its own initiative.
 """
@@ -44,8 +46,48 @@ def engine_filename(platform: PlatformSpec | None = None) -> str:
     return FILENAMES[(platform or platform_spec()).blender_platform]
 
 
+INSTALL_HINT = "Install it in Preferences > Add-ons > Cloth NeXt > Solver Engine (GAIA)"
+
+
+def package_compatible(manifest: dict) -> str | None:
+    """None when a server package fits this add-on, else the reason (install check)."""
+    if manifest.get("protocol") != PROTOCOL_VERSION:
+        return ("This TETHYS Engine build does not match this Cloth NeXt version. "
+                "Update Cloth NeXt or wait for a matching engine build.")
+    return None
+
+
+def package_probe(binary: Path, manifest: dict) -> str | None:
+    """None when the binary reports the version and protocol the package names."""
+    try:
+        line = probe(binary)
+    except EngineUnavailable as exc:
+        return str(exc)
+    if line != f"TETHYS Engine {manifest.get('version')} protocol {PROTOCOL_VERSION}":
+        return "The TETHYS Engine in the download does not match its description."
+    return None
+
+
+def _installed(selected: PlatformSpec) -> Path | None:
+    from ..updater import native_engines
+    item = native_engines.installed(native_engines.TETHYS, platform=selected.blender_platform)
+    if item is None:
+        return None
+    if package_compatible(item.manifest):
+        raise EngineUnavailable("The installed TETHYS Engine does not match this Cloth NeXt version. "
+                                "Update it in Preferences > Add-ons > Cloth NeXt > Solver Engine")
+    problem = native_engines.verify_binary(item.root, item.manifest)
+    if problem:
+        raise EngineUnavailable(f"The installed TETHYS Engine is {problem}. Repair it in Preferences > "
+                                "Add-ons > Cloth NeXt > Solver Engine")
+    return item.binary
+
+
 def locate(root: Path | None = None, *, platform: PlatformSpec | None = None) -> Path:
-    """Authenticated engine path. Raises EngineUnavailable with a clear reason."""
+    """Authenticated engine path. Raises EngineUnavailable with a clear reason.
+
+    Order: developer override, the engine installed from the server, then a
+    development ZIP's staged engine (``root`` names that extension folder)."""
     override = os.environ.get(DEVELOPER_OVERRIDE, "").strip()
     if override and root is None:
         path = Path(override)
@@ -53,12 +95,16 @@ def locate(root: Path | None = None, *, platform: PlatformSpec | None = None) ->
             raise EngineUnavailable(f"{DEVELOPER_OVERRIDE} does not point to a file")
         return path
     selected = platform or platform_spec()
+    if root is None:
+        found = _installed(selected)
+        if found is not None:
+            return found
     root = Path(root) if root is not None else extension_root()
     manifest = root / MANIFEST
     try:
         payload = json.loads(manifest.read_text("utf-8"))
     except FileNotFoundError:
-        raise EngineUnavailable("The TETHYS Engine is not included in this Cloth NeXt build") from None
+        raise EngineUnavailable(f"The TETHYS Engine is not installed. {INSTALL_HINT}") from None
     except (OSError, ValueError) as exc:
         raise EngineUnavailable("The TETHYS Engine manifest is damaged. Reinstall Cloth NeXt") from exc
     required = {"schema_version", "filename", "platform", "file_size", "sha256", "protocol"}

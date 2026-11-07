@@ -213,6 +213,10 @@ def _draw_engines(box, registry, supported, active, busy) -> None:
     _draw_installed_gaia(gaia, registry, gaia_account.snapshot())
     installed = engines.best_installation(registry, engines.GAIA) is not None
     gaia_account.draw_gaia_rows(gaia, installed=installed)
+    from . import engine_installs
+    if gaia_account.access_granted() or engine_installs.installed("tethys") is not None:
+        column.separator()
+        engine_installs.draw_engine_rows(_engine_row(column, "TETHYS"), "tethys")
     column.separator()
     _draw_aether_row(_engine_row(column, engines.LEGACY_LABEL), registry, supported, active, busy)
 
@@ -228,16 +232,18 @@ def _draw_installed_gaia(column, registry, state) -> None:
 
 
 def _draw_native_aether_row(column) -> None:
-    """The native AETHER Engine ships inside Cloth NeXt: its version, never an update."""
-    try:
-        import json
-        from ..aether_engine import engine as aengine
-        manifest = json.loads((aengine.extension_root() / aengine.MANIFEST).read_text("utf-8"))
-        text = f"AETHER Engine {manifest.get('engine_version', '?')} (bundled)"
-        icon = "CHECKMARK"
-    except Exception:  # noqa: BLE001 - shown, never raised in a draw
-        text, icon = "AETHER Engine (bundled)", "CHECKMARK"
-    column.label(text=text, icon=icon)
+    """The native AETHER Engine comes from the PolyWorks server (no account needed)."""
+    from . import engine_installs
+    engine_installs.draw_engine_rows(column, "aether")
+    if engine_installs.installed("aether") is None:
+        try:
+            import json
+            from ..aether_engine import engine as aengine
+            manifest = json.loads((aengine.extension_root() / aengine.MANIFEST).read_text("utf-8"))
+            column.label(text=f"Development copy {manifest.get('engine_version', '?')} in this add-on",
+                         icon="INFO")
+        except Exception:  # noqa: BLE001 - no staged development copy
+            pass
 
 
 def _draw_aether_row(column, registry, supported, active, busy) -> None:

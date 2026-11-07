@@ -124,7 +124,7 @@ def test_locate_rejects_tampered_or_foreign_binaries(tmp_path):
     (tmp_path / engine.MANIFEST).write_text(json.dumps(manifest), encoding="utf-8")
     with pytest.raises(engine.EngineUnavailable, match="protocol"):
         engine.locate(tmp_path, platform=WINDOWS_X64)
-    with pytest.raises(engine.EngineUnavailable, match="not included"):
+    with pytest.raises(engine.EngineUnavailable, match="not installed"):
         engine.locate(tmp_path / "missing", platform=WINDOWS_X64)
 
 
@@ -485,22 +485,20 @@ def _zip(path, files):
     return path
 
 
-def test_packaged_engine_validation(tmp_path):
+def test_packaged_extension_must_not_bundle_native_engines(tmp_path):
+    """AETHER and TETHYS are installed from the server; the add-on ZIP never carries them."""
     from tools import validate_extension
     companion = {"platform": "windows-x64"}
     base = {"blender_manifest.toml": "id='cloth_next'", "__init__.py": "", "bin/cloth-next-bake.exe": b"c",
             "companion_manifest.json": json.dumps(companion)}
-    validate_extension.validate_zip(_zip(tmp_path / "plain.zip", base))   # engine is optional
-    engine_bytes = b"tethys"
-    manifest = {"schema_version": 1, "filename": "TETHYS Engine.exe", "platform": "windows-x64",
-                "file_size": 6, "sha256": hashlib.sha256(engine_bytes).hexdigest(), "protocol": 1}
-    good = dict(base, **{"bin/TETHYS Engine.exe": engine_bytes, "tethys_manifest.json": json.dumps(manifest)})
-    validate_extension.validate_zip(_zip(tmp_path / "good.zip", good))
-    for name, files in (("tampered", dict(good, **{"bin/TETHYS Engine.exe": b"tethyz"})),
-                        ("foreign", dict(good, **{"bin/tethys-engine": b"x"})),
-                        ("no-manifest", {k: v for k, v in good.items() if k != "tethys_manifest.json"})):
-        with pytest.raises(ValueError):
-            validate_extension.validate_zip(_zip(tmp_path / f"{name}.zip", files))
+    validate_extension.validate_zip(_zip(tmp_path / "plain.zip", base))
+    for name, extra in (("tethys", {"bin/TETHYS Engine.exe": b"t"}),
+                        ("tethys-linux", {"bin/tethys-engine": b"t"}),
+                        ("tethys-manifest", {"tethys_manifest.json": "{}"}),
+                        ("aether", {"bin/AETHER Engine.exe": b"a"}),
+                        ("aether-manifest", {"aether_engine_manifest.json": "{}"})):
+        with pytest.raises(ValueError, match="must not bundle a native engine"):
+            validate_extension.validate_zip(_zip(tmp_path / f"{name}.zip", dict(base, **extra)))
 
 
 def test_killed_engine_leaves_cloth_cache_intact(tmp_path):

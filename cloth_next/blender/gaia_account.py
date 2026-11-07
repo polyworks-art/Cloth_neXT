@@ -188,6 +188,9 @@ def _refresh_job(service) -> None:
     _update(signed_in=True, email=view.account_identity, access=access["status"], mode=access["mode"],
             downloads_enabled=enabled, available=available, checked_at=time.time())
     _refresh_gaia_entitlement(service)
+    if access["status"] == "granted":
+        from . import engine_installs
+        engine_installs.after_gaia_check()
 
 
 def _refresh_gaia_entitlement(service) -> None:

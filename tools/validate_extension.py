@@ -42,53 +42,18 @@ def validate_source_tree(root: Path) -> None:
 
 
 TETHYS_FILENAMES = {"windows-x64": "TETHYS Engine.exe", "linux-x64": "tethys-engine"}
-
-
-def _validate_tethys(bundle, names, selected) -> None:
-    """The bundled engine is optional; when present it must be exactly one,
-    for this platform, and match its manifest byte for byte."""
-    engines = {PurePosixPath(f"bin/{name}") for name in TETHYS_FILENAMES.values()} & names
-    manifest_path = PurePosixPath("tethys_manifest.json")
-    if not engines and manifest_path not in names:
-        return
-    if manifest_path not in names:
-        raise ValueError("packaged TETHYS Engine has no manifest")
-    payload = json.loads(bundle.read(manifest_path.as_posix()).decode("utf-8"))
-    expected = PurePosixPath(f"bin/{TETHYS_FILENAMES[selected.blender_platform]}")
-    if (payload.get("platform") != selected.blender_platform
-            or payload.get("filename") != expected.name or engines != {expected}):
-        raise ValueError("packaged extension contains a missing or foreign-platform TETHYS Engine")
-    data = bundle.read(expected.as_posix())
-    if len(data) != payload.get("file_size") or hashlib.sha256(data).hexdigest() != payload.get("sha256"):
-        raise ValueError("packaged TETHYS Engine does not match its manifest")
-    info = bundle.getinfo(expected.as_posix())
-    if selected.executable_permission_required and not ((info.external_attr >> 16) & 0o111):
-        raise ValueError("packaged Linux TETHYS Engine is missing executable mode")
-
-
 AETHER_FILENAMES = {"windows-x64": "AETHER Engine.exe"}
+_ENGINE_ENTRIES = ({PurePosixPath(f"bin/{name}") for name in TETHYS_FILENAMES.values()}
+                   | {PurePosixPath(f"bin/{name}") for name in AETHER_FILENAMES.values()}
+                   | {PurePosixPath("tethys_manifest.json"), PurePosixPath("aether_engine_manifest.json")})
 
 
-def _validate_aether(bundle, names, selected) -> None:
-    """Optional bundled AETHER Engine: one binary for this platform whose
-    size and SHA-256 match ``aether_engine_manifest.json``."""
-    engines = {PurePosixPath(f"bin/{name}") for name in AETHER_FILENAMES.values()} & names
-    manifest_path = PurePosixPath("aether_engine_manifest.json")
-    if not engines and manifest_path not in names:
-        return
-    if manifest_path not in names:
-        raise ValueError("packaged AETHER Engine has no manifest")
-    payload = json.loads(bundle.read(manifest_path.as_posix()).decode("utf-8"))
-    filename = AETHER_FILENAMES.get(selected.blender_platform)
-    expected = PurePosixPath(f"bin/{filename}") if filename else None
-    if (expected is None or payload.get("platform") != selected.blender_platform
-            or payload.get("filename") != expected.name or engines != {expected}):
-        raise ValueError("packaged extension contains a missing or foreign-platform AETHER Engine")
-    data = bundle.read(expected.as_posix())
-    if len(data) != payload.get("file_size") or hashlib.sha256(data).hexdigest() != payload.get("sha256"):
-        raise ValueError("packaged AETHER Engine does not match its manifest")
-    if not payload.get("build_id"):
-        raise ValueError("packaged AETHER Engine manifest has no build id")
+def _reject_bundled_engines(names) -> None:
+    """AETHER and TETHYS are installed from the PolyWorks server, never shipped in the ZIP."""
+    bundled = sorted(str(name) for name in _ENGINE_ENTRIES & names)
+    if bundled:
+        raise ValueError("packaged extension must not bundle a native engine (installed from the "
+                         f"server instead): {', '.join(bundled)}")
 
 
 def validate_zip(archive: Path) -> None:
@@ -118,8 +83,7 @@ def validate_zip(archive: Path) -> None:
     if names & foreign:
         raise ValueError("packaged extension contains a foreign-platform companion")
     with ZipFile(archive) as bundle:
-        _validate_tethys(bundle, names, selected)
-        _validate_aether(bundle, names, selected)
+        _reject_bundled_engines(names)
 
 
 def main() -> int:

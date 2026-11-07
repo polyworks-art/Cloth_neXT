@@ -167,7 +167,7 @@ def test_locate_authenticates_the_staged_engine(tmp_path, monkeypatch):
 
 def test_locate_rejects_other_api_and_missing_engine(tmp_path, monkeypatch):
     monkeypatch.delenv(engine.DEVELOPER_OVERRIDE, raising=False)
-    with pytest.raises(engine.EngineUnavailable, match="not included") as exc:
+    with pytest.raises(engine.EngineUnavailable, match="not installed") as exc:
         engine.locate(tmp_path, platform="windows-x64")
     assert exc.value.code == "CNX-E131"
     root = _staged(tmp_path, b"engine", api=[2, 0])

@@ -473,8 +473,12 @@ class CLOTHNEXT_PT_solver(_ClothNextSubpanel, bpy.types.Panel):
                      **icon_registry.icon_kwargs("solver", "SETTINGS"))
         if not status.ready:
             header.label(text=status.title)
-            layout.operator("clothnext.open_preferences",
-                            text="Open Add-on Preferences")
+            from . import engine_installs
+            if _aether_selected(context) and engine_installs.installed("aether") is None:
+                engine_installs.draw_engine_rows(layout, "aether")
+            else:
+                layout.operator("clothnext.open_preferences",
+                                text="Open Add-on Preferences")
 
         model = _bake_panel_model(context, status)
         snapshot = shared_controller.snapshot()

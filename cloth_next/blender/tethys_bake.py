@@ -75,6 +75,21 @@ def is_running() -> bool:
     return _job is not None
 
 
+ENGINE_MISSING = "Install the TETHYS Engine (Preferences > Solver Engine)"
+
+
+def engine_ready() -> bool:
+    """An installed, overridden or staged development engine exists (no hashing;
+    ``engine.locate`` authenticates it before every bake)."""
+    import os
+    from . import engine_installs
+    if engine_installs.installed("tethys") is not None:
+        return True
+    if os.environ.get(engine.DEVELOPER_OVERRIDE, "").strip():
+        return True
+    return (engine.extension_root() / engine.MANIFEST).is_file()
+
+
 def availability(*, refresh: bool = False) -> engine.Availability:
     """GAIA selection + GAIA access, cached briefly for panel drawing."""
     now = time.monotonic()
@@ -86,6 +101,8 @@ def availability(*, refresh: bool = False) -> engine.Availability:
         value = engine.Availability(False, "Solver registry cannot be read. Check Preferences")
     else:
         value = engine.gaia_availability(registry, gaia_account.access_granted())
+        if value.available and not engine_ready():
+            value = engine.Availability(False, ENGINE_MISSING)
     _availability_cache.update(time=now, value=value)
     return value
 

@@ -365,7 +365,7 @@ def test_aether_row_offers_update_without_switching_selection(
 
     labels = [text for text, _icon in layout.labels]
     assert "AETHER" in labels and "GAIA" in labels and "Legacy" in labels
-    assert any(text.startswith("AETHER Engine") and text.endswith("(bundled)") for text in labels)
+    assert "AETHER Engine not installed" in labels   # comes from the server, never bundled
     assert "old-tag installed" in labels
     updates = [(text, operator) for idname, text, operator, _enabled in layout.operators
                if idname == "clothnext.solver_download"]

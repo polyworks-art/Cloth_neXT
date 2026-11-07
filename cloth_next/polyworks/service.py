@@ -558,6 +558,30 @@ class AccountService:
         except ApiError as exc:
             raise self._handle(state, exc) from None
 
+    def engine_builds(self, engine: str, *, platform: str, addon_version: str, channel: str,
+                      require_account: bool) -> list:
+        """Native engine builds. AETHER is anonymous (no session is sent at all);
+        TETHYS sends the session and the server checks GAIA access."""
+        token = self._require_token() if require_account else None
+        state = self.state()
+        try:
+            return self.api.engine_builds(engine, platform=platform, addon_version=addon_version,
+                                          channel=channel, token=token)
+        except ApiError as exc:
+            if token is None:
+                raise
+            raise self._handle(state, exc) from None
+
+    def engine_download_session(self, engine: str, build_id: str, *, require_account: bool) -> dict:
+        token = self._require_token() if require_account else None
+        state = self.state()
+        try:
+            return self.api.engine_download_session(engine, build_id, token=token)
+        except ApiError as exc:
+            if token is None:
+                raise
+            raise self._handle(state, exc) from None
+
     def gaia_download_session(self, build_id: str) -> dict:
         """A fresh, server-authorised link; re-checks the entitlement every time."""
         token = self._require_token()

@@ -6,6 +6,8 @@ The engine is built from its separate, access-controlled source repository
 (``python build.py`` there). Only the compiled binary and this manifest
 enter the extension; no engine source is ever staged.
 """
+# Local development only: release ZIPs no longer bundle native engines; the add-on
+# installs them from the server (tools/release_engine.py uploads a build).
 from __future__ import annotations
 import argparse
 import hashlib

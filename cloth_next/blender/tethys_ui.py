@@ -163,7 +163,10 @@ class CLOTHNEXT_PT_tethys(_Panel, bpy.types.Panel):
         obj = context.object
         layout = self.layout
         state = tethys_bake.availability()
-        if not state.available:
+        if not state.available and state.reason == tethys_bake.ENGINE_MISSING:
+            from . import engine_installs
+            engine_installs.draw_engine_rows(layout, "tethys")
+        elif not state.available:
             row = layout.row()
             row.label(text=state.reason, icon="LOCKED")
             if "Preferences" in state.reason or "access" in state.reason:

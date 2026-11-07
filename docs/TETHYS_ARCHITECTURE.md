@@ -418,6 +418,16 @@ material setup 0.63 s, engine 0.04 s.
 
 ## 12. Packaging and licensing (needs review)
 
+**Since 2026-11-07 (Dev after 2.9.66): not bundled any more.** The add-on ZIP carries no native
+engine (`tools/validate_extension.py` rejects one). The add-on installs AETHER (no account) and
+TETHYS (GAIA access) from the PolyWorks server into `%LOCALAPPDATA%/ClothNeXt/engines/<engine>/`
+(`cloth_next/updater/native_engines.py`, `cloth_next/blender/engine_installs.py`); `engine.locate`
+prefers that installation, then a staged development copy. Releasing an engine build:
+`python tools/release_engine.py <aether|tethys> <binary> --min-addon <version>` with
+`CLOTH_NEXT_RELEASE_TOKEN` (only with Tim's go). Server contract:
+`docs/polyworks/NATIVE_ENGINE_DOWNLOADS_SERVER_SPEC.md`. The `vendor/` binaries stay as the
+source for those uploads and for local tests; the stage tools are for local development only.
+
 `tools/stage_tethys.py <binary>` stages the prebuilt engine as
 `bin/TETHYS Engine.exe` (Windows) or `bin/tethys-engine` (Linux) with
 `tethys_manifest.json` (size, SHA-256, protocol). At runtime the binary must

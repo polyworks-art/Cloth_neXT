@@ -68,6 +68,10 @@ class ContractBackend:
         self.cut_download_after = None   # bytes; simulate one dropped connection
         self.no_range = False
         self._range = None
+        # Native engines (docs/polyworks/NATIVE_ENGINE_DOWNLOADS_SERVER_SPEC.md)
+        self.engine_builds = {}    # build_id -> metadata (with "engine" and "channel")
+        self.engine_files = {}     # build_id -> bytes
+        self.engine_links = {}     # t -> {user, engine, build, expires}
 
     # Public key -----------------------------------------------------------------
     @property
@@ -138,6 +142,87 @@ class ContractBackend:
                                  "release_notes": "test build"}
         self.build_files[build_id] = data
         return build_id
+
+    def publish_engine_build(self, engine: str, data: bytes, *, version="0.4.6-dev", channel="public",
+                             platform="windows-x64", backend=None, min_addon="2.0.0", max_addon=None,
+                             rev="04b7db6c9d2d", published_at="2026-11-07T09:00:00Z"):
+        import hashlib
+        backend = backend or {"aether": "cuda", "tethys": "cpu"}[engine]
+        build_id = f"{engine}-{version}+{backend}.{platform}.{rev}"
+        self.engine_builds[build_id] = {"engine": engine, "channel": channel, "platform": platform,
+                                        "backend": backend, "build_id": build_id, "version": version,
+                                        "sha256": hashlib.sha256(data).hexdigest(), "size_bytes": len(data),
+                                        "published_at": published_at, "min_addon_version": min_addon,
+                                        "max_addon_version": max_addon, "release_notes": "test engine"}
+        self.engine_files[build_id] = data
+        return build_id
+
+    @staticmethod
+    def _version_key(value):
+        return tuple(int(part) for part in re.findall(r"\d+", (value or "").split("-")[0].split("+")[0]))
+
+    def _engine_route(self, method, path, auth):
+        """Spec routes: AETHER anonymous, TETHYS needs a session with GAIA access."""
+        from urllib.parse import parse_qs, unquote, urlsplit
+        parts = urlsplit(path)
+        listing = re.fullmatch(r"/v1/engines/([a-z]+)/builds", parts.path)
+        session = re.fullmatch(r"/v1/engines/([a-z]+)/builds/([^/]+)/download-session", parts.path)
+        if not (method == "GET" and listing) and not (method == "POST" and session):
+            return None
+        engine = (listing or session).group(1)
+        if engine not in ("aether", "tethys"):
+            return self.error(404, "not_found")
+        user_id = None
+        if engine == "tethys":
+            user_id = self._user(auth)
+            if user_id is None:
+                return self.error(401, "not_authenticated")
+            if self._gaia_status(user_id) != "granted":
+                return self.error(403, "gaia_access_required")
+        if listing:
+            query = {key: values[0] for key, values in parse_qs(parts.query).items()}
+            local = self._version_key(query.get("addon_version"))
+            channels = {"public", "dev"} if (query.get("channel") == "dev" if engine == "aether"
+                                             else user_id in self.gaia_testers) else {"public"}
+            newest = {}
+            for build in self.engine_builds.values():
+                if (build["engine"] != engine or build["channel"] not in channels
+                        or build["platform"] != query.get("platform")):
+                    continue
+                if local < self._version_key(build["min_addon_version"]) or (
+                        build["max_addon_version"] and local > self._version_key(build["max_addon_version"])):
+                    continue
+                key = (build["platform"], build["backend"])
+                if key not in newest or build["published_at"] > newest[key]["published_at"]:
+                    newest[key] = build
+            return 200, {"builds": list(newest.values())}, None
+        build_id = unquote(session.group(2))
+        build = self.engine_builds.get(build_id)
+        if build is None or build["engine"] != engine:
+            return self.error(404, "not_found")
+        token = secrets.token_urlsafe(24)
+        self.engine_links[token] = {"user": user_id, "engine": engine, "build": build_id,
+                                    "expires": self.clock() + 6 * 3600}
+        return 200, {"url": f"{self.url}/engines/{build_id}/package.zip?t={token}",
+                     "sha256": build["sha256"], "size_bytes": build["size_bytes"],
+                     "expires_at": "2026-11-07T15:00:00Z"}, None
+
+    def _engine_download(self, path):
+        from urllib.parse import parse_qs, urlsplit
+        parts = urlsplit(path)
+        token = (parse_qs(parts.query).get("t") or [""])[0]
+        link = self.engine_links.get(token)
+        match = re.fullmatch(r"/engines/([^/]+)/package\.zip", parts.path)
+        if not link or not match or match.group(1) != link["build"]:
+            return self.error(403, "forbidden")
+        if self.clock() > link["expires"]:
+            return self.error(403, "download_expired")
+        if link["engine"] == "tethys" and self._gaia_status(link["user"]) != "granted":
+            return self.error(403, "gaia_access_required")
+        data = self.engine_files.get(link["build"])
+        if data is None:
+            return self.error(403, "build_unavailable")
+        return 200, data, {"Content-Type": "application/octet-stream", "Accept-Ranges": "bytes"}
 
     def _gaia_status(self, user_id):
         if user_id in self.suspended:
@@ -327,6 +412,11 @@ class ContractBackend:
             return 200, self._new_session(record["user"]), None
         if method == "GET" and path.startswith("/gaia/"):
             return self._download(path)
+        if method == "GET" and path.startswith("/engines/"):
+            return self._engine_download(path)
+        engine = self._engine_route(method, path, auth)
+        if engine is not None:
+            return engine
         if method == "GET" and path == "/v1/entitlements/public-key":
             return 200, {"key_id": self.key_id, "public_key_pem": self.public_key_pem}, None
 
