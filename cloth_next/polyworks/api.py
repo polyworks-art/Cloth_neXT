@@ -399,28 +399,51 @@ class PolyWorksApi:
                 "expires_at": _field(value, "expires_at", str, optional=True)}
 
     # Native engines (AETHER, TETHYS): docs/polyworks/NATIVE_ENGINE_DOWNLOADS_SERVER_SPEC.md
-    def engine_builds(self, engine: str, *, platform: str, addon_version: str, channel: str,
-                      token: str | None = None) -> list:
-        """Builds of a native engine this client may install. AETHER needs no
-        token; TETHYS needs a session with GAIA access (the server decides)."""
+    def engine_releases(self, engine: str, *, platform: str) -> list:
+        """Anonymous public catalog (AETHER only; GAIA/TETHYS are always empty there).
+        One flattened build per artifact, carrying its direct, token-free ``url``."""
         from urllib.parse import quote, urlencode
-        query = urlencode({"platform": platform, "addon_version": addon_version, "channel": channel})
-        value = self._call("GET", f"/v1/engines/{quote(engine, safe='')}/builds?{query}", token=token)
-        builds = value.get("builds") if isinstance(value, dict) else None
-        if not isinstance(builds, list):
+        value = self._call("GET", f"/v1/engines/{quote(engine, safe='')}/releases?"
+                           + urlencode({"platform": platform}))
+        releases = value.get("releases") if isinstance(value, dict) else None
+        if not isinstance(releases, list):
             raise ApiError("invalid_response")
-        return [gaia_build_from(item) for item in builds]
+        builds = []
+        for release in releases:
+            artifacts = release.get("artifacts") if isinstance(release, dict) else None
+            if not isinstance(artifacts, list):
+                raise ApiError("invalid_response")
+            for artifact in artifacts:
+                if not isinstance(artifact, dict):
+                    raise ApiError("invalid_response")
+                build = gaia_build_from({**release, **artifact, "engine": engine, "channel": "public"})
+                build["url"] = _field(artifact, "url", str)
+                builds.append(build)
+        return builds
 
-    def engine_download_session(self, engine: str, build_id: str, token: str | None = None) -> dict:
-        from urllib.parse import quote
-        value = self._call("POST", f"/v1/engines/{quote(engine, safe='')}/builds/"
-                           f"{quote(build_id, safe='')}/download-session", token=token)
-        digest = _field(value, "sha256", str).lower()
-        size = _field(value, "size_bytes", int)
-        if len(digest) != 64 or not set(digest) <= _HEX64 or size <= 0:
+    def solver_manifest(self, token: str, *, engine: str, platform: str, backend: str) -> list:
+        """Signed-in view of one engine: current build and history (dev builds for dev
+        testers; TETHYS/GAIA need GAIA access). No published build is an empty list."""
+        from urllib.parse import urlencode
+        query = urlencode({"engine": engine, "platform": platform, "backend": backend})
+        try:
+            value = self._call("GET", f"/v1/solver/manifest?{query}", token=token)
+        except ApiError as exc:
+            if exc.code == "not_found":
+                return []
+            raise
+        if not isinstance(value, dict):
             raise ApiError("invalid_response")
-        return {"url": _field(value, "url", str), "sha256": digest, "size_bytes": size,
-                "expires_at": _field(value, "expires_at", str, optional=True)}
+        items = [value.get("current"), *(value.get("history") or [])]
+        builds = []
+        for item in items:
+            if not isinstance(item, dict) or item.get("status") not in (None, "published"):
+                continue
+            build = gaia_build_from({"engine": engine, **item})
+            builds.append(build)
+        if builds and isinstance(value.get("channel"), str):
+            builds[0]["channel"] = value["channel"]
+        return builds
 
     def public_key(self) -> dict:
         value = self._call("GET", "/v1/entitlements/public-key")

@@ -210,43 +210,53 @@ def _service(backend, tmp_path, *, signed_in):
     return service
 
 
-def test_aether_is_listed_and_downloaded_without_an_account(backend, tmp_path):
+def test_public_aether_is_listed_and_downloaded_without_an_account(backend, tmp_path):
     from cloth_next.polyworks.gaia_downloads import download
     data = os.urandom(4096)
-    backend.publish_engine_build("aether", data, version="0.4.6-dev", channel="dev", min_addon="2.9.67")
-    backend.publish_engine_build("aether", b"old", version="0.4.5", channel="public", min_addon="2.9.0",
-                                 rev="aaaaaaaaaaaa", published_at="2026-11-01T00:00:00Z")
+    backend.publish_engine_build("aether", data, version="0.4.6", channel="public", min_addon="2.9.67")
+    backend.publish_engine_build("aether", b"dev", version="0.4.7-dev", channel="dev", min_addon="2.9.67",
+                                 rev="bbbbbbbbbbbb", published_at="2026-11-08T00:00:00Z")
     service = _service(backend, tmp_path, signed_in=False)
-    listed = service.engine_builds("aether", platform="windows-x64", addon_version="2.9.67", channel="dev",
-                                   require_account=False)
+    listed = service.engine_builds("aether", platform="windows-x64", backend="cuda", require_account=False)
+    assert [build["version"] for build in listed] == ["0.4.6"]       # dev builds need a dev account
     chosen = native_engines.choose_build(listed, "aether", "2.9.67", platform="windows-x64")
-    assert chosen["version"] == "0.4.6-dev"
-    public = service.engine_builds("aether", platform="windows-x64", addon_version="2.9.67", channel="public",
-                                   require_account=False)
-    assert [build["version"] for build in public] == ["0.4.5"]
-    target = download(lambda: service.engine_download_session("aether", chosen["build_id"],
-                                                              require_account=False), tmp_path / "a.zip")
+    assert native_engines.choose_build(listed, "aether", "2.9.66", platform="windows-x64") is None
+    target = download(lambda: service.engine_download_session("aether", chosen), tmp_path / "a.zip")
     assert target.read_bytes() == data
-    assert not any(authenticated for _m, path, _r, authenticated in backend.requests if "/v1/engines/" in path)
+    assert not any(authenticated for _m, path, _r, authenticated in backend.requests)
+
+
+def test_signed_in_dev_tester_also_sees_dev_aether_through_a_session(backend, tmp_path):
+    from cloth_next.polyworks.gaia_downloads import download
+    backend.publish_engine_build("aether", b"public", version="0.4.6", channel="public")
+    backend.publish_engine_build("aether", b"dev build", version="0.4.7-dev", channel="dev",
+                                 rev="bbbbbbbbbbbb", published_at="2026-11-08T00:00:00Z")
+    service = _service(backend, tmp_path, signed_in=True)
+    backend.gaia_testers.add(service.user)
+    listed = service.engine_builds("aether", platform="windows-x64", backend="cuda", require_account=False)
+    chosen = native_engines.choose_build(listed, "aether", "2.9.67", platform="windows-x64")
+    assert chosen["version"] == "0.4.7-dev" and "url" not in chosen
+    target = download(lambda: service.engine_download_session("aether", chosen), tmp_path / "d.zip")
+    assert target.read_bytes() == b"dev build"
 
 
 def test_tethys_needs_gaia_access(backend, tmp_path):
+    from cloth_next.polyworks.gaia_downloads import download
     from cloth_next.polyworks.service import ServiceError
     backend.publish_engine_build("tethys", b"wet", version="1.3.0-dev", min_addon="2.9.67")
     anonymous = _service(backend, tmp_path / "a", signed_in=False)
     with pytest.raises(ServiceError) as exc:
-        anonymous.engine_builds("tethys", platform="windows-x64", addon_version="2.9.67", channel="dev",
-                                require_account=True)
+        anonymous.engine_builds("tethys", platform="windows-x64", backend="cpu", require_account=True)
     assert exc.value.code == "sign_in_required"
     service = _service(backend, tmp_path / "b", signed_in=True)
     with pytest.raises(ServiceError) as exc:
-        service.engine_builds("tethys", platform="windows-x64", addon_version="2.9.67", channel="dev",
-                              require_account=True)
+        service.engine_builds("tethys", platform="windows-x64", backend="cpu", require_account=True)
     assert exc.value.code == "gaia_access_required"
     backend.gaia_access[service.user] = "granted"
-    listed = service.engine_builds("tethys", platform="windows-x64", addon_version="2.9.67", channel="dev",
-                                   require_account=True)
+    listed = service.engine_builds("tethys", platform="windows-x64", backend="cpu", require_account=True)
     assert [build["engine"] for build in listed] == ["tethys"]
+    target = download(lambda: service.engine_download_session("tethys", listed[0]), tmp_path / "t.zip")
+    assert target.read_bytes() == b"wet"
 
 
 @windows_only
@@ -259,7 +269,6 @@ def test_preferences_install_downloads_verifies_and_never_selects(blender_env, b
     service = _service(backend, tmp_path, signed_in=False)
     monkeypatch.setattr(engine_installs, "_service", lambda: service)
     monkeypatch.setattr(engine_installs, "_bake_active", lambda: False)
-    monkeypatch.setattr(engine_installs, "_channel", lambda: "public")
     solver_root = tmp_path / "solver"
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "local"))
     assert engine_installs.install("aether")

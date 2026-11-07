@@ -558,28 +558,43 @@ class AccountService:
         except ApiError as exc:
             raise self._handle(state, exc) from None
 
-    def engine_builds(self, engine: str, *, platform: str, addon_version: str, channel: str,
-                      require_account: bool) -> list:
-        """Native engine builds. AETHER is anonymous (no session is sent at all);
-        TETHYS sends the session and the server checks GAIA access."""
-        token = self._require_token() if require_account else None
-        state = self.state()
-        try:
-            return self.api.engine_builds(engine, platform=platform, addon_version=addon_version,
-                                          channel=channel, token=token)
-        except ApiError as exc:
-            if token is None:
-                raise
-            raise self._handle(state, exc) from None
+    def engine_builds(self, engine: str, *, platform: str, backend: str, require_account: bool) -> list:
+        """Native engine builds for this computer (the add-on checks the add-on range).
 
-    def engine_download_session(self, engine: str, build_id: str, *, require_account: bool) -> dict:
-        token = self._require_token() if require_account else None
+        AETHER: the anonymous public catalog, plus dev builds through the signed-in
+        manifest when there is a session (a failure there never hides the public
+        builds). TETHYS: only the signed-in manifest; the server checks GAIA access."""
+        builds = [] if require_account else self.api.engine_releases(engine, platform=platform)
+        if require_account:
+            token = self._require_token()
+        else:
+            try:
+                token = self._token()
+            except ServiceError:
+                token = None   # the public catalog is enough for AETHER
+        if token is None:
+            return builds
         state = self.state()
         try:
-            return self.api.engine_download_session(engine, build_id, token=token)
+            signed_in = self.api.solver_manifest(token, engine=engine, platform=platform, backend=backend)
         except ApiError as exc:
-            if token is None:
-                raise
+            if not require_account:
+                return builds
+            raise self._handle(state, exc) from None
+        known = {build["build_id"] for build in builds}
+        return builds + [build for build in signed_in if build["build_id"] not in known]
+
+    def engine_download_session(self, engine: str, build: dict) -> dict:
+        """Public AETHER builds carry a direct URL; everything else needs a fresh,
+        server-authorised session (re-checks access every time)."""
+        if build.get("url"):
+            return {"url": build["url"], "sha256": build["sha256"], "size_bytes": build["size_bytes"],
+                    "expires_at": None}
+        token = self._require_token()
+        state = self.state()
+        try:
+            return self.api.download_session(token, build["build_id"])
+        except ApiError as exc:
             raise self._handle(state, exc) from None
 
     def gaia_download_session(self, build_id: str) -> dict:

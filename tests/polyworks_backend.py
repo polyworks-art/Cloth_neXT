@@ -161,68 +161,88 @@ class ContractBackend:
     def _version_key(value):
         return tuple(int(part) for part in re.findall(r"\d+", (value or "").split("-")[0].split("+")[0]))
 
+    def _newest(self, engine, platform, channels):
+        newest = {}
+        for build in self.engine_builds.values():
+            if build["engine"] != engine or build["channel"] not in channels or build["platform"] != platform:
+                continue
+            key = (build["platform"], build["backend"])
+            if key not in newest or build["published_at"] > newest[key]["published_at"]:
+                newest[key] = build
+        return list(newest.values())
+
     def _engine_route(self, method, path, auth):
-        """Spec routes: AETHER anonymous, TETHYS needs a session with GAIA access."""
+        """As live on 2026-11-07: anonymous public catalog (AETHER only, direct URLs),
+        signed-in manifest, and the shared signed-in download session."""
         from urllib.parse import parse_qs, unquote, urlsplit
         parts = urlsplit(path)
-        listing = re.fullmatch(r"/v1/engines/([a-z]+)/builds", parts.path)
-        session = re.fullmatch(r"/v1/engines/([a-z]+)/builds/([^/]+)/download-session", parts.path)
-        if not (method == "GET" and listing) and not (method == "POST" and session):
-            return None
-        engine = (listing or session).group(1)
-        if engine not in ("aether", "tethys"):
-            return self.error(404, "not_found")
-        user_id = None
-        if engine == "tethys":
+        query = {key: values[0] for key, values in parse_qs(parts.query).items()}
+        releases = re.fullmatch(r"/v1/engines/([a-z]+)/releases", parts.path)
+        if method == "GET" and releases:
+            engine = releases.group(1)
+            access = {"aether": "public"}.get(engine, "gaia_access")
+            items = []
+            if engine == "aether":
+                for build in self._newest(engine, query.get("platform"), {"public"}):
+                    items.append({key: build[key] for key in ("version", "build_id", "published_at",
+                                                              "min_addon_version", "max_addon_version",
+                                                              "release_notes")}
+                                 | {"source": "polyworks", "artifacts": [{
+                                     "platform": build["platform"], "backend": build["backend"],
+                                     "filename": "package.zip", "sha256": build["sha256"],
+                                     "size_bytes": build["size_bytes"], "hosted_by": "polyworks",
+                                     "url": f"{self.url}/engines/{build['build_id']}/package.zip"}]})
+            return 200, {"engine": engine, "source": "polyworks", "status": "hosted", "access": access,
+                         "releases": items}, None
+        if method == "GET" and parts.path == "/v1/solver/manifest":
             user_id = self._user(auth)
             if user_id is None:
                 return self.error(401, "not_authenticated")
-            if self._gaia_status(user_id) != "granted":
+            engine = query.get("engine")
+            if engine != "aether" and self._gaia_status(user_id) != "granted":
                 return self.error(403, "gaia_access_required")
-        if listing:
-            query = {key: values[0] for key, values in parse_qs(parts.query).items()}
-            local = self._version_key(query.get("addon_version"))
-            channels = {"public", "dev"} if (query.get("channel") == "dev" if engine == "aether"
-                                             else user_id in self.gaia_testers) else {"public"}
-            newest = {}
-            for build in self.engine_builds.values():
-                if (build["engine"] != engine or build["channel"] not in channels
-                        or build["platform"] != query.get("platform")):
-                    continue
-                if local < self._version_key(build["min_addon_version"]) or (
-                        build["max_addon_version"] and local > self._version_key(build["max_addon_version"])):
-                    continue
-                key = (build["platform"], build["backend"])
-                if key not in newest or build["published_at"] > newest[key]["published_at"]:
-                    newest[key] = build
-            return 200, {"builds": list(newest.values())}, None
-        build_id = unquote(session.group(2))
-        build = self.engine_builds.get(build_id)
-        if build is None or build["engine"] != engine:
-            return self.error(404, "not_found")
-        token = secrets.token_urlsafe(24)
-        self.engine_links[token] = {"user": user_id, "engine": engine, "build": build_id,
-                                    "expires": self.clock() + 6 * 3600}
-        return 200, {"url": f"{self.url}/engines/{build_id}/package.zip?t={token}",
-                     "sha256": build["sha256"], "size_bytes": build["size_bytes"],
-                     "expires_at": "2026-11-07T15:00:00Z"}, None
+            channels = {"public", "dev"} if user_id in self.gaia_testers else {"public"}
+            found = [b for b in self._newest(engine, query.get("platform"), channels)
+                     if b["backend"] == query.get("backend")]
+            if not found:
+                return self.error(404, "not_found")
+            current = dict(found[0], status="published", source_revision="04b7db6c9d2d")
+            return 200, {"engine": engine, "channel": current["channel"], "current": current, "history": []}, None
+        session = re.fullmatch(r"/v1/solver/builds/([^/]+)/download-session", parts.path)
+        if method == "POST" and session and unquote(session.group(1)) in self.engine_builds:
+            user_id = self._user(auth)
+            if user_id is None:
+                return self.error(401, "not_authenticated")
+            build = self.engine_builds[unquote(session.group(1))]
+            if build["engine"] != "aether" and self._gaia_status(user_id) != "granted":
+                return self.error(403, "gaia_access_required")
+            token = secrets.token_urlsafe(24)
+            self.engine_links[token] = {"user": user_id, "engine": build["engine"], "build": build["build_id"],
+                                        "expires": self.clock() + 6 * 3600}
+            return 200, {"url": f"{self.url}/engines/{build['build_id']}/package.zip?t={token}",
+                         "sha256": build["sha256"], "size_bytes": build["size_bytes"],
+                         "expires_at": "2026-11-07T15:00:00Z"}, None
+        return None
 
     def _engine_download(self, path):
         from urllib.parse import parse_qs, urlsplit
         parts = urlsplit(path)
-        token = (parse_qs(parts.query).get("t") or [""])[0]
-        link = self.engine_links.get(token)
         match = re.fullmatch(r"/engines/([^/]+)/package\.zip", parts.path)
-        if not link or not match or match.group(1) != link["build"]:
+        build = self.engine_builds.get(match.group(1)) if match else None
+        if build is None:
             return self.error(403, "forbidden")
-        if self.clock() > link["expires"]:
-            return self.error(403, "download_expired")
-        if link["engine"] == "tethys" and self._gaia_status(link["user"]) != "granted":
-            return self.error(403, "gaia_access_required")
-        data = self.engine_files.get(link["build"])
-        if data is None:
-            return self.error(403, "build_unavailable")
-        return 200, data, {"Content-Type": "application/octet-stream", "Accept-Ranges": "bytes"}
+        public = build["engine"] == "aether" and build["channel"] == "public"
+        if not public:
+            token = (parse_qs(parts.query).get("t") or [""])[0]
+            link = self.engine_links.get(token)
+            if not link or link["build"] != build["build_id"]:
+                return self.error(403, "forbidden")
+            if self.clock() > link["expires"]:
+                return self.error(403, "download_expired")
+            if link["engine"] != "aether" and self._gaia_status(link["user"]) != "granted":
+                return self.error(403, "gaia_access_required")
+        return 200, self.engine_files[build["build_id"]], {"Content-Type": "application/octet-stream",
+                                                            "Accept-Ranges": "bytes"}
 
     def _gaia_status(self, user_id):
         if user_id in self.suspended:

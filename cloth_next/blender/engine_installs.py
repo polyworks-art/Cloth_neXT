@@ -135,11 +135,6 @@ def busy() -> bool:
     return bool(worker is not None and worker.is_alive())
 
 
-def _channel() -> str:
-    from ..developer import is_dev_build
-    return "dev" if is_dev_build() else "public"
-
-
 def _compatibility(engine: str):
     """(package_compatible, package_probe) of the engine's own module."""
     if engine == "aether":
@@ -196,8 +191,8 @@ def _list(service, engine: str) -> dict | None:
     platform = native_engines.current_platform()
     if item.filename(platform) is None:
         return None
-    builds = service.engine_builds(engine, platform=platform, addon_version=manifest_version(),
-                                   channel=_channel(), require_account=item.gaia_gated)
+    builds = service.engine_builds(engine, platform=platform, backend=item.backend,
+                                   require_account=item.gaia_gated)
     return native_engines.choose_build(builds, engine, manifest_version(), platform=platform)
 
 
@@ -238,8 +233,7 @@ def install(engine: str) -> bool:
         downloads.mkdir(parents=True, exist_ok=True)
         target = downloads / (build["build_id"].replace("+", "_").replace("/", "_") + ".zip")
         _work(busy=f"Downloading the {item.label}", progress=(0, build["size_bytes"]))
-        download(lambda: service.engine_download_session(engine, build["build_id"],
-                                                         require_account=item.gaia_gated),
+        download(lambda: service.engine_download_session(engine, build),
                  target, progress=lambda done, total: _work(progress=(done, total)),
                  cancelled=cancel.is_set)
         _work(busy=f"Verifying and installing the {item.label}", progress=(0, 0))
