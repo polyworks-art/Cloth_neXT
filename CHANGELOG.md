@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.9.67 - 2026-11-07
+
+- AETHER: cloth vertices no longer freeze. A vertex the collision check had held against other cloth for a quarter second is released: it may slide along and move away from that cloth (never through it), so crumpled or tightly folded cloth falls and moves again instead of hanging in mid-air after a fast pull. Bodies and colliders work as before. Each Live frame reports how many vertices are held and released (frozen / freeze_released in the engine's frame event).
+
 ## 2.9.66 - 2026-11-06
 
 - AETHER Live (Grab Cloth): a grabbed vertex no longer freezes in place. Lifting the end of a seam that lay under a fold of the other panel stopped at 3 to 4 cm instead of following the mouse; the grabbed vertex now pushes the cloth in its way ahead of it. SewingBug.blend in Fitting: lifting a seam end or a free corner 45 cm is clean in 8 of 8 runs (at most 1.07x stretch while held, 1.00x after letting go). Bakes are unchanged.
