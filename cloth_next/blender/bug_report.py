@@ -237,8 +237,9 @@ CLASSES = (CLOTHNEXT_OT_report_bug,)
 def draw_help_menu(self, _context) -> None:
     """Help menu entry: the quickest way to the dialog from anywhere in Blender."""
     self.layout.separator()
+    from . import icon_registry
     self.layout.operator(CLOTHNEXT_OT_report_bug.bl_idname, text="Report a Cloth NeXt Bug…",
-                         icon="ERROR")
+                         **icon_registry.icon_kwargs("cloth_next", "ERROR"))
 
 
 def _help_menu():
