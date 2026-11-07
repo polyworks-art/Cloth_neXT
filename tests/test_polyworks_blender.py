@@ -16,11 +16,14 @@ from tests import fake_bpy
 from tests.test_developer_tools_ui import RecordingLayout
 
 ROOT = Path(__file__).resolve().parents[1]
-# Since 2026-10-18 (direct GAIA workflow) exactly one Blender module may reach the
-# PolyWorks API: the account/GAIA worker, and only from its worker thread.
+# Since 2026-10-18 (direct GAIA workflow) the account/GAIA worker may reach the
+# PolyWorks API, and since 2026-11-07 the native engine (AETHER/TETHYS) installer;
+# both only from their worker threads.
 GAIA_WORKER = ROOT / "cloth_next" / "blender" / "gaia_account.py"
+ENGINE_WORKER = ROOT / "cloth_next" / "blender" / "engine_installs.py"
+WORKERS = (GAIA_WORKER, ENGINE_WORKER)
 BLENDER_SIDE = [*sorted(path for path in (ROOT / "cloth_next" / "blender").rglob("*.py")
-                        if path != GAIA_WORKER),
+                        if path not in WORKERS),
                 *[ROOT / "cloth_next" / "polyworks" / f"{name}.py" for name in
                   ("status", "state", "entitlements", "storage", "trust", "ed25519", "messages")]]
 FORBIDDEN_MODULES = {"cloth_next.polyworks.api", "cloth_next.polyworks.service",
@@ -50,8 +53,9 @@ def test_blender_side_never_imports_api_client_or_vault(path):
     assert not imported_modules(path) & FORBIDDEN_MODULES
 
 
-def test_gaia_worker_imports_the_api_only_inside_functions():
-    tree = ast.parse(GAIA_WORKER.read_text(encoding="utf-8"))
+@pytest.mark.parametrize("worker", WORKERS, ids=lambda p: p.name)
+def test_gaia_worker_imports_the_api_only_inside_functions(worker):
+    tree = ast.parse(worker.read_text(encoding="utf-8"))
     top_level = {alias.name for node in tree.body if isinstance(node, (ast.Import, ast.ImportFrom))
                  for alias in node.names} | {node.module or "" for node in tree.body
                                              if isinstance(node, ast.ImportFrom)}
