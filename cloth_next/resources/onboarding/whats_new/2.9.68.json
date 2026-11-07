@@ -1,0 +1,45 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.68",
+  "title": "What's New in Cloth NeXt 2.9.68",
+  "subtitle": "AETHER: sewing like Marvelous, OGC, Fit Pose, Wind, Shrink, Inflate and a Grab that slides.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/check.png",
+      "title": "Smooth grabbing",
+      "description": "Live starts from the Fit Pose like a Bake, and fast pulls no longer explode or leave stuck vertices."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "No frozen vertices",
+      "description": "Cloth held in place by its own folds is released and slides or falls instead of hanging in mid-air after a fast pull."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Engines from the server",
+      "description": "AETHER and TETHYS now install and update in Preferences > Solver Engine instead of shipping inside the add-on. Click Install once after this update."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Sewing like Marvelous",
+      "description": "Seams close fast and in the air, the seam line no longer fights itself, and a closed seam bends like the cloth (fold angle flat)."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Wind for AETHER",
+      "description": "Force Empties blow the cloth in Live and in bakes: speed, gusts, turbulence and the same air field as the Wind preview."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}

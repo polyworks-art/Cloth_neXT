@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.9.68 - 2026-11-07
+
+- AETHER Live starts like a Bake: with Start from Fit Pose on, the body starts in its Fit Pose and moves into the current pose over the Fit Transition, and cloth that starts inside the body or inside other cloth is pulled out at the start. In SW04_reworked the clothes no longer start stuck inside the body (about 3600 crossings before), so grabbed cloth pulls free smoothly.
+- AETHER engine (server build bd165d5e): fast grabbing no longer explodes. The grab "push" of 2.9.66 pressed cloth against the body until the simulation blew up (NEON trousers swung fast); it is gone, the never-freeze release stays. NEON pulls run at 36 to 41 ms per frame without hitches.
+
 ## 2.9.67 - 2026-11-07
 
 - Engines from the server: AETHER and TETHYS are no longer bundled in the add-on ZIP. Preferences > Solver Engine, the Solver panel and the TETHYS panel install and update them from PolyWorks into the local Cloth NeXt engines folder (AETHER without an account, TETHYS with GAIA access), checked by size, SHA-256, protocol and a version probe. Installing never changes the selected engine. An add-on update no longer has to replace a running engine.

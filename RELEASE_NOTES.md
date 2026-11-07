@@ -1,4 +1,8 @@
-# Cloth NeXt 2.9.67
+# Cloth NeXt 2.9.68
+
+AETHER Live starts from the Fit Pose like a Bake, so clothes no longer start stuck inside the body, and fast grabbing no longer explodes (update AETHER in Preferences > Solver Engine).
+
+## 2.9.67
 
 AETHER: no frozen vertices anymore. Cloth that was held in place by its own folds is released and slides or falls instead of hanging in mid-air.
 
