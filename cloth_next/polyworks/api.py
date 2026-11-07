@@ -447,6 +447,11 @@ class PolyWorksApi:
             builds[0]["channel"] = value["channel"]
         return builds
 
+    def submit_bug_report(self, token: str, report: dict) -> dict:
+        """``report`` must come from ``bug_reports.build_report`` (exact fields only)."""
+        from .bug_reports import PATH, receipt_from
+        return receipt_from(self._call("POST", PATH, report, token=token, expect=(201,)))
+
     def public_key(self) -> dict:
         value = self._call("GET", "/v1/entitlements/public-key")
         return {"key_id": _field(value, "key_id", str),

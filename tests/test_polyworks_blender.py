@@ -17,15 +17,16 @@ from tests.test_developer_tools_ui import RecordingLayout
 
 ROOT = Path(__file__).resolve().parents[1]
 # Since 2026-10-18 (direct GAIA workflow) the account/GAIA worker may reach the
-# PolyWorks API, and since 2026-11-07 the native engine (AETHER/TETHYS) installer;
-# both only from their worker threads.
+# PolyWorks API, since 2026-11-06 the Report a Bug worker and since 2026-11-07 the
+# native engine (AETHER/TETHYS) installer; each only from its worker thread.
 GAIA_WORKER = ROOT / "cloth_next" / "blender" / "gaia_account.py"
 ENGINE_WORKER = ROOT / "cloth_next" / "blender" / "engine_installs.py"
-WORKERS = (GAIA_WORKER, ENGINE_WORKER)
+API_WORKERS = (GAIA_WORKER, ENGINE_WORKER, ROOT / "cloth_next" / "blender" / "bug_report.py")
 BLENDER_SIDE = [*sorted(path for path in (ROOT / "cloth_next" / "blender").rglob("*.py")
-                        if path not in WORKERS),
+                        if path not in API_WORKERS),
                 *[ROOT / "cloth_next" / "polyworks" / f"{name}.py" for name in
-                  ("status", "state", "entitlements", "storage", "trust", "ed25519", "messages")]]
+                  ("status", "state", "entitlements", "storage", "trust", "ed25519", "messages",
+                   "bug_reports")]]
 FORBIDDEN_MODULES = {"cloth_next.polyworks.api", "cloth_next.polyworks.service",
                      "cloth_next.polyworks.vault", "urllib.request",
                      "http.client", "requests", "keyring"}
@@ -53,12 +54,15 @@ def test_blender_side_never_imports_api_client_or_vault(path):
     assert not imported_modules(path) & FORBIDDEN_MODULES
 
 
-@pytest.mark.parametrize("worker", WORKERS, ids=lambda p: p.name)
-def test_gaia_worker_imports_the_api_only_inside_functions(worker):
+@pytest.mark.parametrize("worker", API_WORKERS, ids=lambda p: p.name)
+def test_api_workers_import_the_api_only_inside_functions(worker):
     tree = ast.parse(worker.read_text(encoding="utf-8"))
-    top_level = {alias.name for node in tree.body if isinstance(node, (ast.Import, ast.ImportFrom))
-                 for alias in node.names} | {node.module or "" for node in tree.body
-                                             if isinstance(node, ast.ImportFrom)}
+    # The pure bug report rules (no network, no vault) may be imported at module level.
+    nodes = [node for node in tree.body if isinstance(node, (ast.Import, ast.ImportFrom))
+             and not (isinstance(node, ast.ImportFrom) and node.module == "polyworks"
+                      and [alias.name for alias in node.names] == ["bug_reports"])]
+    top_level = {alias.name for node in nodes for alias in node.names} | {
+        node.module or "" for node in nodes if isinstance(node, ast.ImportFrom)}
     assert not any(name in {"api", "service", "vault", "http.client", "urllib.request"}
                    or "polyworks" in name for name in top_level)
 
@@ -184,9 +188,10 @@ def test_draw_is_informational_and_does_no_io(blender_env, signed, monkeypatch):
         prefs.draw_account_card(layout, SimpleNamespace(connected=True, purchase_validated=False), view)
     finally:
         monkeypatch.setattr(builtins, "open", real_open)
-    # Connect/Disconnect start the background account worker; draw itself does no I/O.
+    # Connect/Disconnect and Report a Bug start background workers; draw itself does no I/O.
     assert set(layout.operators) <= {"clothnext.open_account_companion", "clothnext.polyworks_connect",
-                                     "clothnext.polyworks_disconnect"}
+                                     "clothnext.polyworks_disconnect", "clothnext.report_bug"}
+    assert "clothnext.report_bug" in layout.operators
     assert "clothnext.open_account_companion" in layout.operators
     assert not prop_calls
     labels = "\n".join(layout.labels)

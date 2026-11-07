@@ -899,6 +899,14 @@ def draw_account_card(layout, superhive, view) -> None:
         footer.operator("clothnext.polyworks_connect", text="Connect PolyWorks Account", icon="URL")
     footer.operator("clothnext.open_account_companion", text="Open Cloth NeXt Companion",
                     icon="WINDOW")
+    bugs = card.row()
+    bugs.alignment = "RIGHT"
+    bugs.label(text="Found a problem?")
+    from . import icon_registry
+    bugs.operator("clothnext.report_bug", text="Report a Bug",
+                  **icon_registry.icon_kwargs("cloth_next", "ERROR"))
+    from . import bug_report
+    bug_report.draw_status(card)
 
 
 def _gaia_owner_changed(self, context):
