@@ -1,5 +1,21 @@
 # Native engine downloads (AETHER, TETHYS): server requirements
 
+> **As built (live 2026-11-07), and what the add-on now uses.** The server implemented a
+> different shape than requested below; the client follows the live API:
+> - Anonymous: `GET /v1/engines/aether/releases?platform=…` lists only **public** AETHER builds;
+>   each artifact carries a direct, token-free `url` on `downloads.cloth-next.de`.
+>   GAIA/TETHYS are always empty there.
+> - Signed in: `GET /v1/solver/manifest?engine=…&platform=…&backend=…` (`current` + `history`,
+>   404 when nothing is published). Dev builds only for dev testers; TETHYS needs GAIA access.
+> - Download with a session: `POST /v1/solver/builds/{build_id}/download-session` (Bearer, all engines).
+> - `addon_version` and `channel` are not evaluated by the server; the add-on checks the range.
+> - Upload: `POST /v1/release/solver/builds` accepts `engine`; build id
+>   `<engine>-<version>+<backend>.<platform>.<rev12>`.
+> - First uploads 2026-11-07 (audience dev, min add-on 2.9.67): `aether-0.4.6-dev+cuda.windows-x64.04b7db6c9d2d`,
+>   `tethys-1.3.0-dev+cpu.windows-x64.1a96f14b650d`, `tethys-1.3.0-dev+cpu.linux-x64.1a96f14b650d`.
+>
+> The original request follows for reference.
+
 Status: requested 2026-11-07, not implemented on the server. Client side is ready
 (Cloth NeXt branch `claude/project-thread-siop6g`). Reference behaviour: the
 contract double in `tests/polyworks_backend.py` (`_engine_route`,

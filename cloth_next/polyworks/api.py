@@ -435,12 +435,14 @@ class PolyWorksApi:
         if not isinstance(value, dict):
             raise ApiError("invalid_response")
         items = [value.get("current"), *(value.get("history") or [])]
-        builds = []
+        builds, seen = [], set()
         for item in items:
             if not isinstance(item, dict) or item.get("status") not in (None, "published"):
                 continue
             build = gaia_build_from({"engine": engine, **item})
-            builds.append(build)
+            if build["build_id"] not in seen:   # history repeats the current build
+                seen.add(build["build_id"])
+                builds.append(build)
         if builds and isinstance(value.get("channel"), str):
             builds[0]["channel"] = value["channel"]
         return builds
