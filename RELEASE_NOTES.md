@@ -1,4 +1,8 @@
-# Cloth NeXt 2.9.66
+# Cloth NeXt 2.9.67
+
+AETHER: no frozen vertices anymore. Cloth that was held in place by its own folds is released and slides or falls instead of hanging in mid-air.
+
+## 2.9.66
 
 AETHER Live: a grabbed vertex no longer freezes when you lift a seam end or a corner; it pushes the cloth in its way ahead of it.
 

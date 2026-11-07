@@ -1,0 +1,45 @@
+{
+  "schema": "cnx.whats-new.v1",
+  "version": "2.9.67",
+  "title": "What's New in Cloth NeXt 2.9.67",
+  "subtitle": "AETHER: sewing like Marvelous, OGC, Fit Pose, Wind, Shrink, Inflate and a Grab that slides.",
+  "hero_asset": "assets/wireframe-cloth.png",
+  "highlights": [
+    {
+      "icon": "icons/check.png",
+      "title": "No frozen vertices",
+      "description": "Cloth held in place by its own folds is released and slides or falls instead of hanging in mid-air after a fast pull."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Sewing like Marvelous",
+      "description": "Seams close fast and in the air, the seam line no longer fights itself, and a closed seam bends like the cloth (fold angle flat)."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Wind for AETHER",
+      "description": "Force Empties blow the cloth in Live and in bakes: speed, gusts, turbulence and the same air field as the Wind preview."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Grab Cloth",
+      "description": "No stretch limit, the cloth slides along the skin as you pull, and Grab Cloth stays on for the whole Live Simulation."
+    },
+    {
+      "icon": "icons/check.png",
+      "title": "Fewer crossed layers",
+      "description": "Cloth is moved ahead of a moving arm or leg before it gets caught, so fast motion leaves fewer layers crossed."
+    }
+  ],
+  "actions": [
+    {
+      "label": "Continue",
+      "kind": "close"
+    },
+    {
+      "label": "Learning Center",
+      "kind": "url",
+      "url": "https://polyworks-art.github.io/Cloth_neXT/docs/"
+    }
+  ]
+}
