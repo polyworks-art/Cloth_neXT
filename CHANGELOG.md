@@ -3,6 +3,8 @@
 ## 2.9.68 - 2026-11-07
 
 - AETHER Live starts like a Bake: with Start from Fit Pose on, the body starts in its Fit Pose and moves into the current pose over the Fit Transition, and cloth that starts inside the body or inside other cloth is pulled out at the start. In SW04_reworked the clothes no longer start stuck inside the body (about 3600 crossings before), so grabbed cloth pulls free smoothly.
+- Report a Bug: send a bug report with your PolyWorks account from Blender's Help menu (own Cloth NeXt section with What's New and Learning Center) or from Preferences; add-on, Blender version and operating system are added automatically, and the draft is kept if sending fails.
+- Diagnostics: performance values, Bake results, errors and crash reports are sent to PolyWorks in the background to help fix problems (Preferences > Send Diagnostics, on by default; no scenes, file names, folders or passwords; turning it off deletes what was collected).
 - AETHER engine (server build bd165d5e): fast grabbing no longer explodes. The grab "push" of 2.9.66 pressed cloth against the body until the simulation blew up (NEON trousers swung fast); it is gone, the never-freeze release stays. NEON pulls run at 36 to 41 ms per frame without hitches.
 
 ## 2.9.67 - 2026-11-07

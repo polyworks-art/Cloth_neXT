@@ -1,6 +1,6 @@
 # Cloth NeXt 2.9.68
 
-AETHER Live starts from the Fit Pose like a Bake, so clothes no longer start stuck inside the body, and fast grabbing no longer explodes (update AETHER in Preferences > Solver Engine).
+AETHER Live starts from the Fit Pose like a Bake, so clothes no longer start stuck inside the body, and fast grabbing no longer explodes (update AETHER in Preferences > Solver Engine). New: Report a Bug in Blender's Help menu, and background diagnostics (Preferences > Send Diagnostics).
 
 ## 2.9.67
 
