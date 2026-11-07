@@ -2,6 +2,8 @@
 
 AETHER: no frozen vertices anymore. Cloth that was held in place by its own folds is released and slides or falls instead of hanging in mid-air.
 
+The AETHER and TETHYS engines are no longer inside the add-on download. Install or update them in Preferences > Add-ons > Cloth NeXt > Solver Engine (AETHER needs no account, TETHYS needs GAIA access); the selected engine never changes on its own.
+
 ## 2.9.66
 
 AETHER Live: a grabbed vertex no longer freezes when you lift a seam end or a corner; it pushes the cloth in its way ahead of it.

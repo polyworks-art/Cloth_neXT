@@ -2,6 +2,7 @@
 
 ## 2.9.67 - 2026-11-07
 
+- Engines from the server: AETHER and TETHYS are no longer bundled in the add-on ZIP. Preferences > Solver Engine, the Solver panel and the TETHYS panel install and update them from PolyWorks into the local Cloth NeXt engines folder (AETHER without an account, TETHYS with GAIA access), checked by size, SHA-256, protocol and a version probe. Installing never changes the selected engine. An add-on update no longer has to replace a running engine.
 - AETHER: cloth vertices no longer freeze. A vertex the collision check had held against other cloth for a quarter second is released: it may slide along and move away from that cloth (never through it), so crumpled or tightly folded cloth falls and moves again instead of hanging in mid-air after a fast pull. Bodies and colliders work as before. Each Live frame reports how many vertices are held and released (frozen / freeze_released in the engine's frame event).
 
 ## 2.9.66 - 2026-11-06
