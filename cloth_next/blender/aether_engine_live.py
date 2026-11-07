@@ -94,7 +94,7 @@ class LiveSession:
                 self_collision=request.self_collision,
                 air_damping=LIVE_AIR_DAMPING.get(str(self.quality).lower(), LIVE_AIR_DAMPING["normal"]),
                 cloths=[abake.session_cloth(c) for c in request.cloths],
-                meshes=[abake.session_collider(c) for c in request.colliders])
+                meshes=[self._start_collider(prep, i, c) for i, c in enumerate(request.colliders)])
             setup: dict = {}
             adds, next_id = [], 1
             for p in request.pins:
@@ -120,6 +120,11 @@ class LiveSession:
                                       "chain_b": list(s.chain_b), "stiffness": s.stiffness,
                                       "progress": 1.0 if s.closing and sewn else 0.0}
                                      for s in request.seams]
+            # Like a Bake: cloth that starts inside the body or inside other cloth is pulled out at the start
+            # (the engine stops on its own once nothing intersects). Without it SW04_reworked started Live with
+            # about 3600 crossings and the stuck cloth was hard to pull free.
+            if os.environ.get("CLOTH_NEXT_AETHER_START_RECOVERY") != "0":
+                setup["untangle"] = {"frames": abake.START_RECOVERY_FRAMES}
             if request.wind:   # engine API 1.4: the scene's Wind (gusts follow in tick)
                 setup["wind"] = request.wind[0]
             if setup:
@@ -382,6 +387,17 @@ class LiveSession:
         self.command("set_inputs", {"seam_progress": progress})
         self._seams_closed = all(p["progress"] >= 1.0 for p in progress)
 
+    def _start_collider(self, prep, index: int, collider) -> dict:
+        """A mesh collider of the session: in the Fit Pose when the scene uses one (Live then moves the body
+        into its current pose over the Fit Transition, see _send_inputs), else where it is now."""
+        fit = getattr(prep, "fit_colliders", None) or []
+        self.lead_in = int(getattr(prep, "lead_in", 0)) if fit else 0
+        if index < len(fit) and fit[index] is not None:
+            self.fit_colliders = getattr(self, "fit_colliders", {})
+            self.fit_colliders[index] = np.asarray(fit[index], np.float32)
+            return {**abake.session_collider(collider), "vertices": self.fit_colliders[index]}
+        return abake.session_collider(collider)
+
     def _send_inputs(self) -> None:
         if not any(animated for _n, _c, animated in self.colliders) and not self.follow and not self.attached:
             return
@@ -391,8 +407,13 @@ class LiveSession:
         for index, (name, count, animated) in enumerate(self.colliders):
             obj = bpy.data.objects.get(name)
             if animated and obj is not None:
-                meshes.append({"index": index, "vertices": aclient.f32(
-                    backend._evaluated_world(obj, depsgraph, count))})
+                world = backend._evaluated_world(obj, depsgraph, count)
+                fit = getattr(self, "fit_colliders", {}).get(index)
+                lead = getattr(self, "lead_in", 0)
+                if fit is not None and lead > 0 and self.last_frame_seen < lead:   # Fit Pose -> current pose
+                    a = max(0.0, self.last_frame_seen) / float(lead)
+                    world = fit + (np.asarray(world, np.float32) - fit) * a
+                meshes.append({"index": index, "vertices": aclient.f32(world)})
         if meshes:
             inputs["mesh_colliders"] = meshes
         ids, targets = [], []

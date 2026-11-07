@@ -577,14 +577,15 @@ class AetherPreparation:
             raise
 
     def _capture_fit_pose(self, scene, context) -> None:
-        """Fit Pose (bakes): the animated colliders and pin targets at the Fit Frame (see BakeRequest.lead_in)."""
+        """Fit Pose: the animated colliders and pin targets at the Fit Frame (see BakeRequest.lead_in). Live
+        uses the colliders too: it starts the body in the Fit Pose and moves it into the current pose."""
         self.lead_in = 0
         self.fit_note = ""
         self.fit_colliders: list = []
         self.fit_cloth_pins: dict = {}
         self.fit_attachments: list = []
         settings = getattr(scene, "cloth_next_solver", None)
-        if self.live or settings is None or not bool(getattr(settings, "aether_fit_pose", False)):
+        if settings is None or not bool(getattr(settings, "aether_fit_pose", False)):
             return
         fit = int(getattr(settings, "aether_fit_frame", 0))
         if fit == self.start_frame or not any(c["animated"] for c in self.colliders):
