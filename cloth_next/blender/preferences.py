@@ -926,6 +926,11 @@ def initialize_owner_runtime():
         configure(bpy.path.abspath(value) if value else '')
 
 
+def _send_diagnostics_changed(_self, _context) -> None:
+    from . import diagnostics_runtime
+    diagnostics_runtime.apply_consent()
+
+
 class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
     bl_idname = _ADDON_ID
 
@@ -1022,6 +1027,12 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
     auto_frame_margin: bpy.props.FloatProperty(
         name="Framing Margin", default=1.25, min=1.02, max=3.0,
         description="Extra space kept around the simulated objects")
+    send_diagnostics: bpy.props.BoolProperty(
+        name="Send Diagnostics", default=True,
+        description="Send performance values, Bake results, errors and crash reports to "
+                    "PolyWorks to help fix problems. No scenes, file names, folders or passwords. "
+                    "Turning this off deletes everything collected so far",
+        update=_send_diagnostics_changed)
     telemetry_refresh_seconds: bpy.props.FloatProperty(name="Telemetry Refresh", default=1.0, min=0.25, max=10.0, subtype="TIME")
     auto_cancel_high_ram: bpy.props.BoolProperty(
         name="Auto-Cancel on High RAM", default=True,
@@ -1082,12 +1093,29 @@ class CLOTHNEXT_AddonPreferences(bpy.types.AddonPreferences):
                      "auto_frame_margin"):
             framing_controls.prop(self, name)
 
+        self._draw_diagnostics(layout)
+
         safety = layout.box()
         safety.label(text="Memory Safety")
         safety.prop(self, "auto_cancel_high_ram")
         threshold = safety.row()
         threshold.enabled = getattr(self, "auto_cancel_high_ram", True)
         threshold.prop(self, "auto_cancel_ram_percent")
+
+    def _draw_diagnostics(self, layout) -> None:
+        from .diagnostics_runtime import opted_out_by_environment
+        box = layout.box()
+        box.label(text="Diagnostics")
+        if opted_out_by_environment():
+            box.label(text="Switched off by CLOTH_NEXT_NO_TELEMETRY", icon="INFO")
+            return
+        box.prop(self, "send_diagnostics")
+        col = box.column(align=True)
+        col.label(text="Performance, Bake results, errors and crashes; no scenes, file names or folders.")
+        col.label(text="Sent with an anonymised ID of this computer and, when signed in, your PolyWorks account.")
+        if not getattr(bpy.app, "online_access", True):
+            col.label(text="Allow Online Access is off: nothing is sent.", icon="INFO")
+        box.operator("clothnext.show_diagnostics", icon="TEXT")
 
     def _draw_learning_section(self, layout) -> None:
         welcome = layout.box()

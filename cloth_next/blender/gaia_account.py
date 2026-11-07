@@ -112,6 +112,18 @@ def _service():
     return AccountService(client_name=f"Cloth NeXt {manifest_version()} / Blender {version}"[:120])
 
 
+def diagnostics_session_token() -> str | None:
+    """The signed-in PolyWorks session for the diagnostics thread, or None.
+
+    Called only from the diagnostics worker thread, never while drawing. The
+    token is passed straight into one request header and not kept.
+    """
+    try:
+        return _service()._token()
+    except Exception:  # noqa: BLE001 - no account or no vault: send anonymously
+        return None
+
+
 def _message(code: str) -> str:
     from ..polyworks import messages
     return messages.companion_message(code)

@@ -19,7 +19,7 @@ from __future__ import annotations
 import bpy
 
 from . import (account_status, addon_update_operators, bug_report, cloud_runtime, cloud_ui, gaia_account, engine_installs, bake_operators, bake_preview, beta_tools,
-               collider_proxy, companion_manager, floating_simulation, icon_registry,
+               collider_proxy, companion_manager, diagnostics_runtime, floating_simulation, icon_registry,
                linked_colliders, object_attachments, object_properties, sewing,
                physics_operators, physics_ui,
                onboarding_manager, pin_constraints, preferences, solver_preferences_ui,
@@ -36,6 +36,7 @@ _CLASSES = (
     + gaia_account.CLASSES
     + engine_installs.CLASSES
     + bug_report.CLASSES
+    + diagnostics_runtime.CLASSES
     + cloud_ui.CLASSES
     + solver_preferences_ui.CLASSES
     + addon_update_operators.CLASSES
@@ -98,6 +99,9 @@ def _steps() -> list[tuple]:
     steps.append((timeline_overlay.register, timeline_overlay.unregister))
     steps.append((floating_simulation.register, floating_simulation.unregister))
     steps.append((telemetry_runtime.register, telemetry_runtime.unregister))
+    # Opt-in diagnostics: reads the previous session's crash files before
+    # crash_trace.enable() (end of register) empties them; never sends here.
+    steps.append((diagnostics_runtime.register, diagnostics_runtime.unregister))
     steps.append((onboarding_manager.register, onboarding_manager.unregister))
     steps.append((account_status.register, account_status.unregister))
     steps.append((gaia_account.register, gaia_account.unregister))
