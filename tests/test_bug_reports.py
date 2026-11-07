@@ -237,3 +237,18 @@ def test_nothing_is_sent_during_a_bake(bug_module, monkeypatch):
     monkeypatch.setattr(bug_module, "_service", lambda _name: pytest.fail("must not send"))
     assert not bug_module.send(valid())
     assert "Bake" in bug_module.snapshot().message
+
+
+def test_help_menu_entry_opens_the_dialog(bug_module):
+    class Layout:
+        def __init__(self):
+            self.operators = []
+
+        def separator(self):
+            pass
+
+        def operator(self, idname, **kwargs):
+            self.operators.append((idname, kwargs.get("text")))
+    layout = Layout()
+    bug_module.draw_help_menu(type("Menu", (), {"layout": layout})(), None)
+    assert layout.operators == [("clothnext.report_bug", "Report a Cloth NeXt Bug…")]

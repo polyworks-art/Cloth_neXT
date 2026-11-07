@@ -234,13 +234,31 @@ def draw_status(layout) -> None:
 CLASSES = (CLOTHNEXT_OT_report_bug,)
 
 
+def draw_help_menu(self, _context) -> None:
+    """Help menu entry: the quickest way to the dialog from anywhere in Blender."""
+    self.layout.separator()
+    self.layout.operator(CLOTHNEXT_OT_report_bug.bl_idname, text="Report a Cloth NeXt Bug…",
+                         icon="ERROR")
+
+
+def _help_menu():
+    return getattr(bpy.types, "TOPBAR_MT_help", None)
+
+
 def register() -> None:
     _state.update(value=BugReportState(), redraw=False)
+    menu = _help_menu()
+    if menu is not None:
+        menu.remove(draw_help_menu)  # idempotent across reloads
+        menu.append(draw_help_menu)
     if not bpy.app.timers.is_registered(_tick):
         bpy.app.timers.register(_tick, first_interval=0.5, persistent=True)
 
 
 def unregister() -> None:
+    menu = _help_menu()
+    if menu is not None:
+        menu.remove(draw_help_menu)
     if bpy.app.timers.is_registered(_tick):
         bpy.app.timers.unregister(_tick)
     worker = _state["worker"]
